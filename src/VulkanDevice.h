@@ -59,6 +59,8 @@ public:
 
 	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
 
+	VkShaderModule createShaderModule( const std::vector<char>& code );
+
 private:
 	void pickPhysicalDevice();
 	bool isDeviceSuitable(VkPhysicalDevice device);
