@@ -25,6 +25,7 @@
     <ClCompile Include="src\tinyimage.cpp" />
     <ClCompile Include="src\VulkanDevice.cpp" />
     <ClCompile Include="src\VulkanWindow.cpp" />
+    <ClCompile Include="SwapChain.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\App.h" />
@@ -32,8 +33,10 @@
     <ClInclude Include="src\Texture.h" />
     <ClInclude Include="src\tinyimage.h" />
     <ClInclude Include="src\tiny_obj_loader.h" />
+    <ClInclude Include="src\Utils.h" />
     <ClInclude Include="src\VulkanDevice.h" />
     <ClInclude Include="src\VulkanWindow.h" />
+    <ClInclude Include="SwapChain.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

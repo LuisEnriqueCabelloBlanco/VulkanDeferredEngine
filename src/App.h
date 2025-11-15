@@ -24,6 +24,7 @@
 #include "VulkanWindow.h"
 #include "VulkanDevice.h"
 #include "Texture.h"
+#include "Utils.h"
 
 
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
@@ -43,7 +44,7 @@ const bool enableValidationLayers = true;
 
 struct Vertex {
     glm::vec3 pos;
-    glm::vec3 color;
+    glm::i8vec3 color;
     //glm::vec2 texCoord;
 
     static VkVertexInputBindingDescription getBindingDescription() {
@@ -123,6 +124,27 @@ private:
     VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 
 
+    /*
+    * Inicializacion de todos los elementos necesarios para renderizar una imagen en vulkan
+    * 
+    * 
+    * 1.Crear una ventana de SDL
+    * 2.Crear la instancia de Vulkan
+    * 3.Permitir las capas de validacion
+    * 4.Crear la superfice de vulkan a partir de la ventana y la instancia
+    * 5.Crear un vulkan device
+    * 6.Crear las colas que se vayan a usar durante el renderizado
+    * 7.Crear la swapchain (cola de las imagenes que van a ser renderizadas)
+    * 8.Creamos los wrapper de vkImage que nos facilitan configurar la forma en la que se acceden
+    * 9.Creamos el pase de renderizado que solo toma colores y los envia a pantalla
+    * 10.Creamos la pipeline de renderizado
+    * 11.Creamos la pool de command buffres (prereserva de espacio para commandbuffers)
+    * 12.Creamos los frame buffers 
+    * 13.Cargamos el modelo
+    * 14.Creamos losbuffers que contendran el modelo
+    * 15.Creamos los buffres de commandos (1 por frame al vuelo)
+    * 16.Creamos las estructuras de sincronizacion
+    */
     void initVulkan() {
         
         _window.init("Proyecto Vulkan",WIDTH,HEIGHT,instance);
@@ -349,6 +371,8 @@ private:
     std::vector<VkBuffer> uniformBuffers;
     std::vector<VkDeviceMemory> uniformBuffersMemory;
     std::vector<void*> uniformBuffersMapped;
+
+    //std::vector<SwapChainImageContext> swapChainImages;
 
     VulkanDevice _device;
     VulkanWindow _window;
