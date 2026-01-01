@@ -1,12 +1,14 @@
 #pragma once
 
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <glm/vec4.hpp>
-#include <glm/mat4x4.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/hash.hpp>
+//#define GLM_FORCE_RADIANS
+//#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+//#include <glm/vec4.hpp>
+//#include <glm/mat4x4.hpp>
+//#include <glm/gtc/matrix_transform.hpp>
+//#define GLM_ENABLE_EXPERIMENTAL
+//#include <glm/gtx/hash.hpp>
+
+
 
 #include<SDL2/SDL_events.h>
 
@@ -25,6 +27,7 @@
 #include "VulkanDevice.h"
 #include "Texture.h"
 #include "Utils.h"
+#include "BufferObjectsData.h"
 
 
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
@@ -42,61 +45,61 @@ const bool enableValidationLayers = false;
 const bool enableValidationLayers = true;
 #endif
 
-struct Vertex {
-    glm::vec3 pos;
-    glm::i8vec3 color;
-    //glm::vec2 texCoord;
-
-    static VkVertexInputBindingDescription getBindingDescription() {
-        VkVertexInputBindingDescription bindingDescription{};
-        bindingDescription.binding = 0;
-        bindingDescription.stride = sizeof(Vertex);
-        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-        return bindingDescription;
-    }
-
-    static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
-        std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
-        //posicion
-        attributeDescriptions[0].binding = 0;
-        attributeDescriptions[0].location = 0;
-        attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attributeDescriptions[0].offset = offsetof(Vertex, pos);
-        //color
-        attributeDescriptions[1].binding = 0;
-        attributeDescriptions[1].location = 1;
-        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attributeDescriptions[1].offset = offsetof(Vertex, color);
-
-        //attributeDescriptions[2].binding = 0;
-        //attributeDescriptions[2].location = 2;
-        //attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-        //attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
-
-        return attributeDescriptions;
-    }
-
-    bool operator==(const Vertex& other) const {
-        return pos == other.pos && color == other.color /*&& texCoord == other.texCoord*/;
-    }
-};
-
-//Hash para los vertices
-namespace std {
-    template<> struct hash<Vertex> {
-        size_t operator()(Vertex const& vertex) const {
-            return ((hash<glm::vec3>()(vertex.pos) ^
-                (hash<glm::vec3>()(vertex.color) << 1)) >> 1) /*^
-                (hash<glm::vec2>()(vertex.texCoord) << 1)*/;
-        }
-    };
-}
-
-struct UniformBufferObject {
-    glm::mat4 model;
-    glm::mat4 view;
-    glm::mat4 proj;
-};
+//struct Vertex {
+//    glm::vec3 pos;
+//    glm::i8vec3 color;
+//    //glm::vec2 texCoord;
+//
+//    static VkVertexInputBindingDescription getBindingDescription() {
+//        VkVertexInputBindingDescription bindingDescription{};
+//        bindingDescription.binding = 0;
+//        bindingDescription.stride = sizeof(Vertex);
+//        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+//        return bindingDescription;
+//    }
+//
+//    static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
+//        std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
+//        //posicion
+//        attributeDescriptions[0].binding = 0;
+//        attributeDescriptions[0].location = 0;
+//        attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+//        attributeDescriptions[0].offset = offsetof(Vertex, pos);
+//        //color
+//        attributeDescriptions[1].binding = 0;
+//        attributeDescriptions[1].location = 1;
+//        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+//        attributeDescriptions[1].offset = offsetof(Vertex, color);
+//
+//        //attributeDescriptions[2].binding = 0;
+//        //attributeDescriptions[2].location = 2;
+//        //attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+//        //attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
+//
+//        return attributeDescriptions;
+//    }
+//
+//    bool operator==(const Vertex& other) const {
+//        return pos == other.pos && color == other.color /*&& texCoord == other.texCoord*/;
+//    }
+//};
+//
+////Hash para los vertices
+//namespace std {
+//    template<> struct hash<Vertex> {
+//        size_t operator()(Vertex const& vertex) const {
+//            return ((hash<glm::vec3>()(vertex.pos) ^
+//                (hash<glm::vec3>()(vertex.color) << 1)) >> 1) /*^
+//                (hash<glm::vec2>()(vertex.texCoord) << 1)*/;
+//        }
+//    };
+//}
+//
+//struct UniformBufferObject {
+//    glm::mat4 model;
+//    glm::mat4 view;
+//    glm::mat4 proj;
+//};
 
 class App
 {
@@ -152,10 +155,11 @@ private:
         setupDebugMessenger();
         _window.createSurface( instance );
         _device.init(instance, _window);
-        auto indices = _device.familyIndx;
-        vkGetDeviceQueue(_device._device, indices.graphicsFamily.value(), 0, &graphicsQueue);
-        vkGetDeviceQueue(_device._device, indices.presentFamily.value(), 0, &presentQueue);
-        vkGetDeviceQueue(_device._device, indices.transferFamily.value(), 0, &trasferQueue);
+        auto indices = _device.getFamilyIndexes();
+        graphicsQueue = _device.getGraphicsQueue();
+        presentQueue = _device.getPresentQueue();
+        trasferQueue = _device.getTransferQueue();
+
         createSwapChain();
         createImageViews();
         createRenderPass();
@@ -200,7 +204,7 @@ private:
             
             //Sleep(100);
         }
-        vkDeviceWaitIdle(_device._device);
+        _device.wait();
     }
 
     void cleanup();
@@ -253,7 +257,7 @@ private:
 
     void createColorResources();
     public:
-    static void createBuffer(VulkanDevice device, VkDeviceSize size, VkBufferUsageFlagBits usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+    //static void createBuffer(VulkanDevice device, VkDeviceSize size, VkBufferUsageFlagBits usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
     private:
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
@@ -264,25 +268,25 @@ private:
     template <typename t>
     void createVkBuffer(const std::vector<t>& data, VkBuffer& buffer,
         VkDeviceMemory& bufferMemory, VkBufferUsageFlags usage) {
-        VkDeviceSize bufferSize = sizeof(data[0]) * data.size();
+        VkDeviceSize bufferSize = sizeof(t) * data.size();
 
         VkBuffer stagingBuffer;
         VkDeviceMemory stagingBufferMemory;
-        createBuffer(_device,bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        _device.createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
             stagingBuffer, stagingBufferMemory);
-
+        
         void* dataMap;
-        vkMapMemory(_device._device, stagingBufferMemory, 0, bufferSize, 0, &dataMap);
+        _device.mapMemory(stagingBufferMemory, 0, bufferSize, &dataMap);
         memcpy(dataMap, data.data(), (size_t)bufferSize);
-        vkUnmapMemory(_device._device, stagingBufferMemory);
+        _device.unmapMemory(stagingBufferMemory);
 
-        createBuffer(_device, bufferSize, (VkBufferUsageFlagBits)(VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        _device.createBuffer( bufferSize, (VkBufferUsageFlagBits)(VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
             buffer, bufferMemory);
         copyBuffer(stagingBuffer, buffer, bufferSize);
 
-        vkDestroyBuffer(_device._device, stagingBuffer, nullptr);
-        vkFreeMemory(_device._device, stagingBufferMemory, nullptr);
+        _device.destroyBuffer( stagingBuffer );
+        _device.freeMemory( stagingBufferMemory );
     };
 
     void createVertexBuffer() {
@@ -294,8 +298,6 @@ private:
     }
 
     VkFormat findDepthFormat();
-
-    VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 
     bool hasStencilComponent(VkFormat format);
 
@@ -311,8 +313,6 @@ private:
     static uint32_t findMemoryType(VkPhysicalDevice phDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties);
     private:
     static std::vector<char> readFile(const std::string& filename);
-
-    VkShaderModule createShaderModule(const std::vector<char>& code);
 
     VkCommandBuffer beginSingleTimeCommands();
     void endSingleTimeCommands(VkCommandBuffer commandBuffer);

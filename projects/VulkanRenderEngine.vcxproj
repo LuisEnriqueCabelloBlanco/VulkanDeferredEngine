@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\App.cpp" />
+    <ClCompile Include="..\src\Buffer.cpp" />
     <ClCompile Include="..\src\main.cpp" />
     <ClCompile Include="..\src\SwapChain.cpp" />
     <ClCompile Include="..\src\Texture.cpp" />
@@ -29,6 +30,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\App.h" />
+    <ClInclude Include="..\src\Buffer.h" />
+    <ClInclude Include="..\src\BufferObjectsData.h" />
     <ClInclude Include="..\src\stb_image.h" />
     <ClInclude Include="..\src\SwapChain.h" />
     <ClInclude Include="..\src\Texture.h" />
@@ -128,7 +131,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
@@ -152,7 +155,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>

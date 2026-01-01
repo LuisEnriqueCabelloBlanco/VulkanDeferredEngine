@@ -41,7 +41,7 @@ private:
 	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 	
 	SDL_Window* _window;
-	VkInstance instance;
+	VkInstance _instance;
 	VkSurfaceKHR _surface;
 
 	VkSwapchainKHR _swapchain;

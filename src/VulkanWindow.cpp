@@ -9,12 +9,11 @@
 void VulkanWindow::init(const std::string& windowName, uint32_t w, uint32_t h, VkInstance instance)
 {
     SDL_Init( SDL_INIT_VIDEO | SDL_INIT_EVENTS );
-    //this->instance = instance;
+    //this->_instance = _instance;
     _width = w;
     _heith = h;
     _window = SDL_CreateWindow( windowName.data(), 100, 100, w, h, SDL_WINDOW_VULKAN );
-
-    //createSurface(instance);
+    //createSurface(_instance);
 }
 
 
@@ -45,7 +44,7 @@ void VulkanWindow::createSwapChain()
     createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
 
-    VulkanDevice::QueueFamilyIndices indices = _device->familyIndx;
+    VulkanDevice::QueueFamilyIndices indices = _device->_familyIndx;
     uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
 
     if (indices.graphicsFamily != indices.presentFamily) {
@@ -82,6 +81,8 @@ void VulkanWindow::createSurface(VkInstance& instance)
 {
     //creamos la superficie para la ventana
     
+    _instance = instance;
+
     if (SDL_Vulkan_CreateSurface( _window, instance, &_surface ) == SDL_bool::SDL_FALSE) {
         throw std::runtime_error(SDL_GetError());
     }
@@ -108,7 +109,7 @@ VkSurfaceFormatKHR VulkanWindow::chooseSwapSurfaceFormat(const std::vector<VkSur
 
 void VulkanWindow::close()
 {
-    //vkDestroySurfaceKHR(instance, _surface, nullptr);
+    vkDestroySurfaceKHR(_instance, _surface, nullptr);
     SDL_DestroyWindow( _window );
 }
 

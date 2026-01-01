@@ -13,6 +13,12 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Archivos de origen\VulkanWrappers">
+      <UniqueIdentifier>{8b501875-8caa-475d-8e2d-134b983eabb9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de encabezado\VulkanWrappers">
+      <UniqueIdentifier>{d2e171cc-1a2e-4beb-b537-690b7ed76b89}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\App.cpp">
@@ -30,11 +36,14 @@
     <ClCompile Include="..\src\tinyimage.cpp">
       <Filter>Archivos de origen</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\VulkanDevice.cpp">
-      <Filter>Archivos de origen</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\VulkanWindow.cpp">
       <Filter>Archivos de origen</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\Buffer.cpp">
+      <Filter>Archivos de origen\VulkanWrappers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\VulkanDevice.cpp">
+      <Filter>Archivos de origen\VulkanWrappers</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -59,10 +68,16 @@
     <ClInclude Include="..\src\Utils.h">
       <Filter>Archivos de encabezado</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\VulkanDevice.h">
+    <ClInclude Include="..\src\VulkanWindow.h">
       <Filter>Archivos de encabezado</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\VulkanWindow.h">
+    <ClInclude Include="..\src\Buffer.h">
+      <Filter>Archivos de encabezado\VulkanWrappers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\VulkanDevice.h">
+      <Filter>Archivos de encabezado\VulkanWrappers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\BufferObjectsData.h">
       <Filter>Archivos de encabezado</Filter>
     </ClInclude>
   </ItemGroup>
