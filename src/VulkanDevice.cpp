@@ -351,7 +351,7 @@ VkDescriptorSetLayout VulkanDevice::createDescriptorSetLayout( VkDescriptorSetLa
     if (vkCreateDescriptorSetLayout( _device, &createInfo, pAllocator, &layout ) != VK_SUCCESS) {
         throw std::runtime_error( "failed to create descriptor set layout!" );
     }
-    return VkDescriptorSetLayout();
+    return layout;
 }
 
 VkSwapchainKHR VulkanDevice::createSwapChain( const VkSurfaceKHR& surface, VkFormat& format, VkExtent2D& extent, std::vector<VkImage>& images )
@@ -540,7 +540,7 @@ void VulkanDevice::createBuffer( VkDeviceSize size, VkBufferUsageFlagBits usage,
     vkBindBufferMemory( _device, buffer, bufferMemory, 0 );
 }
 
-std::vector<VkDescriptorSet>&& VulkanDevice::createDescriptorSets(const std::vector<std::vector<VkWriteDescriptorSet>>& descriptorWrites, const std::vector<VkDescriptorSetLayout>& layouts, VkDescriptorPool descriptorPool )
+std::vector<VkDescriptorSet> VulkanDevice::createDescriptorSets(std::vector<std::vector<VkWriteDescriptorSet>>& descriptorWrites, const std::vector<VkDescriptorSetLayout>& layouts, VkDescriptorPool descriptorPool )
 {
     std::vector<VkDescriptorSet> descriptorSets;
 
@@ -557,10 +557,13 @@ std::vector<VkDescriptorSet>&& VulkanDevice::createDescriptorSets(const std::vec
     }
 
     for (size_t i = 0; i < allocInfo.descriptorSetCount; i++) {
+        for (auto& writeSet : descriptorWrites[i]) {
+            writeSet.dstSet = descriptorSets[i];
+        }
         vkUpdateDescriptorSets( _device, static_cast<uint32_t>(descriptorWrites[i].size()), descriptorWrites[i].data(), 0, nullptr);
     }
 
-    return std::move( descriptorSets );
+    return descriptorSets;
 }
 
 VkQueue VulkanDevice::getGraphicsQueue()

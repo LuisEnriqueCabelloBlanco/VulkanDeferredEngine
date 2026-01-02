@@ -51,7 +51,7 @@ void Texture::loadTexture(const std::string& path, App& app)
 
     app.trasitionImageLayout(textureImage, mFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,mipLevels);
     app.copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
-    //app.trasitionImageLayout(textureImage, mFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,mipLevels);
+    app.trasitionImageLayout(textureImage, mFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,mipLevels);
     app.generateMipmaps(textureImage,mFormat, texWidth, texHeight, mipLevels);
 
 
@@ -79,6 +79,7 @@ void Texture::createImage(uint32_t width, uint32_t height, uint32_t mipLvl, VkSa
 
 void Texture::createImageView(VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels)
 {
+    //TODO permitir niveles de mip mapping, mipLevels tiene que ser distinto de 1
     textureImageView = device.createImageView(textureImage, format, aspectFlags, mipLevels);
 }
 
@@ -107,7 +108,8 @@ void Texture::createTextureSampler()
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.mipLodBias = 0.0f;
     samplerInfo.minLod = 0.0f;
-    samplerInfo.maxLod = static_cast<float>(mipLevels);
+    samplerInfo.maxLod = 0;
+        //static_cast<float>(mipLevels);
 
     samplerInfo.anisotropyEnable = VK_FALSE;
     samplerInfo.maxAnisotropy = 1.0f;

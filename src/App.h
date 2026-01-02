@@ -33,7 +33,7 @@
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
 const std::string MODEL_PATH = "models/viking_room.obj";
-const std::string TEXTURE_PATH = "textures/viking_room.png";
+const std::string TEXTURE_PATH = "./toni.png";
 
 const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
@@ -164,26 +164,30 @@ private:
         createImageViews();
         createRenderPass();
 
-        //createDescriptorSetLayout();
+        createDescriptorSetLayout();
         createGraphicsPipeline();
 
         createCommandPool();
-        //createColorResources();
-        //createDepthResources();
+        createColorResources();
+        createDepthResources();
         createFramebuffers();
-        //mTexture = new Texture(_device);
-        //mTexture->loadTexture(TEXTURE_PATH.c_str(), *this);
+        mTexture = new Texture(_device);
+        mTexture->loadTexture(TEXTURE_PATH.c_str(), *this);
         
         loadModel();
         //createIndexBuffer();
         createVertexBuffer();
-        //createUniformBuffers();
+        createUniformBuffers();
+
+
         createDescriptorPool();
-        //createDescriptorSets();
+        createDescriptorSets();
 
         createCommandBuffers();
         createSyncObjects();
     }
+
+
     void createRenderPass();
 
     //static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
@@ -291,6 +295,8 @@ private:
 
     void createVertexBuffer() {
         createVkBuffer<Vertex>(vertices, vertexBuffer, vertexBufferMemory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+
+        createVkBuffer<Vertex>(vertices2, vertexBuffer2, vertexBufferMemory2, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     }
 
     void createIndexBuffer() {
@@ -314,8 +320,8 @@ private:
     private:
     static std::vector<char> readFile(const std::string& filename);
 
-    VkCommandBuffer beginSingleTimeCommands();
-    void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+    VkCommandBuffer beginSingleTimeCommands(VkCommandPool pool);
+    void endSingleTimeCommands(VkCommandPool pool,VkCommandBuffer commandBuffer);
     public:
     void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
     void trasitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
@@ -359,11 +365,16 @@ private:
 
     uint32_t currentFrame = 0;
 
-    std::vector<Vertex> vertices;
+
 
     std::vector<uint32_t> indices;
+    std::vector<Vertex> vertices;
     VkBuffer vertexBuffer;
     VkDeviceMemory vertexBufferMemory;
+
+    std::vector<Vertex> vertices2;
+    VkBuffer vertexBuffer2;
+    VkDeviceMemory vertexBufferMemory2;
 
     VkBuffer indexBuffer;
     VkDeviceMemory indexBufferMemory;

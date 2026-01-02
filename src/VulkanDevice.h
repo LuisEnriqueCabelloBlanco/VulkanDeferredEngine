@@ -107,7 +107,7 @@ public:
 		return sampler;
 	}
 
-	std::vector<VkDescriptorSet>&& createDescriptorSets( const std::vector<std::vector<VkWriteDescriptorSet>>& descriptorWrites, const std::vector<VkDescriptorSetLayout>& layouts, VkDescriptorPool descriptorPool );
+	std::vector<VkDescriptorSet> createDescriptorSets( std::vector<std::vector<VkWriteDescriptorSet>>& descriptorWrites, const std::vector<VkDescriptorSetLayout>& layouts, VkDescriptorPool descriptorPool );
 
 	void createDevice();
 #pragma endregion
