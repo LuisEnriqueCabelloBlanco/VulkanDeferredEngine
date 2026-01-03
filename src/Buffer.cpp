@@ -1,12 +1,16 @@
 #include "Buffer.h"
 #include<vulkan/vulkan.hpp>
+#include "VulkanDevice.h"
 
-Buffer::Buffer( VulkanDevice& device )
+Buffer::Buffer( VkBuffer buffer, VkDeviceMemory bufferMem, VulkanDevice* device )
 {
-	vk::Device d;
-
+	_buffer = buffer;
+	_bufferMemory = bufferMem;
+	_device = device;
 }
 
 Buffer::~Buffer()
 {
+	_device->destroyBuffer( _buffer );
+	_device->freeMemory( _bufferMemory );
 }

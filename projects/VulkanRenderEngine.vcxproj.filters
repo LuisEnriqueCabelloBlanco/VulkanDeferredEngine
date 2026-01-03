@@ -45,6 +45,9 @@
     <ClCompile Include="..\src\VulkanDevice.cpp">
       <Filter>Archivos de origen\VulkanWrappers</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\Mesh.cpp">
+      <Filter>Archivos de origen</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\App.h">
@@ -78,6 +81,9 @@
       <Filter>Archivos de encabezado\VulkanWrappers</Filter>
     </ClInclude>
     <ClInclude Include="..\src\BufferObjectsData.h">
+      <Filter>Archivos de encabezado</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\Mesh.h">
       <Filter>Archivos de encabezado</Filter>
     </ClInclude>
   </ItemGroup>

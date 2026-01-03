@@ -28,12 +28,13 @@
 #include "Texture.h"
 #include "Utils.h"
 #include "BufferObjectsData.h"
+#include "Mesh.h"
 
 
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
 const std::string MODEL_PATH = "models/viking_room.obj";
-const std::string TEXTURE_PATH = "./toni.png";
+const std::string TEXTURE_PATH = "./pedro.jpeg";
 
 const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
@@ -263,44 +264,42 @@ private:
     public:
     //static void createBuffer(VulkanDevice device, VkDeviceSize size, VkBufferUsageFlagBits usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
     private:
-    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-
     void updateUniformBuffer(uint32_t currentImage);
 
     void createDescriptorSetLayout();
 
-    template <typename t>
-    void createVkBuffer(const std::vector<t>& data, VkBuffer& buffer,
-        VkDeviceMemory& bufferMemory, VkBufferUsageFlags usage) {
-        VkDeviceSize bufferSize = sizeof(t) * data.size();
+    //template <typename t>
+    //void createVkBuffer(const std::vector<t>& data, VkBuffer& buffer,
+    //    VkDeviceMemory& bufferMemory, VkBufferUsageFlags usage) {
+    //    VkDeviceSize bufferSize = sizeof(t) * data.size();
 
-        VkBuffer stagingBuffer;
-        VkDeviceMemory stagingBufferMemory;
-        _device.createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            stagingBuffer, stagingBufferMemory);
-        
-        void* dataMap;
-        _device.mapMemory(stagingBufferMemory, 0, bufferSize, &dataMap);
-        memcpy(dataMap, data.data(), (size_t)bufferSize);
-        _device.unmapMemory(stagingBufferMemory);
+    //    VkBuffer stagingBuffer;
+    //    VkDeviceMemory stagingBufferMemory;
+    //    _device.createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    //        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+    //        stagingBuffer, stagingBufferMemory);
+    //    
+    //    void* dataMap;
+    //    _device.mapMemory(stagingBufferMemory, 0, bufferSize, &dataMap);
+    //    memcpy(dataMap, data.data(), (size_t)bufferSize);
+    //    _device.unmapMemory(stagingBufferMemory);
 
-        _device.createBuffer( bufferSize, (VkBufferUsageFlagBits)(VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            buffer, bufferMemory);
-        copyBuffer(stagingBuffer, buffer, bufferSize);
+    //    _device.createBuffer( bufferSize, (VkBufferUsageFlagBits)(VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+    //        buffer, bufferMemory);
+    //    copyBuffer(stagingBuffer, buffer, bufferSize);
 
-        _device.destroyBuffer( stagingBuffer );
-        _device.freeMemory( stagingBufferMemory );
-    };
+    //    _device.destroyBuffer( stagingBuffer );
+    //    _device.freeMemory( stagingBufferMemory );
+    //};
 
     void createVertexBuffer() {
-        createVkBuffer<Vertex>(vertices, vertexBuffer, vertexBufferMemory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+        //_device.createVkBuffer<Vertex>(vertices, vertexBuffer, vertexBufferMemory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 
-        createVkBuffer<Vertex>(vertices2, vertexBuffer2, vertexBufferMemory2, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+        //_device.createVkBuffer<Vertex>(vertices2, vertexBuffer2, vertexBufferMemory2, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     }
 
     void createIndexBuffer() {
-        createVkBuffer<uint32_t>(indices, indexBuffer, indexBufferMemory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+        //_device.createVkBuffer<uint32_t>(indices, indexBuffer, indexBufferMemory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
     }
 
     VkFormat findDepthFormat();
@@ -365,22 +364,13 @@ private:
 
     uint32_t currentFrame = 0;
 
+    Mesh* mesh;
+    Mesh* mesh2;
 
+    //std::vector<VkBuffer> uniformBuffers;
+    //std::vector<VkDeviceMemory> uniformBuffersMemory;
 
-    std::vector<uint32_t> indices;
-    std::vector<Vertex> vertices;
-    VkBuffer vertexBuffer;
-    VkDeviceMemory vertexBufferMemory;
-
-    std::vector<Vertex> vertices2;
-    VkBuffer vertexBuffer2;
-    VkDeviceMemory vertexBufferMemory2;
-
-    VkBuffer indexBuffer;
-    VkDeviceMemory indexBufferMemory;
-
-    std::vector<VkBuffer> uniformBuffers;
-    std::vector<VkDeviceMemory> uniformBuffersMemory;
+    std::vector<Buffer*> uniformBuffers;
     std::vector<void*> uniformBuffersMapped;
 
     //std::vector<SwapChainImageContext> swapChainImages;

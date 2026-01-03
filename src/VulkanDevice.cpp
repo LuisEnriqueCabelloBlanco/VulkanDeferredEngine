@@ -68,6 +68,10 @@ void VulkanDevice::init(VkInstance instance, VulkanWindow& window)
     _window = &window;
     pickPhysicalDevice();
     createDevice();
+
+    //estructuras para la copia de datos (seguramente se mueva a un gestor a parte
+    _transferQueue = getTransferQueue();
+    _transferPool = createCommandPool( VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, _familyIndx.transferFamily.value() );
 }
 
 VulkanDevice::SwapChainSupportDetails VulkanDevice::getSwapChainSupportDetails(VkSurfaceKHR surface)
@@ -100,6 +104,8 @@ VulkanDevice::SwapChainSupportDetails VulkanDevice::getSwapChainSupportDetails(V
 
 void VulkanDevice::close()
 {
+    destroyCommandPool( _transferPool );
+
     vkDestroyDevice(_device, nullptr);
 }
 
@@ -540,6 +546,15 @@ void VulkanDevice::createBuffer( VkDeviceSize size, VkBufferUsageFlagBits usage,
     vkBindBufferMemory( _device, buffer, bufferMemory, 0 );
 }
 
+Buffer* VulkanDevice::createBuffer( VkDeviceSize size, VkBufferUsageFlagBits usage, VkMemoryPropertyFlags properties )
+{
+    VkBuffer buffer;
+    VkDeviceMemory memory;
+    createBuffer(size,usage,properties,buffer,memory);
+
+    return new Buffer(buffer,memory,this);
+}
+
 std::vector<VkDescriptorSet> VulkanDevice::createDescriptorSets(std::vector<std::vector<VkWriteDescriptorSet>>& descriptorWrites, const std::vector<VkDescriptorSetLayout>& layouts, VkDescriptorPool descriptorPool )
 {
     std::vector<VkDescriptorSet> descriptorSets;
@@ -625,4 +640,17 @@ VkSurfaceFormatKHR VulkanDevice::chooseSwapSurfaceFormat( const std::vector<VkSu
     }
 
     return availableFormats[0];
+}
+
+void VulkanDevice::copyBuffer( VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+{
+    VkCommandBuffer commandBuffer = beginSingleTimeCommands( _transferPool );
+
+    VkBufferCopy copyRegion{};
+    copyRegion.srcOffset = 0; // Optional
+    copyRegion.dstOffset = 0; // Optional
+    copyRegion.size = size;
+    vkCmdCopyBuffer( commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion );
+
+    endSingleTimeCommands( _transferPool, commandBuffer , _transferQueue);
 }

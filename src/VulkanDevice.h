@@ -3,6 +3,7 @@
 #include <optional>
 #include <vector>
 #include "VulkanWindow.h"
+#include "Buffer.h"
 
 
 const std::vector<const char*> deviceExtensions = {
@@ -90,7 +91,30 @@ public:
 
 	VkFence createFence( VkFenceCreateInfo createInfo, VkAllocationCallbacks* pAllocator = nullptr );
 
-	void createBuffer( VkDeviceSize size, VkBufferUsageFlagBits usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory );
+
+	
+	Buffer* createBuffer( VkDeviceSize size, VkBufferUsageFlagBits usage, VkMemoryPropertyFlags properties);
+
+
+	template <typename t>
+	Buffer* createVkBuffer( const std::vector<t>& data, VkBufferUsageFlags usage ) {
+		VkDeviceSize bufferSize = sizeof( t ) * data.size();
+
+		Buffer* staginBuffer = createBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+							  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
+
+		void* dataMap;
+		mapMemory( staginBuffer->_bufferMemory, 0, bufferSize, &dataMap );
+		memcpy( dataMap, data.data(), (size_t)bufferSize );
+		unmapMemory( staginBuffer->_bufferMemory );
+
+		Buffer* newBuffer = createBuffer( bufferSize, (VkBufferUsageFlagBits)(VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		copyBuffer( staginBuffer->_buffer, newBuffer->_buffer, bufferSize );
+
+		delete staginBuffer;
+		return newBuffer;
+	};
+
 
 	inline VkSampler createSampler( VkSamplerCreateInfo& info ) {
 		VkSampler sampler;
@@ -127,6 +151,40 @@ public:
 
 	inline void freeCommandBuffers( VkCommandPool pool, std::vector<VkCommandBuffer>& commandBuffers ) {
 		vkFreeCommandBuffers( _device, pool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data() );
+	}
+
+	void copyBuffer( VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+
+	VkCommandBuffer beginSingleTimeCommands( VkCommandPool pool )
+	{
+		std::vector<VkCommandBuffer> commandBuffer = createCommandBuffers( pool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 1 );
+
+		VkCommandBufferBeginInfo beginInfo{};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+		vkBeginCommandBuffer( commandBuffer[0], &beginInfo );
+
+		return commandBuffer[0];
+	}
+
+	void endSingleTimeCommands( VkCommandPool pool, VkCommandBuffer commandBuffer, VkQueue submitQueue )
+	{
+		vkEndCommandBuffer( commandBuffer );
+		VK_QUEUE_COMPUTE_BIT;
+		VkSubmitInfo submitInfo{};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &commandBuffer;
+
+
+		vkQueueSubmit( submitQueue, 1, &submitInfo, VK_NULL_HANDLE );
+		vkQueueWaitIdle( submitQueue );
+
+		//vkFreeCommandBuffers(_device._device, commandPool, 1, &commandBuffer);
+
+		std::vector<VkCommandBuffer> com = { commandBuffer };
+		freeCommandBuffers( pool, com );
 	}
 
 #pragma region Destructores
@@ -187,6 +245,10 @@ public:
 		vkDestroyImage( _device, image, pAllocator );
 	}
 
+	inline void destroyDescriptorSetLayout( VkDescriptorSetLayout layout, VkAllocationCallbacks* pAllocator = nullptr ) {
+		vkDestroyDescriptorSetLayout( _device, layout, pAllocator );
+	}
+
 #pragma endregion
 
 	uint32_t findMemoryType( uint32_t typeFilter, VkMemoryPropertyFlags properties );
@@ -218,6 +280,7 @@ public:
 
 private:
 
+	void createBuffer( VkDeviceSize size, VkBufferUsageFlagBits usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory );
 
 	void pickPhysicalDevice();
 	bool isDeviceSuitable( VkPhysicalDevice device );
@@ -249,5 +312,8 @@ private:
 	VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
 
 	QueueFamilyIndices _familyIndx;
+
+	VkQueue _transferQueue;
+	VkCommandPool _transferPool;
 };
 

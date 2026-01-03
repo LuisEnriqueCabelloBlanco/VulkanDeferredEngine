@@ -4,6 +4,7 @@
 #include <stdexcept>
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+#include "Buffer.h"
 Texture::~Texture()
 {
     //vkDestroySampler(device._device, textureSampler, nullptr);
@@ -17,8 +18,6 @@ Texture::~Texture()
 }
 void Texture::loadTexture(const std::string& path, App& app)
  {
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
     
     int texWidth, texHeight, texChannels;
     unsigned char* pixels = stbi_load(path.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
@@ -32,16 +31,15 @@ void Texture::loadTexture(const std::string& path, App& app)
     //niveles de mipMapping
     mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 
-    device.createBuffer( imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-        stagingBuffer, stagingBufferMemory);
+    Buffer* staging = device.createBuffer( imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     void* data;
     //vkMapMemory(device._device, stagingBufferMemory, 0, imageSize, 0, &data);
-    device.mapMemory( stagingBufferMemory, 0, imageSize, &data );
+    device.mapMemory( staging->getMemory(), 0, imageSize, &data);
     memcpy(data, pixels, static_cast<size_t>(imageSize));
     //vkUnmapMemory(device._device, stagingBufferMemory);
-    device.unmapMemory( stagingBufferMemory );
+    device.unmapMemory( staging->getMemory() );
 
     stbi_image_free(pixels);
 
@@ -50,15 +48,17 @@ void Texture::loadTexture(const std::string& path, App& app)
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     app.trasitionImageLayout(textureImage, mFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,mipLevels);
-    app.copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+    app.copyBufferToImage(staging->getBuffer(), textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
     app.trasitionImageLayout(textureImage, mFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,mipLevels);
     app.generateMipmaps(textureImage,mFormat, texWidth, texHeight, mipLevels);
 
 
     //vkDestroyBuffer(device._device, stagingBuffer, nullptr);
-    device.destroyBuffer( stagingBuffer );
+    //device.destroyBuffer( stagingBuffer );
     //vkFreeMemory(device._device, stagingBufferMemory, nullptr);
-    device.freeMemory( stagingBufferMemory );
+    //device.freeMemory( stagingBufferMemory );
+
+    delete staging;
 
     createImageView(mFormat,VK_IMAGE_ASPECT_COLOR_BIT,mipLevels);
 

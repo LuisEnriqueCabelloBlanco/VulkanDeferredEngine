@@ -3,6 +3,7 @@
 //#define TINYOBJLOADER_IMPLEMENTATION
 //#include "tiny_obj_loader.h"
 #include <SDL2/SDL_vulkan.h>
+#include "Mesh.h"
 
 
 void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
@@ -31,9 +32,10 @@ void App::cleanup()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         //vkDestroyBuffer(_device._device, uniformBuffers[i], nullptr);
-        _device.destroyBuffer( uniformBuffers[i] );
-        _device.freeMemory( uniformBuffersMemory[i] );
+        //_device.destroyBuffer( uniformBuffers[i] );
+        //_device.freeMemory( uniformBuffersMemory[i] );
         //vkFreeMemory(_device._device, uniformBuffersMemory[i], nullptr);
+        delete uniformBuffers[i];
     }
 
     
@@ -41,13 +43,11 @@ void App::cleanup()
     _device.destroyDescriptorPool( descriptorPool );
 
     //vkDestroyDescriptorSetLayout(_device._device, descriptorSetLayout, nullptr);
+    _device.destroyDescriptorSetLayout( descriptorSetLayout );
 
-
-    //vkDestroyBuffer(_device._device, indexBuffer, nullptr);
-    //vkFreeMemory(_device._device, indexBufferMemory, nullptr);
-
-    _device.destroyBuffer( vertexBuffer );
-    _device.freeMemory( vertexBufferMemory );
+    delete mesh;
+    delete mesh2
+;
 
     //vkDestroyBuffer(_device._device, vertexBuffer, nullptr);
     //vkFreeMemory(_device._device, vertexBufferMemory, nullptr);
@@ -469,27 +469,30 @@ void App::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
 
-    VkBuffer vertexBuffers[] = { vertexBuffer };
-    VkDeviceSize offsets[] = { 0,0};
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-    //ojo cuidao que como cambie el tamaño de los bits de un indice cagamos
-    //vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+    //VkBuffer vertexBuffers[] = { vertexBuffer };
+    //VkDeviceSize offsets[] = { 0,0};
+    //vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    ////ojo cuidao que como cambie el tamaño de los bits de un indice cagamos
+    ////vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
-    
-    //command buffer,cantidad de vertices,cantidad de instancias,offset de vertices, offset de instancias
-    vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1 , 0, 0);
+    //
+    ////command buffer,cantidad de vertices,cantidad de instancias,offset de vertices, offset de instancias
+    //vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1 , 0, 0);
 
 
 
-    VkBuffer vertexBuffers2[] = { vertexBuffer2 };
-    VkDeviceSize offsets2[] = { 0 };
-    vkCmdBindVertexBuffers( commandBuffer, 0, 1, vertexBuffers2, offsets2 );
+    //VkBuffer vertexBuffers2[] = { vertexBuffer2 };
+    //VkDeviceSize offsets2[] = { 0 };
+    //vkCmdBindVertexBuffers( commandBuffer, 0, 1, vertexBuffers2, offsets2 );
 
-    vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices2.size()), 1, 0, 0);
+    //vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices2.size()), 1, 0, 0);
     
 
     //vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+
+    mesh->draw( commandBuffer );
+    mesh2->draw( commandBuffer );
 
     vkCmdEndRenderPass(commandBuffer);
 
@@ -623,6 +626,9 @@ void App::loadModel()
 
     //Las coordenadas son normalizadas de pantalla [-1,1]
 
+    std::vector<Vertex> vertices;
+    std::vector<Vertex> vertices2;
+
     Vertex v1;
     Vertex v2;
     Vertex v3;
@@ -638,12 +644,14 @@ void App::loadModel()
     v3.color = glm::vec3( 0.f, 0.f, 1.f);
     
     v1.texCoord = glm::vec2(0,0);
-    v2.texCoord = glm::vec2(1,0);
-    v3.texCoord = glm::vec2(0,1);
+    v2.texCoord = glm::vec2(2,0);
+    v3.texCoord = glm::vec2(0,2);
 
     vertices.push_back( v1 );
     vertices.push_back( v2 );
     vertices.push_back( v3 );
+
+    mesh = new Mesh( _device, vertices );
 
     v1.pos = glm::vec3( -dim*2, 0, 0.5f );
     v2.pos = glm::vec3( 0, dim, -1 );
@@ -654,14 +662,14 @@ void App::loadModel()
     v3.color = glm::vec3( 0.f, 0.f, 1.f );
 
     v1.texCoord = glm::vec2( 0, 0 );
-    v2.texCoord = glm::vec2( 1, 0 );
-    v3.texCoord = glm::vec2( 0, 1 );
+    v2.texCoord = glm::vec2( 2, 0 );
+    v3.texCoord = glm::vec2( 0, 2 );
 
     vertices2.push_back( v1 );
     vertices2.push_back( v2 );
     vertices2.push_back( v3 );
 
-
+    mesh2 = new Mesh( _device, vertices2 );
 
 }
 
@@ -742,18 +750,18 @@ void App::createColorResources()
     msaaTexture->createImageView(colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 }
 
-void App::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
-{
-    VkCommandBuffer commandBuffer = beginSingleTimeCommands(transferPool);
-
-    VkBufferCopy copyRegion{};
-    copyRegion.srcOffset = 0; // Optional
-    copyRegion.dstOffset = 0; // Optional
-    copyRegion.size = size;
-    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-
-    endSingleTimeCommands(transferPool,commandBuffer);
-}
+//void App::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+//{
+//    VkCommandBuffer commandBuffer = beginSingleTimeCommands(transferPool);
+//
+//    VkBufferCopy copyRegion{};
+//    copyRegion.srcOffset = 0; // Optional
+//    copyRegion.dstOffset = 0; // Optional
+//    copyRegion.size = size;
+//    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+//
+//    endSingleTimeCommands(transferPool,commandBuffer);
+//}
 
 void App::updateUniformBuffer(uint32_t currentImage)
 {
@@ -821,16 +829,16 @@ void App::createUniformBuffers()
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
     uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-    uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+    //uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
     uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         //createBuffer(_device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
-        _device.createBuffer( bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i] );
+        uniformBuffers[i] = _device.createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
 
         //vkMapMemory(_device._device, uniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
-        _device.mapMemory( uniformBuffersMemory[i], 0, bufferSize, &uniformBuffersMapped[i] );
+        _device.mapMemory( uniformBuffers[i]->getMemory(), 0, bufferSize, &uniformBuffersMapped[i]);
     }
 }
 
@@ -886,7 +894,7 @@ void App::createDescriptorSets()
         std::vector<VkWriteDescriptorSet> descriptorWrites(2);
 
         VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = uniformBuffers[i];
+        bufferInfo.buffer = uniformBuffers[i]->getBuffer();
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(UniformBufferObject);
 
