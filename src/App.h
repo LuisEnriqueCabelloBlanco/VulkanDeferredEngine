@@ -33,7 +33,7 @@
 
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
-const std::string MODEL_PATH = "models/viking_room.obj";
+const std::string MODEL_PATH = "./untitled.obj";
 const std::string TEXTURE_PATH = "./pedro.jpeg";
 
 const std::vector<const char*> validationLayers = {
@@ -45,62 +45,6 @@ const bool enableValidationLayers = false;
 #else
 const bool enableValidationLayers = true;
 #endif
-
-//struct Vertex {
-//    glm::vec3 pos;
-//    glm::i8vec3 color;
-//    //glm::vec2 texCoord;
-//
-//    static VkVertexInputBindingDescription getBindingDescription() {
-//        VkVertexInputBindingDescription bindingDescription{};
-//        bindingDescription.binding = 0;
-//        bindingDescription.stride = sizeof(Vertex);
-//        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-//        return bindingDescription;
-//    }
-//
-//    static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
-//        std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
-//        //posicion
-//        attributeDescriptions[0].binding = 0;
-//        attributeDescriptions[0].location = 0;
-//        attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-//        attributeDescriptions[0].offset = offsetof(Vertex, pos);
-//        //color
-//        attributeDescriptions[1].binding = 0;
-//        attributeDescriptions[1].location = 1;
-//        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-//        attributeDescriptions[1].offset = offsetof(Vertex, color);
-//
-//        //attributeDescriptions[2].binding = 0;
-//        //attributeDescriptions[2].location = 2;
-//        //attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-//        //attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
-//
-//        return attributeDescriptions;
-//    }
-//
-//    bool operator==(const Vertex& other) const {
-//        return pos == other.pos && color == other.color /*&& texCoord == other.texCoord*/;
-//    }
-//};
-//
-////Hash para los vertices
-//namespace std {
-//    template<> struct hash<Vertex> {
-//        size_t operator()(Vertex const& vertex) const {
-//            return ((hash<glm::vec3>()(vertex.pos) ^
-//                (hash<glm::vec3>()(vertex.color) << 1)) >> 1) /*^
-//                (hash<glm::vec2>()(vertex.texCoord) << 1)*/;
-//        }
-//    };
-//}
-//
-//struct UniformBufferObject {
-//    glm::mat4 model;
-//    glm::mat4 view;
-//    glm::mat4 proj;
-//};
 
 class App
 {
@@ -120,13 +64,6 @@ public:
     }
 
 private:
-
-    void createSwapChain();
-
-    VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
-    VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
-    VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
-
 
     /*
     * Inicializacion de todos los elementos necesarios para renderizar una imagen en vulkan
@@ -160,32 +97,42 @@ private:
         graphicsQueue = _device.getGraphicsQueue();
         presentQueue = _device.getPresentQueue();
         trasferQueue = _device.getTransferQueue();
+        _window.setDevice( &_device );
+        _window.createSwapChain();
 
-        createSwapChain();
-        createImageViews();
+
+        //createSwapChain();
+        //createImageViews();
+        //createDeferredRenderPass
         createRenderPass();
-
+        //createDeferredDescriptorSetS
         createDescriptorSetLayout();
+        //createDeferredPipelines
         createGraphicsPipeline();
 
         createCommandPool();
         createColorResources();
         createDepthResources();
+        createNormalResources();
+        
+        //createDeferredFrameBuffers
+
         createFramebuffers();
+
+        createCommandBuffers();
+        createSyncObjects();
+
+        //cracion de objetos
         mTexture = new Texture(_device);
         mTexture->loadTexture(TEXTURE_PATH.c_str(), *this);
-        
+
+
         loadModel();
-        //createIndexBuffer();
-        createVertexBuffer();
         createUniformBuffers();
 
 
         createDescriptorPool();
         createDescriptorSets();
-
-        createCommandBuffers();
-        createSyncObjects();
     }
 
 
@@ -202,10 +149,16 @@ private:
                 if (ev.type == SDL_QUIT) {
                     running = false;
                 }
+                if (ev.type == SDL_WINDOWEVENT_RESIZED) {
+                    _framebufferResized = true;
+                }
             }
             //glfwPollEvents();
-            
+            //update()
+
             drawFrame();
+
+            //renderEngine.drawFrame()
             
             //Sleep(100);
         }
@@ -238,8 +191,6 @@ private:
     void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
     void setupDebugMessenger();
 
-    void createImageViews();
-
     void createGraphicsPipeline();
 
     void createFramebuffers();
@@ -261,46 +212,13 @@ private:
     void cleanupSwapChain();
 
     void createColorResources();
-    public:
-    //static void createBuffer(VulkanDevice device, VkDeviceSize size, VkBufferUsageFlagBits usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+
+    void createNormalResources();
+
     private:
     void updateUniformBuffer(uint32_t currentImage);
 
     void createDescriptorSetLayout();
-
-    //template <typename t>
-    //void createVkBuffer(const std::vector<t>& data, VkBuffer& buffer,
-    //    VkDeviceMemory& bufferMemory, VkBufferUsageFlags usage) {
-    //    VkDeviceSize bufferSize = sizeof(t) * data.size();
-
-    //    VkBuffer stagingBuffer;
-    //    VkDeviceMemory stagingBufferMemory;
-    //    _device.createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-    //        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-    //        stagingBuffer, stagingBufferMemory);
-    //    
-    //    void* dataMap;
-    //    _device.mapMemory(stagingBufferMemory, 0, bufferSize, &dataMap);
-    //    memcpy(dataMap, data.data(), (size_t)bufferSize);
-    //    _device.unmapMemory(stagingBufferMemory);
-
-    //    _device.createBuffer( bufferSize, (VkBufferUsageFlagBits)(VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-    //        buffer, bufferMemory);
-    //    copyBuffer(stagingBuffer, buffer, bufferSize);
-
-    //    _device.destroyBuffer( stagingBuffer );
-    //    _device.freeMemory( stagingBufferMemory );
-    //};
-
-    void createVertexBuffer() {
-        //_device.createVkBuffer<Vertex>(vertices, vertexBuffer, vertexBufferMemory, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-
-        //_device.createVkBuffer<Vertex>(vertices2, vertexBuffer2, vertexBufferMemory2, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-    }
-
-    void createIndexBuffer() {
-        //_device.createVkBuffer<uint32_t>(indices, indexBuffer, indexBufferMemory, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-    }
 
     VkFormat findDepthFormat();
 
@@ -312,15 +230,8 @@ private:
 
     void createDepthResources();
 
-
     void createDescriptorSets();
-    public:
-    static uint32_t findMemoryType(VkPhysicalDevice phDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties);
-    private:
-    static std::vector<char> readFile(const std::string& filename);
 
-    VkCommandBuffer beginSingleTimeCommands(VkCommandPool pool);
-    void endSingleTimeCommands(VkCommandPool pool,VkCommandBuffer commandBuffer);
     public:
     void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
     void trasitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
@@ -334,20 +245,25 @@ private:
     VkQueue graphicsQueue;
     VkQueue presentQueue;
     VkQueue trasferQueue;
-    VkSwapchainKHR swapChain;
 
-    std::vector<VkImage> swapChainImages;
-    VkFormat _swapChainImageFormat;
-    VkExtent2D _swapChainExtent;
-    std::vector<VkImageView> swapChainImageViews;
+    //VkSwapchainKHR swapChain;
+    //VkFormat _swapChainImageFormat;
+    //VkExtent2D _swapChainExtent;
+    //std::vector<VkImage> swapChainImages;
+    //std::vector<VkImageView> swapChainImageViews;
 
     VkRenderPass renderPass;
     VkDescriptorSetLayout descriptorSetLayout;
     VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
 
+    VkDescriptorSetLayout deferredDescriptorSet;
+    VkPipelineLayout deferredLayout;
+    VkPipeline deferredPipeline;
+
     std::vector<VkFramebuffer> swapChainFramebuffers;
 
+    
     VkCommandPool commandPool;
     VkCommandPool transferPool;
     std::vector<VkCommandBuffer> commandBuffers;
@@ -367,18 +283,18 @@ private:
     Mesh* mesh;
     Mesh* mesh2;
 
-    //std::vector<VkBuffer> uniformBuffers;
-    //std::vector<VkDeviceMemory> uniformBuffersMemory;
-
     std::vector<Buffer*> uniformBuffers;
     std::vector<void*> uniformBuffersMapped;
 
-    //std::vector<SwapChainImageContext> swapChainImages;
 
     VulkanDevice _device;
     VulkanWindow _window;
     Texture* mTexture;
     Texture* depthTexture;
     Texture* msaaTexture;
+
+    Texture* normalTexture;
+    Texture* colorTexture;
+    std::vector<VkFramebuffer> GFramebuffer;
 
 };

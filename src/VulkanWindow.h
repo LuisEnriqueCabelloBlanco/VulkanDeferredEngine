@@ -33,7 +33,17 @@ public:
 
 	VkSurfaceKHR getSurface() { return _surface; };
 
+	VkFormat getFormat() { return _swapChainImageFormat; }
+
+	VkExtent2D getExtent() { return _swapChainExtent; }
+
+	const std::vector<VkImageView> & getImageViews() { return _swapChainImageViews; }
+
+	VkSwapchainKHR getSwapChain() { return _swapchain; }
+
 	void createSurface(VkInstance& instance);
+
+	void cleanUpSwapChain();
 private:
 
 	VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
@@ -48,8 +58,8 @@ private:
 	VkFormat _swapChainImageFormat;
 	VkExtent2D _swapChainExtent;
 
-	std::vector<VkImage> _swapchainImages;
-	std::vector<VkImageView> _wwapchainImageViews;
+	std::vector<VkImage> _swapChainImages;
+	std::vector<VkImageView> _swapChainImageViews;
 
 	uint32_t _width;
 	uint32_t _heith;

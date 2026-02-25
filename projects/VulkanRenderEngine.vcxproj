@@ -23,6 +23,7 @@
     <ClCompile Include="..\src\Buffer.cpp" />
     <ClCompile Include="..\src\main.cpp" />
     <ClCompile Include="..\src\Mesh.cpp" />
+    <ClCompile Include="..\src\RenderEngine.cpp" />
     <ClCompile Include="..\src\SwapChain.cpp" />
     <ClCompile Include="..\src\Texture.cpp" />
     <ClCompile Include="..\src\tinyimage.cpp" />
@@ -34,6 +35,7 @@
     <ClInclude Include="..\src\Buffer.h" />
     <ClInclude Include="..\src\BufferObjectsData.h" />
     <ClInclude Include="..\src\Mesh.h" />
+    <ClInclude Include="..\src\RenderEngine.h" />
     <ClInclude Include="..\src\stb_image.h" />
     <ClInclude Include="..\src\SwapChain.h" />
     <ClInclude Include="..\src\Texture.h" />

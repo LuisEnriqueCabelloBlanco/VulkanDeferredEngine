@@ -12,7 +12,7 @@ void VulkanWindow::init(const std::string& windowName, uint32_t w, uint32_t h, V
     //this->_instance = _instance;
     _width = w;
     _heith = h;
-    _window = SDL_CreateWindow( windowName.data(), 100, 100, w, h, SDL_WINDOW_VULKAN );
+    _window = SDL_CreateWindow( windowName.data(), 100, 100, w, h, SDL_WINDOW_VULKAN|SDL_WINDOW_RESIZABLE );
     //createSurface(_instance);
 }
 
@@ -70,11 +70,16 @@ void VulkanWindow::createSwapChain()
     }
 
     vkGetSwapchainImagesKHR(_device->_device, _swapchain, &imageCount, nullptr);
-    _swapchainImages.resize(imageCount);
-    vkGetSwapchainImagesKHR(_device->_device, _swapchain, &imageCount, _swapchainImages.data());
+    _swapChainImages.resize(imageCount);
+    vkGetSwapchainImagesKHR(_device->_device, _swapchain, &imageCount, _swapChainImages.data());
 
     _swapChainImageFormat = surfaceFormat.format;
     _swapChainExtent = extent;
+
+    _swapChainImageViews.resize( _swapChainImages.size() );
+    for (size_t i = 0; i < _swapChainImages.size(); i++) {
+        _swapChainImageViews[i] = _device->createImageView( _swapChainImages[i], _swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1 );
+    }
 }
 
 void VulkanWindow::createSurface(VkInstance& instance)
@@ -86,6 +91,15 @@ void VulkanWindow::createSurface(VkInstance& instance)
     if (SDL_Vulkan_CreateSurface( _window, instance, &_surface ) == SDL_bool::SDL_FALSE) {
         throw std::runtime_error(SDL_GetError());
     }
+}
+
+void VulkanWindow::cleanUpSwapChain()
+{
+    for (auto imageView : _swapChainImageViews) {
+        _device->destroyImageView( imageView );
+    }
+
+    _device->destroySwapchain( _swapchain );
 }
 
 void VulkanWindow::framebufferResizeCallback(SDL_Window* window, int width, int height)
@@ -109,6 +123,8 @@ VkSurfaceFormatKHR VulkanWindow::chooseSwapSurfaceFormat(const std::vector<VkSur
 
 void VulkanWindow::close()
 {
+    cleanUpSwapChain();
+
     vkDestroySurfaceKHR(_instance, _surface, nullptr);
     SDL_DestroyWindow( _window );
 }
