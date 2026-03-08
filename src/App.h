@@ -34,7 +34,7 @@
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
 const std::string MODEL_PATH = "./untitled.obj";
-const std::string TEXTURE_PATH = "./pedro.jpeg";
+const std::string TEXTURE_PATH = "./toni.png";
 
 const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
@@ -105,10 +105,10 @@ private:
         //createImageViews();
         //createDeferredRenderPass
         createRenderPass();
-        //createDeferredDescriptorSetS
+        //createDeferredDescriptorSetLayout()
         createDescriptorSetLayout();
-        //createDeferredPipelines
         createGraphicsPipeline();
+        createDeferredPipeline();
 
         createCommandPool();
         createColorResources();
@@ -133,6 +133,7 @@ private:
 
         createDescriptorPool();
         createDescriptorSets();
+        createDeferredDescriptorSets();
     }
 
 
@@ -193,6 +194,8 @@ private:
 
     void createGraphicsPipeline();
 
+    void createDeferredPipeline();
+
     void createFramebuffers();
     
     void createCommandPool();
@@ -220,6 +223,7 @@ private:
 
     void createDescriptorSetLayout();
 
+
     VkFormat findDepthFormat();
 
     bool hasStencilComponent(VkFormat format);
@@ -231,6 +235,8 @@ private:
     void createDepthResources();
 
     void createDescriptorSets();
+
+    void createDeferredDescriptorSets();
 
     public:
     void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
@@ -257,7 +263,7 @@ private:
     VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
 
-    VkDescriptorSetLayout deferredDescriptorSet;
+    VkDescriptorSetLayout deferredDescriptorSetLayout;
     VkPipelineLayout deferredLayout;
     VkPipeline deferredPipeline;
 
@@ -270,6 +276,7 @@ private:
 
     VkDescriptorPool descriptorPool;
     std::vector<VkDescriptorSet> descriptorSets;
+    std::vector<VkDescriptorSet> lightingDescriptorSets;
 
     //Sinc structures
     std::vector<VkSemaphore> imageAviablesSemaphores;
@@ -295,6 +302,5 @@ private:
 
     Texture* normalTexture;
     Texture* colorTexture;
-    std::vector<VkFramebuffer> GFramebuffer;
 
 };
