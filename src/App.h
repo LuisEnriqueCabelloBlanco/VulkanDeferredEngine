@@ -30,11 +30,12 @@
 #include "BufferObjectsData.h"
 #include "Mesh.h"
 
+#include "Camera.h"
 
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
 const std::string MODEL_PATH = "./untitled.obj";
-const std::string TEXTURE_PATH = "./toni.png";
+const std::string TEXTURE_PATH = "./pedro.jpeg";
 
 const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
@@ -129,7 +130,8 @@ private:
 
         loadModel();
         createUniformBuffers();
-
+        _mainCamera = Camera( glm::vec3( 0, 0, -2.5f ) , glm::vec3( 0, 0, 1.f ), glm::vec3( 0.0f, 1.0f, 0.0f ) ,
+                              90.f, _window.getExtent().width / (float)_window.getExtent().height ,0.1f,10.f);
 
         createDescriptorPool();
         createDescriptorSets();
@@ -219,7 +221,7 @@ private:
     void createNormalResources();
 
     private:
-    void updateUniformBuffer(uint32_t currentImage);
+    void updateUniformBuffer(uint32_t currentImage, glm::mat4 model );
 
     void createDescriptorSetLayout();
 
@@ -237,6 +239,8 @@ private:
     void createDescriptorSets();
 
     void createDeferredDescriptorSets();
+
+    void pushModelMatrix( glm::mat4 model = glm::mat4( 1 ) );
 
     public:
     void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
@@ -293,6 +297,7 @@ private:
     std::vector<Buffer*> uniformBuffers;
     std::vector<void*> uniformBuffersMapped;
 
+    Camera _mainCamera;
 
     VulkanDevice _device;
     VulkanWindow _window;

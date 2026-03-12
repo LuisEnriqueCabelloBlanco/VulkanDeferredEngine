@@ -346,8 +346,15 @@ void App::createGraphicsPipeline()
     //viewportState.scissorCount = 1;
     //viewportState.pScissors = &scissor;
 
+    //VkPushConstantRange range{};
+    //range.stageFlags = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
+    //range.size = sizeof( UniformBufferObject );
+    //range.offset = 0;
+
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    //pipelineLayoutInfo.pushConstantRangeCount = 1;
+    //pipelineLayoutInfo.pPushConstantRanges = &range;
     pipelineLayoutInfo.setLayoutCount = 1; // Optional
     pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout; // Optional
 
@@ -388,7 +395,7 @@ void App::createGraphicsPipeline()
 void App::createDeferredPipeline()
 {
     auto fragShaderCode = readFile( "./deferred" );
-    auto vertShaderCode = readFile( "./vertex" );
+    auto vertShaderCode = readFile( "./readAttachmentVertex" );
 
     VkShaderModule vertShaderModule = _device.createShaderModule( vertShaderCode );
     VkShaderModule fragShaderModule = _device.createShaderModule( fragShaderCode );
@@ -409,15 +416,9 @@ void App::createDeferredPipeline()
     VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo };
 
 
-    auto bindingDescription = Vertex::getBindingDescription();
-    auto attributeDescriptions = Vertex::getAttributeDescriptions();
     //Configuracion de los vertices
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexBindingDescriptionCount = 1;
-    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription; // Optional
-    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
-    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data(); // Optional
 
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
@@ -440,7 +441,7 @@ void App::createDeferredPipeline()
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     //lineWidth de openGL
     rasterizer.lineWidth = 1.0f;
-    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+    rasterizer.cullMode = VK_CULL_MODE_NONE;
     rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
     rasterizer.depthBiasConstantFactor = 0.0f; // Optional
@@ -504,13 +505,6 @@ void App::createDeferredPipeline()
     dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
     dynamicState.pDynamicStates = dynamicStates.data();
 
-    ////Estado que nos permitia ajustar el viewport y el recortado del muestreo
-    //VkPipelineViewportStateCreateInfo viewportState{};
-    //viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    //viewportState.viewportCount = 1;
-    //viewportState.pViewports = &viewport;
-    //viewportState.scissorCount = 1;
-    //viewportState.pScissors = &scissor;
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -534,8 +528,6 @@ void App::createDeferredPipeline()
     pipelineInfo.layout = deferredLayout;
     pipelineInfo.renderPass = renderPass;
     pipelineInfo.subpass = 1;
-    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
-    pipelineInfo.basePipelineIndex = -1; // Optional
 
 
 
@@ -547,7 +539,7 @@ void App::createDeferredPipeline()
     deferredPipeline = _device.createPipelines( VK_NULL_HANDLE, { pipelineInfo } )[0];
 
 
-    _device.destroyShaderModule( fragShaderModule );
+    _device.destroyShaderModule( fragShaderModule);
 }
 
 void App::createFramebuffers()
@@ -620,8 +612,8 @@ void App::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex
     std::array<VkClearValue, 4> clearValues{};
     clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
     clearValues[1].depthStencil = { 1.0f, 0 };
-    clearValues[2].color = { 0.0f, 0.0f,0.0f, 1.0f };
-    clearValues[3].color = { 0.0f, 0.0f,0.0f };
+    clearValues[2].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
+    clearValues[3].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
 
     renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
     renderPassInfo.pClearValues = clearValues.data();
@@ -668,8 +660,9 @@ void App::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex
     
 
     //vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
-
+    //updateUniformBuffer( currentFrame, glm::translate(glm::mat4(1.f),glm::vec3(1,1,0) ));
     mesh->draw( commandBuffer );
+    //updateUniformBuffer( currentFrame, glm::mat4(1.f) );
     mesh2->draw( commandBuffer );
 
     vkCmdNextSubpass( commandBuffer, VK_SUBPASS_CONTENTS_INLINE );
@@ -715,7 +708,7 @@ void App::drawFrame()
         throw std::runtime_error("failed to acquire swap chain image!");
     }
     //vkResetFences(_device._device, 1, &inFlightFences[currentFrame]);
-    updateUniformBuffer(currentFrame);
+    updateUniformBuffer(currentFrame,glm::mat4(1.0f));
     _device.resetFences( inFlightFences[currentFrame] );
 
     vkResetCommandBuffer(commandBuffers[currentFrame], 0);
@@ -789,6 +782,10 @@ void App::loadModel()
     v1.color = glm::vec3( 1.f, 0.0f, 0.f);
     v2.color = glm::vec3( 0.f, 1.f, 0.f);
     v3.color = glm::vec3( 0.f, 0.f, 1.f);
+
+    v1.normal = glm::vec3( 1.f, 0.0f, 0.f );
+    v2.normal = glm::vec3( 0.f, 1.0f, 0.f );
+    v3.normal = glm::vec3( 0.f, 0.0f, 1.f );
     
     v1.texCoord = glm::vec2(0,0);
     v2.texCoord = glm::vec2(2,0);
@@ -807,6 +804,11 @@ void App::loadModel()
     v1.color = glm::vec3( 1.f, 0.0f, 0.f );
     v2.color = glm::vec3( 0.f, 1.f, 0.f );
     v3.color = glm::vec3( 0.f, 0.f, 1.f );
+
+    v1.normal = glm::vec3( 1.f, 0.0f, 0.f );
+    v2.normal = glm::vec3( 0.f, 1.0f, 0.f );
+    v3.normal = glm::vec3( 0.f, 0.0f, 1.f );
+
 
     v1.texCoord = glm::vec2( 0, 0 );
     v2.texCoord = glm::vec2( 2, 0 );
@@ -903,13 +905,13 @@ void App::createColorResources()
 void App::createNormalResources()
 {
 
-    VkFormat colorFormat = _window.getFormat();
+    VkFormat colorFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
     normalTexture = new Texture( _device );
     normalTexture->createImage( _window.getExtent().width, _window.getExtent().height, 1, VK_SAMPLE_COUNT_1_BIT, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );
     normalTexture->createImageView( colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1 );
 }
 
-void App::updateUniformBuffer(uint32_t currentImage)
+void App::updateUniformBuffer(uint32_t currentImage, glm::mat4 model)
 {
     static auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -918,12 +920,14 @@ void App::updateUniformBuffer(uint32_t currentImage)
 
     UniformBufferObject ubo{};
     ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    ubo.view = glm::lookAt(glm::vec3(0, 0, -2.5f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    ubo.proj = glm::perspective(glm::radians(90.0f), _window.getExtent().width / (float)_window.getExtent().height, 0.1f, 10.0f);
+    ubo.view = _mainCamera.getViewMatrix();//glm::lookAt(glm::vec3(0, 0, -2.5f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    ubo.proj = _mainCamera.getProjMatrix(); //glm::perspective( glm::radians( 90.0f ), _window.getExtent().width / (float)_window.getExtent().height, 0.1f, 10.0f );
     //arreglo hecho debido a la logica invertida del eje y
     ubo.proj[1][1] *= -1;
 
     memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+
+    //vkCmdUpdateBuffer( commandBuffers[currentImage], uniformBuffers[currentImage]->getBuffer(), 0, sizeof( UniformBufferObject ), uniformBuffersMapped[currentImage] );
 }
 
 void App::createDescriptorSetLayout()
@@ -956,7 +960,7 @@ void App::createDescriptorSetLayout()
     input2.descriptorCount = 1;
     input2.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    std::vector<VkDescriptorSetLayoutBinding> bindings = { uboLayoutBinding, samplerLayoutBinding, input1, input2 };
+    std::vector<VkDescriptorSetLayoutBinding> bindings = { uboLayoutBinding, samplerLayoutBinding};
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -1068,7 +1072,7 @@ void App::createDescriptorSets()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 
-        std::vector<VkWriteDescriptorSet> descriptorWrites(4);
+        std::vector<VkWriteDescriptorSet> descriptorWrites(2);
 
         VkDescriptorBufferInfo bufferInfo{};
         bufferInfo.buffer = uniformBuffers[i]->getBuffer();
@@ -1094,31 +1098,6 @@ void App::createDescriptorSets()
         descriptorWrites[0].descriptorCount = 1;
         descriptorWrites[0].pImageInfo = &imageInfo;
 
-        VkDescriptorImageInfo inputInfo{};
-        inputInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        inputInfo.imageView = colorTexture->textureImageView;
-        inputInfo.sampler = VK_NULL_HANDLE;
-
-        descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[2].dstBinding = 2;
-        descriptorWrites[2].dstArrayElement = 0;
-        descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
-        descriptorWrites[2].descriptorCount = 1;
-        descriptorWrites[2].pImageInfo = &inputInfo;
-
-        VkDescriptorImageInfo inputInfo2{};
-        inputInfo2.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        inputInfo2.imageView = normalTexture->textureImageView;
-        inputInfo2.sampler = VK_NULL_HANDLE;
-
-        descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[3].dstBinding = 3;
-        descriptorWrites[3].dstArrayElement = 0;
-        descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
-        descriptorWrites[3].descriptorCount = 1;
-        descriptorWrites[3].pImageInfo = &inputInfo2;
-
-        //vkUpdateDescriptorSets(_device._device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 
         descriptorWritesVec.push_back( std::move( descriptorWrites ) );
     }
@@ -1179,6 +1158,11 @@ void App::createDeferredDescriptorSets()
     }
 
     lightingDescriptorSets = _device.createDescriptorSets( descriptorWritesVec, layouts, descriptorPool );
+}
+
+void App::pushModelMatrix( glm::mat4 model )
+{
+    
 }
 
 
@@ -1404,7 +1388,7 @@ void App::createRenderPass()
     colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
     VkAttachmentDescription normalAttachment{};
-    normalAttachment.format = _window.getFormat();
+    normalAttachment.format = VK_FORMAT_R16G16B16A16_SFLOAT;
     normalAttachment.samples = VK_SAMPLE_COUNT_1_BIT /*_device.msaaSamples*/;
     normalAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     normalAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -1519,7 +1503,7 @@ void App::createRenderPass()
 
     VkSubpassDescription subpasses[] = {subpass,lightingSubPass};
 
-    VkSubpassDependency dependencies[] = { dependency,dependency2,dependency3 };
+    VkSubpassDependency dependencies[] = { dependency,dependency2 , dependency3};
 
 
     std::array<VkAttachmentDescription, 4> attachments = { presentAttachment, depthAttachment,colorAttachment, normalAttachment };
@@ -1529,7 +1513,7 @@ void App::createRenderPass()
     renderPassInfo.pAttachments = attachments.data();
     renderPassInfo.subpassCount = 2;
     renderPassInfo.pSubpasses = subpasses;
-    renderPassInfo.dependencyCount = 3;
+    renderPassInfo.dependencyCount = 2;
     renderPassInfo.pDependencies = dependencies;
 
     //if (vkCreateRenderPass(_device._device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {

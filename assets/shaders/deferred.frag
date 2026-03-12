@@ -11,5 +11,5 @@ layout(location = 0) out vec4 outColor;
 
 
 void main() {
-    outColor = subpassLoad(color)*subpassLoad(normal);
+    outColor = vec4( subpassLoad(color).rgb*abs(subpassLoad(normal).rgb),1);
 }

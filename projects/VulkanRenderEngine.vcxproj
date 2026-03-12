@@ -29,11 +29,13 @@
     <ClCompile Include="..\src\tinyimage.cpp" />
     <ClCompile Include="..\src\VulkanDevice.cpp" />
     <ClCompile Include="..\src\VulkanWindow.cpp" />
+    <ClCompile Include="Camera.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\App.h" />
     <ClInclude Include="..\src\Buffer.h" />
     <ClInclude Include="..\src\BufferObjectsData.h" />
+    <ClInclude Include="..\src\Camera.h" />
     <ClInclude Include="..\src\Mesh.h" />
     <ClInclude Include="..\src\RenderEngine.h" />
     <ClInclude Include="..\src\stb_image.h" />
