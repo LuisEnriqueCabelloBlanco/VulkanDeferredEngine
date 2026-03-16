@@ -9,11 +9,15 @@
 
 
 struct UniformBufferObject {
-    glm::mat4 model;
     glm::mat4 view;
     glm::mat4 proj;
 };
 
+struct GlobalLighting {
+    glm::vec3 lightDirection;
+    float ambietnVal;
+    glm::vec4 color;
+};
 
 struct Vertex {
     glm::vec3 pos;
@@ -67,7 +71,7 @@ template<> struct hash<Vertex> {
     size_t operator()( Vertex const& vertex ) const {
         return ((hash<glm::vec3>()(vertex.pos) ^
                  (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
-                 (hash<glm::vec2>()(vertex.texCoord) << 1);
+                 (hash<glm::vec3>()(vertex.normal) << 1);
     }
 };
 }

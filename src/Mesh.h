@@ -17,7 +17,11 @@ public:
 
     void draw(VkCommandBuffer commnadBuffer);
 
+    //TODO loadMesh metodo estatico
+
 private:
+    void loadMesh(const std::string& path);
+
     VulkanDevice& _device;
 
     std::vector<uint32_t> _indices;

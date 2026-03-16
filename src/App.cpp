@@ -37,6 +37,7 @@ void App::cleanup()
         delete uniformBuffers[i];
     }
 
+    delete _lightUniformBuffer;
     
     //vkDestroyDescriptorPool(_device._device, descriptorPool, nullptr);
     _device.destroyDescriptorPool( descriptorPool );
@@ -283,7 +284,7 @@ void App::createGraphicsPipeline()
     //Configuracion del blendign de un buffer
     VkPipelineColorBlendAttachmentState colorBlendAttachment{};
     colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable = VK_FALSE;
+    colorBlendAttachment.blendEnable = VK_TRUE;
     colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE; // Optional
     colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
     colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD; // Optional
@@ -294,7 +295,7 @@ void App::createGraphicsPipeline()
     //Configuracion del blendign de un buffer
     VkPipelineColorBlendAttachmentState colorBlendAttachment2{};
     colorBlendAttachment2.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment2.blendEnable = VK_FALSE;
+    colorBlendAttachment2.blendEnable = VK_TRUE;
     colorBlendAttachment2.srcColorBlendFactor = VK_BLEND_FACTOR_ONE; // Optional
     colorBlendAttachment2.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
     colorBlendAttachment2.colorBlendOp = VK_BLEND_OP_ADD; // Optional
@@ -646,7 +647,7 @@ void App::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex
 
 
     //updateUniformBuffer( currentFrame, glm::translate(glm::mat4(1.f),glm::vec3(1,1,0) ));
-    pushModelMatrix( commandBuffer, glm::translate( glm::mat4( 1 ), glm::vec3( sin(time) * 1.5f, 0, 0)));
+    pushModelMatrix( commandBuffer, glm::translate( glm::rotate(glm::mat4(1),glm::radians(-10.f), glm::vec3(0,1,0)), glm::vec3(sin(time) * 1.5f, 0, 0)));
     mesh->draw( commandBuffer );
     //updateUniformBuffer( currentFrame, glm::mat4(1.f) );
     pushModelMatrix( commandBuffer, glm::rotate( glm::mat4( 1.0f ), time * glm::radians( 180.0f ), glm::vec3( 0.0f, 1.0f, 0.0f ) ) );
@@ -766,13 +767,13 @@ void App::loadModel()
     v2.pos = glm::vec3( 0, dim, 0 );
     v3.pos = glm::vec3( dim, 0, 0);
 
-    v1.color = glm::vec3( 1.f, 0.0f, 0.f);
-    v2.color = glm::vec3( 0.f, 1.f, 0.f);
-    v3.color = glm::vec3( 0.f, 0.f, 1.f);
+    v1.color = glm::vec3( 1.f, 1.0f, 1.f);
+    v2.color = glm::vec3( 1.f, 1.f, 1.f);
+    v3.color = glm::vec3( 1.f, 1.f, 1.f);
 
-    v1.normal = glm::vec3( 1.f, 0.0f, 0.f );
-    v2.normal = glm::vec3( 0.f, 1.0f, 0.f );
-    v3.normal = glm::vec3( 0.f, 0.0f, 1.f );
+    v1.normal = glm::vec3( 0.f, 0.0f, -1.f );
+    v2.normal = glm::vec3( 0.f, 0.0f, -1.f );
+    v3.normal = glm::vec3( 0.f, 0.0f, -1.f );
     
     v1.texCoord = glm::vec2(0,0);
     v2.texCoord = glm::vec2(2,0);
@@ -906,13 +907,14 @@ void App::updateUniformBuffer(uint32_t currentImage, glm::mat4 model)
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     UniformBufferObject ubo{};
-    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    //ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     ubo.view = _mainCamera.getViewMatrix();//glm::lookAt(glm::vec3(0, 0, -2.5f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     ubo.proj = _mainCamera.getProjMatrix(); //glm::perspective( glm::radians( 90.0f ), _window.getExtent().width / (float)_window.getExtent().height, 0.1f, 10.0f );
     //arreglo hecho debido a la logica invertida del eje y
     ubo.proj[1][1] *= -1;
 
     memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+
 
     //vkCmdUpdateBuffer( commandBuffers[currentImage], uniformBuffers[currentImage]->getBuffer(), 0, sizeof( UniformBufferObject ), uniformBuffersMapped[currentImage] );
 }
@@ -959,9 +961,14 @@ void App::createDescriptorSetLayout()
 
     descriptorSetLayout = _device.createDescriptorSetLayout( layoutInfo );
 
+    VkDescriptorSetLayoutBinding lightingBinding{};
+    lightingBinding.binding = 4;
+    lightingBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    lightingBinding.descriptorCount = 1;
+    lightingBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    lightingBinding.pImmutableSamplers = nullptr;
 
-
-    std::vector<VkDescriptorSetLayoutBinding> bindings2 = {uboLayoutBinding, input1, input2 };
+    std::vector<VkDescriptorSetLayoutBinding> bindings2 = {uboLayoutBinding, input1, input2 , lightingBinding};
     VkDescriptorSetLayoutCreateInfo deferredLayout{};
     deferredLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     deferredLayout.bindingCount = static_cast<uint32_t>(bindings2.size());
@@ -1002,18 +1009,27 @@ void App::createUniformBuffers()
         //vkMapMemory(_device._device, uniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
         _device.mapMemory( uniformBuffers[i]->getMemory(), 0, bufferSize, &uniformBuffersMapped[i]);
     }
+
+    VkDeviceSize lightBufferSize = sizeof( GlobalLighting );
+
+
+    _lightUniformBuffer = _device.createBuffer( lightBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
+    _device.mapMemory( _lightUniformBuffer->getMemory(), 0, lightBufferSize, &_lightBufferMapped );
+    memcpy( _lightBufferMapped, &_lighting, sizeof( _lighting ) );
+
 }
 
 void App::createDescriptorPool()
 {
-    std::array<VkDescriptorPoolSize, 3> poolSizes{};
+    std::array<VkDescriptorPoolSize, 4> poolSizes{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)*2;
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)*2;
     poolSizes[2].type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
     poolSizes[2].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)*2*2;
-
+    poolSizes[3].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[3].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -1049,9 +1065,6 @@ void App::createDepthResources()
 
 void App::createDescriptorSets()
 {
-    /*
-    * TODO hacer un descriptor set para el pase de iluminacion
-    */
 
     std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
 
@@ -1101,7 +1114,7 @@ void App::createDeferredDescriptorSets()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 
-        std::vector<VkWriteDescriptorSet> descriptorWrites( 3 );
+        std::vector<VkWriteDescriptorSet> descriptorWrites( 4 );
 
         VkDescriptorBufferInfo bufferInfo{};
         bufferInfo.buffer = uniformBuffers[i]->getBuffer();
@@ -1139,6 +1152,17 @@ void App::createDeferredDescriptorSets()
         descriptorWrites[2].descriptorCount = 1;
         descriptorWrites[2].pImageInfo = &inputInfo2;
 
+        VkDescriptorBufferInfo lightBuffer;
+        lightBuffer.buffer = _lightUniformBuffer->getBuffer();
+        lightBuffer.offset = 0;
+        lightBuffer.range = sizeof( GlobalLighting );
+
+        descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[3].dstBinding = 4;
+        descriptorWrites[3].dstArrayElement = 0;
+        descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrites[3].descriptorCount = 1;
+        descriptorWrites[3].pBufferInfo = &lightBuffer;
         //vkUpdateDescriptorSets(_device._device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 
         descriptorWritesVec.push_back( std::move( descriptorWrites ) );

@@ -101,6 +101,9 @@ private:
         _window.setDevice( &_device );
         _window.createSwapChain();
 
+        _lighting.color = glm::vec4( 1, 1, 1, 1 );
+        _lighting.lightDirection = glm::vec3(-1, -1, 0 );
+        _lighting.ambietnVal = 0.05;
 
         //createSwapChain();
         //createImageViews();
@@ -312,6 +315,9 @@ private:
     std::vector<Buffer*> uniformBuffers;
     std::vector<void*> uniformBuffersMapped;
 
+    Buffer* _lightUniformBuffer;
+    void* _lightBufferMapped;
+
     Camera _mainCamera;
 
     VulkanDevice _device;
@@ -322,5 +328,7 @@ private:
 
     Texture* normalTexture;
     Texture* colorTexture;
+
+    GlobalLighting _lighting;
 
 };

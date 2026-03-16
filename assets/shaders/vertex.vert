@@ -1,13 +1,12 @@
 #version 450
 
 layout(binding = 0) uniform UniformBufferObject {
-    mat4 model;
     mat4 view;
     mat4 proj;
 } ubo;
 
 layout(push_constant, std430) uniform pc{
-    mat4 model;
+    mat4 modelMat;
 };
 
 layout(location = 0) in vec3 inPosition;
@@ -27,8 +26,8 @@ layout(location = 2) out vec3 normal;
 
 void main() {
    // ubo.proj * ubo.view * ubo.model *
-   gl_Position = ubo.proj * ubo.view * model * vec4(inPosition, 1.0);
+   gl_Position = ubo.proj * ubo.view * modelMat * vec4(inPosition, 1.0);
    fragColor = inColor;
    fragTexCoord = inTexCoord;
-   normal = inNormal;
+   normal = normalize(modelMat*vec4(inNormal,0)).rgb;
 }

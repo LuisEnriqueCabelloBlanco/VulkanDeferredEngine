@@ -4,6 +4,50 @@
 
 Mesh::Mesh( VulkanDevice& device, const std::string& path ) :_device( device ) {
 
+	loadMesh( path );
+
+	_vertexBuffer = _device.createVkBuffer<Vertex>( _vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT );
+	_indexBuffer = _device.createVkBuffer<uint32_t>( _indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT );
+}
+
+Mesh::Mesh( VulkanDevice& device, const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices ) :_device( device ) {
+
+	_indices = indices;
+	_vertices = vertices;
+
+	_vertexBuffer = _device.createVkBuffer<Vertex>( _vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT );
+	_indexBuffer = _device.createVkBuffer<uint32_t>( _indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT );
+}
+
+Mesh::Mesh( VulkanDevice& device, const std::vector<Vertex>& vertices ) :_device( device ) {
+
+	for (uint32_t i = 0; i < vertices.size();i++) {
+		_indices.push_back( i );
+	}
+
+	_vertices = vertices;
+
+	_vertexBuffer = _device.createVkBuffer<Vertex>( _vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT );
+	_indexBuffer = _device.createVkBuffer<uint32_t>( _indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT );
+}
+
+Mesh::~Mesh()
+{
+	delete _vertexBuffer;
+	delete _indexBuffer;
+}
+
+void Mesh::draw( VkCommandBuffer commandBuffer )
+{
+	VkBuffer vertexBuffers[] = { _vertexBuffer->getBuffer() };
+	VkDeviceSize offsets[] = { 0 };
+	vkCmdBindVertexBuffers( commandBuffer, 0, 1, vertexBuffers, offsets );
+	vkCmdBindIndexBuffer( commandBuffer, _indexBuffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32 );
+	vkCmdDrawIndexed( commandBuffer, static_cast<uint32_t>(_indices.size()), 1, 0, 0, 0 );
+}
+
+void Mesh::loadMesh( const std::string& path )
+{
 	tinyobj::ObjReader reader;
 	tinyobj::ObjReaderConfig reader_config;
 	reader_config.vertex_color = true;
@@ -50,55 +94,16 @@ Mesh::Mesh( VulkanDevice& device, const std::string& path ) :_device( device ) {
 				attrib.normals[3 * index.normal_index+ 2],
 			};
 
-			
+
 
 			//si el vetice no esta lo aniadimos a la lista de vertices unicos
 			if (uniqueVertices.count( vertex ) == 0) {
 				uniqueVertices[vertex] = static_cast<uint32_t>(_vertices.size());
 				_vertices.push_back( vertex );
 			}
+
 			//aniadimos el indice correspondiente
 			_indices.push_back( uniqueVertices[vertex] );
 		}
 	}
-
-
-	_vertexBuffer = _device.createVkBuffer<Vertex>( _vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT );
-	_indexBuffer = _device.createVkBuffer<uint32_t>( _indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT );
-}
-
-Mesh::Mesh( VulkanDevice& device, const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices ) :_device( device ) {
-
-	_indices = indices;
-	_vertices = vertices;
-
-	_vertexBuffer = _device.createVkBuffer<Vertex>( _vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT );
-	_indexBuffer = _device.createVkBuffer<uint32_t>( _indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT );
-}
-
-Mesh::Mesh( VulkanDevice& device, const std::vector<Vertex>& vertices ) :_device( device ) {
-
-	for (uint32_t i = 0; i < vertices.size();i++) {
-		_indices.push_back( i );
-	}
-
-	_vertices = vertices;
-
-	_vertexBuffer = _device.createVkBuffer<Vertex>( _vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT );
-	_indexBuffer = _device.createVkBuffer<uint32_t>( _indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT );
-}
-
-Mesh::~Mesh()
-{
-	delete _vertexBuffer;
-	delete _indexBuffer;
-}
-
-void Mesh::draw( VkCommandBuffer commandBuffer )
-{
-	VkBuffer vertexBuffers[] = { _vertexBuffer->getBuffer() };
-	VkDeviceSize offsets[] = { 0 };
-	vkCmdBindVertexBuffers( commandBuffer, 0, 1, vertexBuffers, offsets );
-	vkCmdBindIndexBuffer( commandBuffer, _indexBuffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32 );
-	vkCmdDrawIndexed( commandBuffer, static_cast<uint32_t>(_indices.size()), 1, 0, 0, 0 );
 }
