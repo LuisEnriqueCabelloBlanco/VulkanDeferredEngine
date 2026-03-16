@@ -149,13 +149,28 @@ private:
         {
             SDL_Event ev;
             while (SDL_PollEvent( &ev )) {
+                if (ev.type == SDL_KEYDOWN) {
+                    if (ev.key.keysym.scancode == SDL_SCANCODE_D) {
+                        _mainCamera.translate( glm::vec3( -0.05f, 0, 0 ) );
+                    }
+                    if (ev.key.keysym.scancode == SDL_SCANCODE_A) {
+                        _mainCamera.translate( glm::vec3( 0.05f, 0, 0 ) );
+                    }
+                    if (ev.key.keysym.scancode == SDL_SCANCODE_W) {
+                        _mainCamera.translate( glm::vec3( 0, 0, 0.05 ) );
+                    }
+                    if (ev.key.keysym.scancode == SDL_SCANCODE_S) {
+                        _mainCamera.translate( glm::vec3( 0, 0, -0.05 ) );
+                    }
+
+                }
                 if (ev.type == SDL_QUIT) {
                     running = false;
                 }
                 if (ev.type == SDL_WINDOWEVENT_RESIZED) {
                     _framebufferResized = true;
                 }
-            }
+            } 
             //glfwPollEvents();
             //update()
 
@@ -240,7 +255,7 @@ private:
 
     void createDeferredDescriptorSets();
 
-    void pushModelMatrix( glm::mat4 model = glm::mat4( 1 ) );
+    void pushModelMatrix( VkCommandBuffer commnadBuffer, glm::mat4 model = glm::mat4( 1 ) );
 
     public:
     void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);

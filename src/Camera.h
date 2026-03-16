@@ -14,6 +14,9 @@ public:
 	glm::mat4 getProjMatrix();
 	glm::mat4 getViewMatrix();
 
+	void translate( glm::vec3 move ) {
+		_position += move;
+	}
 private:
 	glm::vec3 _position = glm::vec3(0);
 	glm::vec3 _direction = glm::vec3(1,0,0);

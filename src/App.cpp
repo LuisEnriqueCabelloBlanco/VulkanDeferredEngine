@@ -346,15 +346,15 @@ void App::createGraphicsPipeline()
     //viewportState.scissorCount = 1;
     //viewportState.pScissors = &scissor;
 
-    //VkPushConstantRange range{};
-    //range.stageFlags = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
-    //range.size = sizeof( UniformBufferObject );
-    //range.offset = 0;
+    VkPushConstantRange range{};
+    range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    range.size = sizeof( glm::mat4 );
+    range.offset = 0;
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    //pipelineLayoutInfo.pushConstantRangeCount = 1;
-    //pipelineLayoutInfo.pPushConstantRanges = &range;
+    pipelineLayoutInfo.pushConstantRangeCount = 1;
+    pipelineLayoutInfo.pPushConstantRanges = &range;
     pipelineLayoutInfo.setLayoutCount = 1; // Optional
     pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout; // Optional
 
@@ -593,6 +593,11 @@ void App::createCommandBuffers()
 
 void App::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
+    static auto startTime = std::chrono::high_resolution_clock::now();
+
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration<float, std::chrono::seconds::period>( currentTime - startTime ).count();
+
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = 0; // Optional
@@ -640,29 +645,11 @@ void App::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
 
-    //VkBuffer vertexBuffers[] = { vertexBuffer };
-    //VkDeviceSize offsets[] = { 0,0};
-    //vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-    ////ojo cuidao que como cambie el tamaño de los bits de un indice cagamos
-    ////vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-    //
-    ////command buffer,cantidad de vertices,cantidad de instancias,offset de vertices, offset de instancias
-    //vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1 , 0, 0);
-
-
-
-    //VkBuffer vertexBuffers2[] = { vertexBuffer2 };
-    //VkDeviceSize offsets2[] = { 0 };
-    //vkCmdBindVertexBuffers( commandBuffer, 0, 1, vertexBuffers2, offsets2 );
-
-    //vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices2.size()), 1, 0, 0);
-    
-
-    //vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
     //updateUniformBuffer( currentFrame, glm::translate(glm::mat4(1.f),glm::vec3(1,1,0) ));
+    pushModelMatrix( commandBuffer, glm::translate( glm::mat4( 1 ), glm::vec3( sin(time) * 1.5f, 0, 0)));
     mesh->draw( commandBuffer );
     //updateUniformBuffer( currentFrame, glm::mat4(1.f) );
+    pushModelMatrix( commandBuffer, glm::rotate( glm::mat4( 1.0f ), time * glm::radians( 180.0f ), glm::vec3( 0.0f, 1.0f, 0.0f ) ) );
     mesh2->draw( commandBuffer );
 
     vkCmdNextSubpass( commandBuffer, VK_SUBPASS_CONTENTS_INLINE );
@@ -1160,9 +1147,9 @@ void App::createDeferredDescriptorSets()
     lightingDescriptorSets = _device.createDescriptorSets( descriptorWritesVec, layouts, descriptorPool );
 }
 
-void App::pushModelMatrix( glm::mat4 model )
+void App::pushModelMatrix( VkCommandBuffer commnadBuffer, glm::mat4 model )
 {
-    
+    vkCmdPushConstants( commnadBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof( glm::mat4 ), &model );
 }
 
 
