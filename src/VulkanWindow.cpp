@@ -102,6 +102,19 @@ void VulkanWindow::cleanUpSwapChain()
     _device->destroySwapchain( _swapchain );
 }
 
+void VulkanWindow::handleWindowEvent( const SDL_WindowEvent& ev )
+{
+    switch (ev.event)
+    {
+    case SDL_WINDOWEVENT_RESIZED:
+        _width = ev.data1;
+        _heith = ev.data2;
+        break;
+    default:
+        break;
+    }
+}
+
 void VulkanWindow::framebufferResizeCallback(SDL_Window* window, int width, int height)
 {
     //auto app = reinterpret_cast<VulkanWindow*>(glfwGetWindowUserPointer(window));

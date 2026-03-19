@@ -8,15 +8,45 @@
 #include <array>
 
 
+
+
+struct DirectionalLight {
+    glm::vec4 color;
+    glm::vec3 direction;
+    float intensity;
+};
+
+struct PointLight {
+    glm::vec4 color;
+    glm::vec3 position;
+    float intensity;
+};
+
 struct UniformBufferObject {
     glm::mat4 view;
     glm::mat4 proj;
 };
 
+//OJITO CON EL PADDING
 struct GlobalLighting {
-    glm::vec3 lightDirection;
+    DirectionalLight dirLight;
+    PointLight pointLight;
+    glm::vec3 eyePos;
     float ambietnVal;
-    glm::vec4 color;
+};
+
+struct MaterialData {
+    float metallic;
+    float roughtness;
+    int texutreIndex;
+};
+
+class Mesh;
+
+struct RenderObject {
+    Mesh* mesh;
+    glm::mat4 modelMatrix;
+    MaterialData mat;
 };
 
 struct Vertex {

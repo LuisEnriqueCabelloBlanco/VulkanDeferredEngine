@@ -1,6 +1,7 @@
 #pragma once
 #include <glm/glm.hpp>
 
+
 class Camera
 {
 public:
@@ -15,8 +16,16 @@ public:
 	glm::mat4 getViewMatrix();
 
 	void translate( glm::vec3 move ) {
-		_position += move;
+		//TODO implementar movimento bien
+
+		glm::vec3 dir =  _direction *glm::length(move);
+
+		_position += glm::normalize( dir) * 0.5f;
 	}
+
+	void rotateY(float degrees);
+
+	glm::vec3 getPos() { return _position; }
 private:
 	glm::vec3 _position = glm::vec3(0);
 	glm::vec3 _direction = glm::vec3(1,0,0);

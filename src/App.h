@@ -35,14 +35,17 @@
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
 const std::string MODEL_PATH = "./untitled.obj";
+const std::string MODEL_PATH2 = "./plano.obj";
 const std::string TEXTURE_PATH = "./pedro.jpeg";
+const std::string TEXTURE2_PATH = "./toni.png";
+const std::string TEXTURE3_PATH = "./koreano.jpeg";
 
 const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
 };
 
 #ifdef NDEBUG
-const bool enableValidationLayers = false;
+const bool enableValidationLayers = true;
 #else
 const bool enableValidationLayers = true;
 #endif
@@ -101,9 +104,16 @@ private:
         _window.setDevice( &_device );
         _window.createSwapChain();
 
-        _lighting.color = glm::vec4( 1, 1, 1, 1 );
-        _lighting.lightDirection = glm::vec3(-1, -1, 0 );
-        _lighting.ambietnVal = 0.05;
+        _lighting.dirLight.color = glm::vec4( 0.2, 0.2, 1, 1 );
+        _lighting.pointLight.color = glm::vec4( 0, 1, 0, 1 );
+        _lighting.dirLight.direction = glm::vec3(0.5, -1, 1 );
+        _lighting.pointLight.position = glm::vec3( 0, 0, -2 );
+        _lighting.dirLight.intensity = 1;
+        _lighting.pointLight.intensity = 20;
+        _lighting.eyePos = glm::vec3( 0, 0, -2.5f );
+
+        _lighting.ambietnVal = 0.005;
+
 
         //createSwapChain();
         //createImageViews();
@@ -128,13 +138,16 @@ private:
 
         //cracion de objetos
         mTexture = new Texture(_device);
-        mTexture->loadTexture(TEXTURE_PATH.c_str(), *this);
+        mTexture->loadTexture(TEXTURE_PATH.c_str(), commandPool, graphicsQueue);
+
+        renderTexture = new Texture( _device );
+        renderTexture->loadTexture( TEXTURE2_PATH.c_str(), commandPool, graphicsQueue );
 
 
         loadModel();
         createUniformBuffers();
         _mainCamera = Camera( glm::vec3( 0, 0, -2.5f ) , glm::vec3( 0, 0, 1.f ), glm::vec3( 0.0f, 1.0f, 0.0f ) ,
-                              90.f, _window.getExtent().width / (float)_window.getExtent().height ,0.1f,10.f);
+                              90.f, _window.getExtent().width / (float)_window.getExtent().height ,0.1f,40.f);
 
         createDescriptorPool();
         createDescriptorSets();
@@ -154,28 +167,33 @@ private:
             while (SDL_PollEvent( &ev )) {
                 if (ev.type == SDL_KEYDOWN) {
                     if (ev.key.keysym.scancode == SDL_SCANCODE_D) {
-                        _mainCamera.translate( glm::vec3( -0.05f, 0, 0 ) );
+                        _mainCamera.translate( glm::vec3(0.f, 0, 1 ) );
                     }
                     if (ev.key.keysym.scancode == SDL_SCANCODE_A) {
-                        _mainCamera.translate( glm::vec3( 0.05f, 0, 0 ) );
-                    }
-                    if (ev.key.keysym.scancode == SDL_SCANCODE_W) {
-                        _mainCamera.translate( glm::vec3( 0, 0, 0.05 ) );
-                    }
-                    if (ev.key.keysym.scancode == SDL_SCANCODE_S) {
-                        _mainCamera.translate( glm::vec3( 0, 0, -0.05 ) );
+                        _mainCamera.translate( glm::vec3( 0.f, 0, -1 ) );
                     }
 
+                    if (ev.key.keysym.scancode == SDL_SCANCODE_W) {
+                        _mainCamera.translate( glm::vec3( 1, 0,0 ) );
+                    }
+                    if (ev.key.keysym.scancode == SDL_SCANCODE_S) {
+                        _mainCamera.translate( glm::vec3( -1, 0,0 ) );
+                    }
+
+                }
+
+                if (ev.type == SDL_MOUSEMOTION) {
+                    _mainCamera.rotateY( ev.motion.xrel * 0.1 );
                 }
                 if (ev.type == SDL_QUIT) {
                     running = false;
                 }
-                if (ev.type == SDL_WINDOWEVENT_RESIZED) {
-                    _framebufferResized = true;
+                if (ev.type == SDL_WINDOWEVENT) {
+                    _window.handleWindowEvent( ev.window );
                 }
             } 
             //glfwPollEvents();
-            //update()
+            update();
 
             drawFrame();
 
@@ -185,6 +203,8 @@ private:
         }
         _device.wait();
     }
+
+    void update();
 
     void cleanup();
 
@@ -241,6 +261,7 @@ private:
     private:
     void updateUniformBuffer(uint32_t currentImage, glm::mat4 model );
 
+
     void createDescriptorSetLayout();
 
 
@@ -260,10 +281,10 @@ private:
 
     void pushModelMatrix( VkCommandBuffer commnadBuffer, glm::mat4 model = glm::mat4( 1 ) );
 
+    void pushTextureIndex(VkCommandBuffer commnadBuffer, MaterialData index);
     public:
     void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
-    void trasitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
-    void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+   
     private:
     const uint32_t WIDTH = 800;
     const uint32_t HEIGHT = 600;
@@ -284,6 +305,7 @@ private:
     VkDescriptorSetLayout descriptorSetLayout;
     VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
+    VkPipeline noTexPipeline;
 
     VkDescriptorSetLayout deferredDescriptorSetLayout;
     VkPipelineLayout deferredLayout;
@@ -293,7 +315,7 @@ private:
 
     
     VkCommandPool commandPool;
-    VkCommandPool transferPool;
+    //VkCommandPool transferPool;
     std::vector<VkCommandBuffer> commandBuffers;
 
     VkDescriptorPool descriptorPool;
@@ -309,8 +331,8 @@ private:
 
     uint32_t currentFrame = 0;
 
-    Mesh* mesh;
-    Mesh* mesh2;
+    //lista de enteidades de la escena TODO hacer clase objeto
+    std::vector<RenderObject> objects;
 
     std::vector<Buffer*> uniformBuffers;
     std::vector<void*> uniformBuffersMapped;
@@ -323,11 +345,13 @@ private:
     VulkanDevice _device;
     VulkanWindow _window;
     Texture* mTexture;
+    Texture* renderTexture;
     Texture* depthTexture;
     Texture* msaaTexture;
 
     Texture* normalTexture;
     Texture* colorTexture;
+    Texture* posTexture;
 
     GlobalLighting _lighting;
 

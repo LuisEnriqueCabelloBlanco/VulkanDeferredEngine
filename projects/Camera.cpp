@@ -35,3 +35,8 @@ glm::mat4 Camera::getViewMatrix()
     
     return glm::lookAt( _position, _position + _direction, _up );
 }
+
+void Camera::rotateY( float degrees )
+{
+    _direction = glm::vec3(glm::vec4(_direction,0)* glm::rotate( glm::mat4( 1 ), glm::radians( degrees ), glm::vec3( 0, 1, 0) ));
+}

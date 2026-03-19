@@ -564,14 +564,15 @@ std::vector<VkDescriptorSet> VulkanDevice::createDescriptorSets(std::vector<std:
     allocInfo.descriptorPool = descriptorPool;
     allocInfo.descriptorSetCount = static_cast<uint32_t>(layouts.size());
     allocInfo.pSetLayouts = layouts.data();
+    allocInfo.pNext = nullptr;
 
     //reservamos tanta memoria como sea necesaria para todos los sets de informacion
-    descriptorSets.resize( allocInfo.descriptorSetCount );
+    descriptorSets.resize( layouts.size() );
     if (vkAllocateDescriptorSets( _device, &allocInfo, descriptorSets.data() ) != VK_SUCCESS) {
         throw std::runtime_error( "failed to allocate descriptor sets!" );
     }
 
-    for (size_t i = 0; i < allocInfo.descriptorSetCount; i++) {
+    for (size_t i = 0; i < layouts.size(); i++) {
         for (auto& writeSet : descriptorWrites[i]) {
             writeSet.dstSet = descriptorSets[i];
         }
@@ -579,6 +580,11 @@ std::vector<VkDescriptorSet> VulkanDevice::createDescriptorSets(std::vector<std:
     }
 
     return descriptorSets;
+}
+
+void VulkanDevice::updateDescriptorSet(const std::vector<VkWriteDescriptorSet>& writes )
+{
+    vkUpdateDescriptorSets( _device, writes.size(), writes.data(), 0, nullptr );
 }
 
 VkQueue VulkanDevice::getGraphicsQueue()
@@ -653,4 +659,112 @@ void VulkanDevice::copyBuffer( VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceS
     vkCmdCopyBuffer( commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion );
 
     endSingleTimeCommands( _transferPool, commandBuffer , _transferQueue);
+}
+
+
+void VulkanDevice::copyBufferToImage( VkBuffer buffer, VkImage image, uint32_t width, uint32_t height ) {
+    VkCommandBuffer commandBuffer = beginSingleTimeCommands(_transferPool);
+
+    VkBufferImageCopy region{};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.mipLevel = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = 1;
+
+    region.imageOffset = { 0, 0, 0 };
+    region.imageExtent = {
+        width,
+        height,
+        1
+    };
+
+    vkCmdCopyBufferToImage(
+        commandBuffer,
+        buffer,
+        image,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &region
+    );
+
+    endSingleTimeCommands(_transferPool,commandBuffer,_transferQueue);
+}
+
+void VulkanDevice::transitionImageLayout(VkCommandPool comandPool, VkQueue queue, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels )
+{
+    VkCommandBuffer commandBuffer = beginSingleTimeCommands( comandPool );
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = oldLayout;
+    barrier.newLayout = newLayout;
+
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+    barrier.image = image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = mipLevels;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+
+    if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+        //si tiene componente de stencil lo marcamos
+        if (format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT) {
+            barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+        }
+    }
+    else {
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    }
+
+    VkPipelineStageFlags sourceStage;
+    VkPipelineStageFlags destinationStage;
+
+    //si es a operacion de copia de la imagen
+    if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+        barrier.srcAccessMask = VK_ACCESS_NONE;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    }
+    //si es la transicion de imagen a sample de shader
+    else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    }
+    //si es la transicion de imagen para crear la stencil y depth
+    else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+        barrier.srcAccessMask = VK_ACCESS_NONE;
+        barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    }
+    else {
+        throw std::invalid_argument( "unsupported layout transition!" );
+    }
+
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        sourceStage, destinationStage,
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &barrier
+    );
+
+
+    endSingleTimeCommands( comandPool, commandBuffer, queue );
 }
