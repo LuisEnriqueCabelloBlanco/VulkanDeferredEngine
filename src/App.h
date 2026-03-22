@@ -37,7 +37,7 @@ constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 const std::string MODEL_PATH = "./untitled.obj";
 const std::string MODEL_PATH2 = "./plano.obj";
 const std::string TEXTURE_PATH = "./pedro.jpeg";
-const std::string TEXTURE2_PATH = "./toni.png";
+const std::string TEXTURE2_PATH = "./whitePixel.jpg";
 const std::string TEXTURE3_PATH = "./koreano.jpeg";
 
 constexpr int MAX_LIGHTS = 100;
@@ -142,6 +142,8 @@ private:
         createDescriptorPool();
         createDescriptorSets();
         createDeferredDescriptorSets();
+        updateGeometryDescriptorSets();
+        updateLightingDescriptorSets();
     }
 
 
@@ -270,6 +272,10 @@ private:
     void createDescriptorSets();
 
     void createDeferredDescriptorSets();
+
+    void updateGeometryDescriptorSets();
+
+    void updateLightingDescriptorSets();
 
     void pushModelMatrix( VkCommandBuffer commnadBuffer, glm::mat4 model = glm::mat4( 1 ) );
 

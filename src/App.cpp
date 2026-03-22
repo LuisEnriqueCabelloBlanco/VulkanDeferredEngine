@@ -733,6 +733,8 @@ void App::drawFrame()
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         recreateSwapChain();
+        updateGeometryDescriptorSets();
+        updateLightingDescriptorSets();
         return;
     }
     else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
@@ -785,6 +787,9 @@ void App::drawFrame()
     {
         _framebufferResized = false;
         recreateSwapChain();
+
+        updateGeometryDescriptorSets();
+        updateLightingDescriptorSets();
     }
     else if (result != VK_SUCCESS) {
         throw std::runtime_error("failed to present swap chain image!");
@@ -906,18 +911,23 @@ void App::recreateSwapChain()
 
     cleanupSwapChain();
 
+
+
     _window.createSwapChain();
-    //createColorResources();
+    createColorResources();
     createDepthResources();
-    //createNormalResources();
+    createNormalResources();
+
+
     createFramebuffers();
 }
 
 void App::cleanupSwapChain()
 {
     delete depthTexture;
-    //delete colorTexture;
-    //delete normalTexture;
+    delete colorTexture;
+    delete normalTexture;
+    delete posTexture;
     //delete msaaTexture;
 
     for (auto framebuffer : swapChainFramebuffers) {
@@ -1200,14 +1210,31 @@ void App::createDescriptorSets()
 
     std::vector<std::vector<VkWriteDescriptorSet>> descriptorWritesVec;
 
+
+
+}
+
+void App::createDeferredDescriptorSets()
+{
+
+    std::vector<VkDescriptorSetLayout> layouts( MAX_FRAMES_IN_FLIGHT, deferredDescriptorSetLayout );
+    lightingDescriptorSets = _device.createDescriptorSets( layouts, descriptorPool );
+
+    std::vector<std::vector<VkWriteDescriptorSet>> descriptorWritesVec;
+
+
+}
+
+void App::updateGeometryDescriptorSets()
+{
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 
-        std::vector<VkWriteDescriptorSet> descriptorWrites(2);
+        std::vector<VkWriteDescriptorSet> descriptorWrites( 2 );
 
         VkDescriptorBufferInfo bufferInfo{};
         bufferInfo.buffer = uniformBuffers[i]->getBuffer();
         bufferInfo.offset = 0;
-        bufferInfo.range = sizeof(UniformBufferObject);
+        bufferInfo.range = sizeof( UniformBufferObject );
 
         descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[1].dstBinding = 0;
@@ -1241,28 +1268,11 @@ void App::createDescriptorSets()
         descriptorWrites[0].dstSet = descriptorSets[i];
 
         _device.updateDescriptorSet( descriptorWrites );
-        //descriptorWritesVec.push_back( std::move( descriptorWrites ));
     }
-
-
-    //for (size_t i = 0; i < layouts.size(); i++) {
-    //    for (auto& writeSet : descriptorWrites[i]) {
-    //        writeSet.dstSet = descriptorSets[i];
-    //    }
-    //    vkUpdateDescriptorSets( _device, static_cast<uint32_t>( descriptorWrites[i].size() ), descriptorWrites[i].data(), 0, nullptr );
-    //}
-
-
 }
 
-void App::createDeferredDescriptorSets()
+void App::updateLightingDescriptorSets()
 {
-
-    std::vector<VkDescriptorSetLayout> layouts( MAX_FRAMES_IN_FLIGHT, deferredDescriptorSetLayout );
-    lightingDescriptorSets = _device.createDescriptorSets( layouts, descriptorPool );
-
-    std::vector<std::vector<VkWriteDescriptorSet>> descriptorWritesVec;
-
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 
         std::vector<VkWriteDescriptorSet> descriptorWrites( 6 );
@@ -1342,7 +1352,7 @@ void App::createDeferredDescriptorSets()
         VkDescriptorBufferInfo storageBufferInfo;
         storageBufferInfo.buffer = _lightBufferSorage->getBuffer();
         storageBufferInfo.offset = 0;
-        storageBufferInfo.range = sizeof( int ) + (sizeof( Light ) * MAX_LIGHTS)+ sizeof(uint8_t)*16;
+        storageBufferInfo.range = sizeof( int ) + (sizeof( Light ) * MAX_LIGHTS) + sizeof( uint8_t ) * 16;
 
         descriptorWrites[5].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[5].dstBinding = 6;
@@ -1356,7 +1366,6 @@ void App::createDeferredDescriptorSets()
         //descriptorWritesVec.push_back( std::move( descriptorWrites ) );
         _device.updateDescriptorSet( descriptorWrites );
     }
-
 }
 
 void App::pushModelMatrix( VkCommandBuffer commnadBuffer, glm::mat4 model )

@@ -25,6 +25,7 @@ layout(location = 2) out vec4 outPos;
 void main() {
 
     int a =2;
+
     outColor = texture(texSampler[mat.textureIdx],fragTexCoord)*vec4(fragColor , 1.0);
     outNormal = vec4(normal,mat.roughness);
     outPos = vec4(postion,mat.metallic);
