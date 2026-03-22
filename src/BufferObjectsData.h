@@ -22,6 +22,13 @@ struct PointLight {
     float intensity;
 };
 
+struct Light {
+    glm::vec3 pos_dir;
+    int type;
+    glm::vec3 color;
+    float intensity;
+};
+
 struct UniformBufferObject {
     glm::mat4 view;
     glm::mat4 proj;
@@ -29,8 +36,6 @@ struct UniformBufferObject {
 
 //OJITO CON EL PADDING
 struct GlobalLighting {
-    DirectionalLight dirLight;
-    PointLight pointLight;
     glm::vec3 eyePos;
     float ambietnVal;
 };

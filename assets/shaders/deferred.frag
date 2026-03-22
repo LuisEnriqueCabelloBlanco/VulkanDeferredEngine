@@ -5,34 +5,25 @@ layout (input_attachment_index = 0, set = 0, binding = 2) uniform subpassInput c
 layout (input_attachment_index = 1, set = 0, binding = 3) uniform subpassInput normal;
 layout (input_attachment_index = 2, set = 0, binding = 5) uniform subpassInput position;
 
-
-struct PointLight{
-    vec4 color;
-    vec3 position;
-    float intensity;
-};
-
-struct DirectionalLight{
-    vec4 color;
-    vec3 direction;
-    float intensity;
-};
-
 struct Light{
+    vec3 dir_center; // posicon de la luz
     int type; // 0 direcional, 1 puntual
-    vec3 dir; // direccion de la luz (direcioal)
-    vec3 center; // posicon de la luz
-    float intensity; // intensidad
+    //vec3 dir; // direccion de la luz (direcioal)
     vec3 color; // color
+    float intensity; // intensidad
 };
 
 //layout(binding  = 1) uniform sampler2D texSampler;
 layout(binding = 4 ) uniform GlobalLightData{
-    DirectionalLight dirLight;
-    PointLight pointLight;
     vec3 eyePos;
     float ambient;
 }light;
+
+
+layout(binding= 6) readonly buffer LightBuffer {
+    int count;
+    Light lights[100];
+}lightBuffer;
 
 layout(location = 0) out vec4 outColor;
 
@@ -84,8 +75,8 @@ vec3 BRDF(vec3 normalVec, vec3 viewVec, vec3 baseFresnel, vec3 albedo, vec3 half
     vec3 radiance = l.color * l.intensity;
 
     float NDF = DistributionGGX(normalVec, halfView,roughness);
-    float G = GeometrySmith(normalVec,viewVec,l.dir,roughness);
-    vec3 F = fresnelSchlick(max(0,dot(halfView,l.dir)), baseFresnel);
+    float G = GeometrySmith(normalVec,viewVec,l.dir_center,roughness);
+    vec3 F = fresnelSchlick(max(0,dot(halfView,l.dir_center)), baseFresnel);
 
 
     vec3 kS = F;
@@ -93,11 +84,11 @@ vec3 BRDF(vec3 normalVec, vec3 viewVec, vec3 baseFresnel, vec3 albedo, vec3 half
     kD*=1.0-metallic;
 
     vec3 nom = NDF * G * F;
-    float denom = 4 * max(0,dot(normalVec,viewVec)) * max(0,dot(normalVec,l.dir))+0.0001;
+    float denom = 4 * max(0,dot(normalVec,viewVec)) * max(0,dot(normalVec,l.dir_center))+0.0001;
     vec3 specular = nom / denom;
 
 
-    float NdotL = max(0, dot(normalVec,l.dir));
+    float NdotL = max(0, dot(normalVec,l.dir_center));
 
     vec3 diffuse_radiance = kD * (albedo)*M_PI;
 
@@ -111,7 +102,7 @@ vec3 PBR(Light l, float ambient, vec3 albedo, float metallic, float roughness, v
 
     F0 = mix(F0,albedo, metallic);
 
-    vec3 halfView = normalize(view+l.dir);
+    vec3 halfView = normalize(view+l.dir_center);
 
     return ambient*albedo + BRDF(normalVec,view,F0,albedo, halfView, l,metallic, roughness );
 }
@@ -131,24 +122,49 @@ void main() {
 
     vec3 colorVal = vec3(0);
     
-    Light lightData;
+    // Light lightData;
 
-    lightData.dir = -normalize(light.dirLight.direction);
-    lightData.color = light.dirLight.color.rgb;
-    lightData.intensity = light.dirLight.intensity;
+    // lightData.dir = -normalize(light.dirLight.direction);
+    // lightData.color = light.dirLight.color.rgb;
+    // lightData.intensity = light.dirLight.intensity;
+
+
+
+    for(int i=0 ; i<lightBuffer.count;i++){
+        Light aux;
+
+        //luz direccional
+        if(lightBuffer.lights[i].type == 0){
+            aux.dir_center = -normalize(lightBuffer.lights[i].dir_center);
+            aux.color = lightBuffer.lights[i].color;
+            aux.intensity = lightBuffer.lights[i].intensity;
+        }
+
+        //luz posicional
+        if(lightBuffer.lights[i].type == 1){
+            vec3 ponintToPos = lightBuffer.lights[i].dir_center-subpassLoad(position).rgb;
+            aux.dir_center = normalize(ponintToPos);
+            aux.color =  lightBuffer.lights[i].color.rgb;
+            aux.intensity =  lightBuffer.lights[i].intensity/(length(ponintToPos)*length(ponintToPos));
+
+        }
+
+        colorVal += PBR(aux, light.ambient, sampleColor, metallic, roughness, normalVec, viewVector);
+    }
     
+    if(lightBuffer.count < 1){
+        colorVal = subpassLoad(color).rgb * light.ambient;
+    }
     
-    
-    colorVal += PBR(lightData, light.ambient, sampleColor, metallic, roughness, normalVec, viewVector);
 
-    vec3 ponintToPos = light.pointLight.position-subpassLoad(position).rgb;
-    //color += BRDF(light.pointLight.intensity,ponintDir,viewVector,normalVec,roughness);
+    // vec3 ponintToPos = light.pointLight.position-subpassLoad(position).rgb;
+    // //color += BRDF(light.pointLight.intensity,ponintDir,viewVector,normalVec,roughness);
 
-    lightData.dir = normalize(ponintToPos);
-    lightData.color = light.pointLight.color.rgb;
-    lightData.intensity = light.dirLight.intensity/(length(ponintToPos)*length(ponintToPos));
+    // lightData.dir = normalize(ponintToPos);
+    // lightData.color = light.pointLight.color.rgb;
+    // lightData.intensity = light.pointLight.intensity/(length(ponintToPos)*length(ponintToPos));
 
-    colorVal += PBR(lightData, light.ambient, sampleColor, metallic, roughness, normalVec, viewVector);
+    // colorVal += PBR(lightData, light.ambient, sampleColor, metallic, roughness, normalVec, viewVector);
 
     outColor = vec4(colorVal,1);
     //outColor = subpassLoad(position);

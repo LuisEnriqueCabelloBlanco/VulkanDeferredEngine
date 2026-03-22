@@ -16,7 +16,7 @@ Texture::~Texture()
     //vkFreeMemory(device._device, textureImageMemory, nullptr);
     device.freeMemory( textureImageMemory );
 }
-void Texture::loadTexture(const std::string& path, VkCommandPool commandPool, VkQueue queue )
+void Texture::loadTexture(const std::string& path)
  {
     
     int texWidth, texHeight, texChannels;
@@ -48,9 +48,9 @@ void Texture::loadTexture(const std::string& path, VkCommandPool commandPool, Vk
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     //pusheamos a gpu
-    device.transitionImageLayout(commandPool,queue ,textureImage, mFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,mipLevels);
+    device.transitionImageLayout( textureImage, mFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels);
     device.copyBufferToImage(staging->getBuffer(), textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
-    device.transitionImageLayout(commandPool,queue,textureImage, mFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,mipLevels);
+    device.transitionImageLayout(textureImage, mFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,mipLevels);
     //app.generateMipmaps(textureImage,mFormat, texWidth, texHeight, mipLevels);
 
 

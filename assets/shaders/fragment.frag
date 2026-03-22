@@ -1,6 +1,5 @@
 #version 450
 
-
 struct MaterialParams{
     float metallic;
     float roughness;

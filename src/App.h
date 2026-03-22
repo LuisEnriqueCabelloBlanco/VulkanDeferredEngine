@@ -40,6 +40,8 @@ const std::string TEXTURE_PATH = "./pedro.jpeg";
 const std::string TEXTURE2_PATH = "./toni.png";
 const std::string TEXTURE3_PATH = "./koreano.jpeg";
 
+constexpr int MAX_LIGHTS = 100;
+
 const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
 };
@@ -104,22 +106,8 @@ private:
         _window.setDevice( &_device );
         _window.createSwapChain();
 
-        _lighting.dirLight.color = glm::vec4( 0.2, 0.2, 1, 1 );
-        _lighting.pointLight.color = glm::vec4( 0, 1, 0, 1 );
-        _lighting.dirLight.direction = glm::vec3(0.5, -1, 1 );
-        _lighting.pointLight.position = glm::vec3( 0, 0, -2 );
-        _lighting.dirLight.intensity = 1;
-        _lighting.pointLight.intensity = 20;
-        _lighting.eyePos = glm::vec3( 0, 0, -2.5f );
 
-        _lighting.ambietnVal = 0.005;
-
-
-        //createSwapChain();
-        //createImageViews();
-        //createDeferredRenderPass
         createRenderPass();
-        //createDeferredDescriptorSetLayout()
         createDescriptorSetLayout();
         createGraphicsPipeline();
         createDeferredPipeline();
@@ -128,24 +116,26 @@ private:
         createColorResources();
         createDepthResources();
         createNormalResources();
-        
-        //createDeferredFrameBuffers
 
         createFramebuffers();
 
         createCommandBuffers();
         createSyncObjects();
 
-        //cracion de objetos
+        //cracion de recursos
+
+
+
         mTexture = new Texture(_device);
-        mTexture->loadTexture(TEXTURE_PATH.c_str(), commandPool, graphicsQueue);
+        mTexture->loadTexture(TEXTURE_PATH);
 
         renderTexture = new Texture( _device );
-        renderTexture->loadTexture( TEXTURE2_PATH.c_str(), commandPool, graphicsQueue );
+        renderTexture->loadTexture( TEXTURE2_PATH);
 
 
         loadModel();
         createUniformBuffers();
+        createLightBuffer();
         _mainCamera = Camera( glm::vec3( 0, 0, -2.5f ) , glm::vec3( 0, 0, 1.f ), glm::vec3( 0.0f, 1.0f, 0.0f ) ,
                               90.f, _window.getExtent().width / (float)_window.getExtent().height ,0.1f,40.f);
 
@@ -262,6 +252,8 @@ private:
     void updateUniformBuffer(uint32_t currentImage, glm::mat4 model );
 
 
+    void createLightBuffer();
+
     void createDescriptorSetLayout();
 
 
@@ -339,6 +331,10 @@ private:
 
     Buffer* _lightUniformBuffer;
     void* _lightBufferMapped;
+
+    Buffer* _lightBufferSorage;
+    std::vector<Light> _lightBuffer;
+    void* _lightBufferStorageMapped;
 
     Camera _mainCamera;
 

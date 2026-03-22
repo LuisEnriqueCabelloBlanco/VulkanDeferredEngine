@@ -7,7 +7,8 @@
 
 
 const std::vector<const char*> deviceExtensions = {
-	VK_KHR_SWAPCHAIN_EXTENSION_NAME/*,
+	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+	/*,
 	VK_KHR_SURFACE_EXTENSION_NAME*/
 };
 
@@ -131,7 +132,7 @@ public:
 		return sampler;
 	}
 
-	std::vector<VkDescriptorSet> createDescriptorSets( std::vector<std::vector<VkWriteDescriptorSet>>& descriptorWrites, const std::vector<VkDescriptorSetLayout>& layouts, VkDescriptorPool descriptorPool );
+	std::vector<VkDescriptorSet> createDescriptorSets(const std::vector<VkDescriptorSetLayout>& layouts, VkDescriptorPool descriptorPool );
 
 	void updateDescriptorSet( const std::vector<VkWriteDescriptorSet> &writes );
 
@@ -160,7 +161,7 @@ public:
 	//Copia un buffer con los datos de la imagen a una imagen de vulkan
 	void copyBufferToImage( VkBuffer buffer, VkImage image, uint32_t width, uint32_t height );
 
-	void transitionImageLayout( VkCommandPool comandPool, VkQueue queue, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels );
+	void transitionImageLayout( VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels );
 
 	VkCommandBuffer beginSingleTimeCommands( VkCommandPool pool )
 	{

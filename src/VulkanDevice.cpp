@@ -555,7 +555,7 @@ Buffer* VulkanDevice::createBuffer( VkDeviceSize size, VkBufferUsageFlagBits usa
     return new Buffer(buffer,memory,this);
 }
 
-std::vector<VkDescriptorSet> VulkanDevice::createDescriptorSets(std::vector<std::vector<VkWriteDescriptorSet>>& descriptorWrites, const std::vector<VkDescriptorSetLayout>& layouts, VkDescriptorPool descriptorPool )
+std::vector<VkDescriptorSet> VulkanDevice::createDescriptorSets(const std::vector<VkDescriptorSetLayout>& layouts, VkDescriptorPool descriptorPool )
 {
     std::vector<VkDescriptorSet> descriptorSets;
 
@@ -570,13 +570,6 @@ std::vector<VkDescriptorSet> VulkanDevice::createDescriptorSets(std::vector<std:
     descriptorSets.resize( layouts.size() );
     if (vkAllocateDescriptorSets( _device, &allocInfo, descriptorSets.data() ) != VK_SUCCESS) {
         throw std::runtime_error( "failed to allocate descriptor sets!" );
-    }
-
-    for (size_t i = 0; i < layouts.size(); i++) {
-        for (auto& writeSet : descriptorWrites[i]) {
-            writeSet.dstSet = descriptorSets[i];
-        }
-        vkUpdateDescriptorSets( _device, static_cast<uint32_t>(descriptorWrites[i].size()), descriptorWrites[i].data(), 0, nullptr);
     }
 
     return descriptorSets;
@@ -694,9 +687,12 @@ void VulkanDevice::copyBufferToImage( VkBuffer buffer, VkImage image, uint32_t w
     endSingleTimeCommands(_transferPool,commandBuffer,_transferQueue);
 }
 
-void VulkanDevice::transitionImageLayout(VkCommandPool comandPool, VkQueue queue, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels )
+void VulkanDevice::transitionImageLayout( VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels )
 {
-    VkCommandBuffer commandBuffer = beginSingleTimeCommands( comandPool );
+
+    VkCommandPool usedPool = _transferPool;
+    VkQueue usedQueue = _transferQueue;
+
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.oldLayout = oldLayout;
@@ -740,6 +736,9 @@ void VulkanDevice::transitionImageLayout(VkCommandPool comandPool, VkQueue queue
         barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
+        usedPool = createCommandPool( VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, _familyIndx.graphicsFamily.value() );;
+        usedQueue = getGraphicsQueue();
+
         sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
         destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
     }
@@ -756,6 +755,10 @@ void VulkanDevice::transitionImageLayout(VkCommandPool comandPool, VkQueue queue
     }
 
 
+
+    VkCommandBuffer commandBuffer = beginSingleTimeCommands( usedPool );
+
+
     vkCmdPipelineBarrier(
         commandBuffer,
         sourceStage, destinationStage,
@@ -766,5 +769,10 @@ void VulkanDevice::transitionImageLayout(VkCommandPool comandPool, VkQueue queue
     );
 
 
-    endSingleTimeCommands( comandPool, commandBuffer, queue );
+    endSingleTimeCommands( usedPool, commandBuffer, usedQueue);
+
+    if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+        destroyCommandPool( usedPool );
+    }
+
 }
