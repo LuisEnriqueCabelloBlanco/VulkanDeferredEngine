@@ -34,7 +34,15 @@ void App::update()
     objects[0].modelMatrix = glm::translate( glm::rotate( glm::mat4( 1 ), glm::radians( -10.f ), glm::vec3( 0, 1, 0 ) ), glm::vec3( sin( time ) * 1.5f, 0, 0 ) );
     objects[1].modelMatrix = glm::rotate( glm::mat4( 1.0f ), time * glm::radians( 180.0f ), glm::vec3( 0.0f, 1.0f, 0.0f ) );
     objects[2].modelMatrix = glm::scale( glm::translate( glm::mat4( 1 ), glm::vec3( 0, -1, 0 ) ) , glm::vec3( 10 ) );
+
+
+
+    glm::vec3 right = glm::cross( glm::vec3( 0, 1, 0 ), _mainCamera.getDirection()  );
+
+
+    glm::vec3 newPos = _mainCamera.getPos() + right * _moveDir.x + _mainCamera.getDirection() * _moveDir.z;
     
+    _mainCamera.setPosition( newPos );
 }
 
 void App::cleanup()

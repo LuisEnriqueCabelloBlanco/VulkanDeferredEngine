@@ -15,15 +15,13 @@ public:
 	glm::mat4 getProjMatrix();
 	glm::mat4 getViewMatrix();
 
-	void translate( glm::vec3 move ) {
-		//TODO implementar movimento bien
-
-		glm::vec3 dir =  _direction *glm::length(move);
-
-		_position += glm::normalize( dir) * 0.5f;
+	inline void setPosition( glm::vec3 pos ) {
+		_position = pos;
 	}
 
-	void rotateY(float degrees);
+	inline glm::vec3 getDirection() { return _direction; }
+
+	void rotateY( float degrees );
 
 	glm::vec3 getPos() { return _position; }
 private:

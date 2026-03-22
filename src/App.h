@@ -95,6 +95,7 @@ private:
     void initVulkan() {
         
         _window.init("Proyecto Vulkan",WIDTH,HEIGHT,instance);
+        SDL_SetRelativeMouseMode( SDL_TRUE );
         createInstance();
         setupDebugMessenger();
         _window.createSurface( instance );
@@ -112,13 +113,13 @@ private:
         createGraphicsPipeline();
         createDeferredPipeline();
 
-        createCommandPool();
         createColorResources();
         createDepthResources();
         createNormalResources();
 
         createFramebuffers();
 
+        createCommandPool();
         createCommandBuffers();
         createSyncObjects();
 
@@ -156,20 +157,26 @@ private:
         while (running)
         {
             SDL_Event ev;
+            _moveDir = glm::vec3( 0 );
             while (SDL_PollEvent( &ev )) {
+
                 if (ev.type == SDL_KEYDOWN) {
                     if (ev.key.keysym.scancode == SDL_SCANCODE_D) {
-                        _mainCamera.translate( glm::vec3(0.f, 0, 1 ) );
+                        _moveDir += glm::vec3( -1, 0, 0 );
                     }
                     if (ev.key.keysym.scancode == SDL_SCANCODE_A) {
-                        _mainCamera.translate( glm::vec3( 0.f, 0, -1 ) );
+                        _moveDir += glm::vec3( 1, 0, 0 );
+                        
                     }
 
                     if (ev.key.keysym.scancode == SDL_SCANCODE_W) {
-                        _mainCamera.translate( glm::vec3( 1, 0,0 ) );
+                        _moveDir += glm::vec3( 0, 0, 1 );
                     }
                     if (ev.key.keysym.scancode == SDL_SCANCODE_S) {
-                        _mainCamera.translate( glm::vec3( -1, 0,0 ) );
+                        _moveDir += glm::vec3( 0, 0, -1 );
+                    }
+                    if (ev.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
+                        SDL_SetRelativeMouseMode( SDL_FALSE );
                     }
 
                 }
@@ -356,5 +363,7 @@ private:
     Texture* posTexture;
 
     GlobalLighting _lighting;
+
+    glm::vec3 _moveDir;
 
 };
