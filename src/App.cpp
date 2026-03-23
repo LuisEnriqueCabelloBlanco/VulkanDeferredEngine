@@ -230,9 +230,9 @@ void App::setupDebugMessenger() {
 
 void App::createGraphicsPipeline()
 {
-    auto vertShaderCode = readFile("./vertex");
-    auto fragShaderCode = readFile("./fragment");
-    auto noTexShaderCode = readFile( "./fragmentNoTexture" );
+    auto vertShaderCode = readFile("./shaders/build/vertex");
+    auto fragShaderCode = readFile("./shaders/build/fragment");
+    auto noTexShaderCode = readFile( "./shaders/build/fragmentNoTexture" );
 
     VkShaderModule vertShaderModule = _device.createShaderModule(vertShaderCode);
     VkShaderModule fragShaderModule = _device.createShaderModule(fragShaderCode);
@@ -443,8 +443,8 @@ void App::createGraphicsPipeline()
 
 void App::createDeferredPipeline()
 {
-    auto fragShaderCode = readFile( "./deferred" );
-    auto vertShaderCode = readFile( "./readAttachmentVertex" );
+    auto fragShaderCode = readFile( "./shaders/build/deferred" );
+    auto vertShaderCode = readFile( "./shaders/build/readAttachmentVertex" );
 
     VkShaderModule vertShaderModule = _device.createShaderModule( vertShaderCode );
     VkShaderModule fragShaderModule = _device.createShaderModule( fragShaderCode );
@@ -694,15 +694,13 @@ void App::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
         
-    
-    int k = 0;
+   
     for (auto& object : objects) {
 
         pushTextureIndex(commandBuffer, object.mat );
         pushModelMatrix( commandBuffer, object.modelMatrix);
 
         object.mesh->draw( commandBuffer );
-        k++;
     }
 
     vkCmdNextSubpass( commandBuffer, VK_SUBPASS_CONTENTS_INLINE );
@@ -758,7 +756,6 @@ void App::drawFrame()
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
 
     VkSemaphore waitSemaphores[] = { imageAviablesSemaphores[currentFrame]};
     VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
@@ -841,15 +838,15 @@ void App::loadModel()
 
     MaterialData mat1;
 
-    mat1.metallic = 0.3;
-    mat1.roughtness = 0.5;
+    mat1.metallic = 0.7;
+    mat1.roughtness = 0.3;
     mat1.texutreIndex = 0;
 
 
     MaterialData mat2;
 
-    mat2.metallic = 0.01;
-    mat2.roughtness = 0.01;
+    mat2.metallic = 0.1;
+    mat2.roughtness = 0.25;
     mat2.texutreIndex = 1;
 
     Mesh* mesh = new Mesh( _device, vertices );
@@ -862,7 +859,7 @@ void App::loadModel()
 
     Mesh* mesh3 = new Mesh( _device, MODEL_PATH2 );
 
-    objects.push_back( { mesh3, glm::mat4( 10 ),mat1 } );
+    objects.push_back( { mesh3, glm::mat4( 10 ),mat2 } );
 
     mesh2 = new Mesh( _device, MODEL_PATH );
     objects.push_back( { mesh2, glm::translate(glm::mat4(1),glm::vec3(2.5,0,0)),mat2 });
@@ -1015,16 +1012,16 @@ void App::createLightBuffer()
 
     _lightBuffer.push_back( l );
 
-    l.color = glm::vec4( 0, 1, 0, 1 );
-    l.intensity = 5;
+    l.color = glm::vec4( 0.1, 1, 0.1, 1 );
+    l.intensity = 1;
     l.pos_dir = glm::vec3( 0, 0, -2 );
     l.type = 1;
 
     _lightBuffer.push_back( l );
 
 
-    l.color = glm::vec4( 1, 0.1, 0.5, 1 );
-    l.intensity = 5;
+    l.color = glm::vec4( 1, 0.1, 0.1, 1 );
+    l.intensity = 1;
     l.pos_dir = glm::vec3(2, 0, -2 );
     l.type = 1;
 
