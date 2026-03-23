@@ -1,0 +1,245 @@
+#pragma once
+
+#include <chrono>
+
+#include <vulkan/vulkan.h>
+#include <iostream>
+#include <vector>
+#include <optional>
+#include <limits> // Necessary for std::numeric_limits
+#include <algorithm> // Necessary for std::clamp
+#include <glm/glm.hpp>
+#include <array>
+#include "VulkanWindow.h"
+#include "VulkanDevice.h"
+#include "Texture.h"
+#include "Utils.h"
+#include "BufferObjectsData.h"
+#include "Mesh.h"
+
+#include "Camera.h"
+
+constexpr int MAX_FRAMES_IN_FLIGHT = 2;
+
+constexpr int MAX_LIGHTS = 100; 
+
+const std::vector<const char*> validationLayers = {
+    "VK_LAYER_KHRONOS_validation"
+};
+
+#ifdef NDEBUG
+const bool enableValidationLayers = true;
+#else
+const bool enableValidationLayers = true;
+#endif
+
+class RenderEngine
+{
+public:
+    RenderEngine();
+
+    static void ErrorCallback( int, const char* err_str )
+    {
+        std::cout << "GLFW Error: " << err_str << std::endl;
+    }
+
+    /*
+    * Inicializacion de todos los elementos necesarios para renderizar una imagen en vulkan
+    *
+    *
+    * 1.Crear una ventana de SDL
+    * 2.Crear la instancia de Vulkan
+    * 3.Permitir las capas de validacion
+    * 4.Crear la superfice de vulkan a partir de la ventana y la instancia
+    * 5.Crear un vulkan device
+    * 6.Crear las colas que se vayan a usar durante el renderizado
+    * 7.Crear la swapchain (cola de las imagenes que van a ser renderizadas)
+    * 8.Creamos los wrapper de vkImage que nos facilitan configurar la forma en la que se acceden
+    * 9.Creamos el pase de renderizado que solo toma colores y los envia a pantalla
+    * 10.Creamos la pipeline de renderizado
+    * 11.Creamos la pool de command buffres (prereserva de espacio para commandbuffers)
+    * 12.Creamos los frame buffers
+    * 13.Cargamos el modelo
+    * 14.Creamos losbuffers que contendran el modelo
+    * 15.Creamos los buffres de commandos (1 por frame al vuelo)
+    * 16.Creamos las estructuras de sincronizacion
+    */
+    void init();
+
+    void cleanup();
+
+    void drawFrame( std::vector<RenderObject>& objectsArray );
+
+    void wait();
+
+    Camera& getMainCamera() { return _mainCamera; }
+
+
+    Mesh* createMesh( Mesh& meshCopy );
+    Mesh* createMesh( const std::string& path );
+    Mesh* createMesh( const std::vector<Vertex>& vertices );
+    Mesh* createMesh( const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices );
+
+    void createPointLight(glm::vec3 position, glm::vec3 color, float intensity);
+    void createDirectionalLight( glm::vec3 direction, glm::vec3 color, float intensity );
+
+
+    /**
+     * @brief devuelve el indice de textura en el array
+     * 
+     * @param path 
+     * @return 
+     */
+    int loadTexture( const std::string& path );
+
+    void updateGeometryDescriptorSets();
+
+    void updateLightingDescriptorSets();
+
+    void updateLightBuffer();
+
+private:
+
+    void createRenderPass();
+
+    void createInstance();
+
+    bool checkValidationLayerSupport();
+
+    std::vector<const char*> getRequiredExtensions();
+
+    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+        VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+        VkDebugUtilsMessageTypeFlagsEXT messageType,
+        const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+        void* pUserData ) {
+
+
+        if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+            // Message is important enough to show
+            std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl << std::endl;
+        }
+
+        return VK_FALSE;
+    }
+
+    void populateDebugMessengerCreateInfo( VkDebugUtilsMessengerCreateInfoEXT& createInfo );
+    void setupDebugMessenger();
+
+    void createGraphicsPipeline();
+
+    void createDeferredPipeline();
+
+    void createFramebuffers();
+
+    void createCommandPool();
+
+    void createCommandBuffers();
+
+    void recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t imageIndex, std::vector<RenderObject>& objectsArray );
+
+    void loadModels();
+
+    void createSyncObjects();
+
+    void recreateSwapChain();
+
+    void cleanupSwapChain();
+
+    void createColorResources();
+
+    void createNormalResources();
+
+    void updateUniformBuffer( uint32_t currentImage, glm::mat4 model );
+
+    void createLightBuffer();
+
+
+
+    void createDescriptorSetLayout();
+
+    VkFormat findDepthFormat();
+
+    bool hasStencilComponent( VkFormat format );
+
+    void createUniformBuffers();
+
+    void createDescriptorPool();
+
+    void createDepthResources();
+
+    void createDescriptorSets();
+
+    void createDeferredDescriptorSets();
+
+    void pushModelMatrix( VkCommandBuffer commnadBuffer, glm::mat4 model = glm::mat4( 1 ) );
+
+    void pushTextureIndex( VkCommandBuffer commnadBuffer, MaterialData index );
+public:
+    void generateMipmaps( VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels );
+
+private:
+    const uint32_t WIDTH = 800;
+    const uint32_t HEIGHT = 600;
+    VkInstance instance;
+    VkDebugUtilsMessengerEXT debugMessenger;
+
+    VkQueue graphicsQueue;
+    VkQueue presentQueue;
+
+    VkRenderPass renderPass;
+    VkDescriptorSetLayout descriptorSetLayout;
+    VkPipelineLayout pipelineLayout;
+    VkPipeline graphicsPipeline;
+    VkPipeline noTexPipeline;
+
+    VkDescriptorSetLayout deferredDescriptorSetLayout;
+    VkPipelineLayout deferredLayout;
+    VkPipeline deferredPipeline;
+
+    std::vector<VkFramebuffer> swapChainFramebuffers;
+
+
+    VkCommandPool commandPool;
+    std::vector<VkCommandBuffer> commandBuffers;
+
+    VkDescriptorPool descriptorPool;
+    std::vector<VkDescriptorSet> descriptorSets;
+    std::vector<VkDescriptorSet> lightingDescriptorSets;
+
+    //Sinc structures
+    std::vector<VkSemaphore> imageAviablesSemaphores;
+    std::vector<VkSemaphore> renderFinishedSemaphores;
+    std::vector<VkFence> inFlightFences;
+
+    bool _framebufferResized = false;
+
+    uint32_t currentFrame = 0;
+
+    std::vector<Buffer*> uniformBuffers;
+    std::vector<void*> uniformBuffersMapped;
+
+    Buffer* _lightUniformBuffer;
+    void* _lightBufferMapped;
+
+    Buffer* _lightBufferSorage;
+    std::vector<Light> _lightBuffer;
+    void* _lightBufferStorageMapped;
+
+    Camera _mainCamera;
+
+    VulkanDevice _device;
+    VulkanWindow _window;
+
+    Texture* depthTexture;
+    Texture* msaaTexture;
+
+    Texture* normalTexture;
+    Texture* colorTexture;
+    Texture* posTexture;
+
+    GlobalLighting _lighting;
+
+    std::vector<Texture*> _textureArray;
+};
+
