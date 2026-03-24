@@ -23,6 +23,8 @@ constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
 constexpr int MAX_LIGHTS = 100; 
 
+constexpr int MAX_TEXTURES = 32;
+
 const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
 };
@@ -97,6 +99,8 @@ public:
     void updateLightingDescriptorSets();
 
     void updateLightBuffer();
+
+    void handleWindowEvent( SDL_WindowEvent event);
 
 private:
 

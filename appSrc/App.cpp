@@ -6,11 +6,7 @@ void App::start()
 {
     _mainCamera = &_engine.getMainCamera();
     loadModels();
-    _engine.createDirectionalLight( glm::vec3( 0, -1, 5 ), glm::vec3(0,0,1), 1 );
-    _engine.createPointLight( glm::vec3( 0, 0, -1 ), glm::vec3( 1, 0, 0 ), 1 );
-    _engine.createPointLight( glm::vec3( 1, 0, -1 ), glm::vec3( 0, 1, 0 ), 1 );
-    _engine.createPointLight( glm::vec3( -1, 0, -1 ), glm::vec3( 0, 0, 1 ), 1 );
-    
+    addLighting();
 }
 
 void App::mainLoop() {
@@ -48,11 +44,11 @@ void App::mainLoop() {
             if (ev.type == SDL_QUIT) {
                 running = false;
             }
-            //if (ev.type == SDL_WINDOWEVENT) {
-            //    _window.handleWindowEvent( ev.window );
-            //}
+            if (ev.type == SDL_WINDOWEVENT) {
+                _engine.handleWindowEvent( ev.window );
+            }
         }
-        //glfwPollEvents();
+
         update();
 
         _engine.drawFrame( objects );
@@ -163,6 +159,14 @@ void App::loadModels()
         }
     }
     
+}
+
+void App::addLighting()
+{
+    _engine.createDirectionalLight( glm::vec3( 0, -1, 5 ), glm::vec3( 0, 0, 1 ), 1 );
+    _engine.createPointLight( glm::vec3( 0, 0, -1 ), glm::vec3( 1, 0, 0 ), 1 );
+    _engine.createPointLight( glm::vec3( 1, 0, -1 ), glm::vec3( 0, 1, 0 ), 1 );
+    _engine.createPointLight( glm::vec3( -1, 0, -1 ), glm::vec3( 0, 0, 1 ), 1 );
 }
 
 void App::freeObjects()

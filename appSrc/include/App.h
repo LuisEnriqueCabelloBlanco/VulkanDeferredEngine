@@ -40,7 +40,7 @@ const std::string MODEL_PATH2 = "./mesh/plano.obj";
 const std::string MODEL_PATH3 = "./mesh/esfera.obj";
 const std::string TEXTURE_PATH = "./textures/ninjaTexture.png";
 const std::string TEXTURE2_PATH = "./textures/whitePixel.jpg";
-const std::string TEXTURE3_PATH = "./textures/koreano.jpeg";
+const std::string TEXTURE3_PATH = "./textures/pedro.jpeg";
 
 class App
 {
@@ -72,6 +72,8 @@ private:
     void drawFrame();
 
     void loadModels();
+
+    void addLighting();
 
     void freeObjects();
    

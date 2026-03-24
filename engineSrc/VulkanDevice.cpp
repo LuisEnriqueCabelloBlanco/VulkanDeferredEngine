@@ -37,6 +37,15 @@ void VulkanDevice::createDevice()
     deviceFeatures.samplerAnisotropy = VK_TRUE;
     deviceFeatures.sampleRateShading = VK_TRUE;
 
+    VkPhysicalDeviceDescriptorIndexingFeatures descriptor_indexing_features{};
+    descriptor_indexing_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+
+    // Enable non-uniform indexing
+    descriptor_indexing_features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+    descriptor_indexing_features.runtimeDescriptorArray = VK_TRUE;
+    descriptor_indexing_features.descriptorBindingVariableDescriptorCount = VK_TRUE;
+    descriptor_indexing_features.descriptorBindingPartiallyBound = VK_TRUE;
+
     VkDeviceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
@@ -44,6 +53,7 @@ void VulkanDevice::createDevice()
     createInfo.pEnabledFeatures = &deviceFeatures;
     createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
     createInfo.ppEnabledExtensionNames = deviceExtensions.data();
+    createInfo.pNext = &descriptor_indexing_features;
 
     //se crean las layers si es que hacen falta
     //if (enableValidationLayers) {
@@ -198,6 +208,7 @@ void VulkanDevice::pickPhysicalDevice()
 
     for (const auto& device : devices) {
         VkPhysicalDeviceProperties prop;
+
         vkGetPhysicalDeviceProperties( device, &prop );
 
 
@@ -235,6 +246,11 @@ bool VulkanDevice::checkDeviceExtensionSupport(VkPhysicalDevice device)
 
     std::vector<VkExtensionProperties> aviableExtensions(extensionsCount);
     vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionsCount, aviableExtensions.data());
+
+    //enumeracion de las extensiondes disponibles
+    //for (auto& ext : aviableExtensions) {
+    //    std::cout << ext.extensionName << "\n";
+    //}
 
     std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
 
@@ -561,7 +577,7 @@ Buffer* VulkanDevice::createBuffer( VkDeviceSize size, VkBufferUsageFlagBits usa
     return new Buffer(buffer,memory,this);
 }
 
-std::vector<VkDescriptorSet> VulkanDevice::createDescriptorSets(const std::vector<VkDescriptorSetLayout>& layouts, VkDescriptorPool descriptorPool )
+std::vector<VkDescriptorSet> VulkanDevice::createDescriptorSets(const std::vector<VkDescriptorSetLayout>& layouts, VkDescriptorPool descriptorPool, void* pNext )
 {
     std::vector<VkDescriptorSet> descriptorSets;
 
@@ -570,7 +586,7 @@ std::vector<VkDescriptorSet> VulkanDevice::createDescriptorSets(const std::vecto
     allocInfo.descriptorPool = descriptorPool;
     allocInfo.descriptorSetCount = static_cast<uint32_t>(layouts.size());
     allocInfo.pSetLayouts = layouts.data();
-    allocInfo.pNext = nullptr;
+    allocInfo.pNext = pNext;
 
     //reservamos tanta memoria como sea necesaria para todos los sets de informacion
     descriptorSets.resize( layouts.size() );

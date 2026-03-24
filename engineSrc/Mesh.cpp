@@ -75,48 +75,73 @@ void Mesh::loadMesh( const std::string& path )
 	auto& shapes = reader.GetShapes();
 	auto& materials = reader.GetMaterials();
 
+	for (auto mat : materials) {
+		std::cout << mat.diffuse_texname << "\n";
+	}
+
 
 	//Map para evitar la repeticion de vertices
 	std::unordered_map<Vertex, uint32_t> uniqueVertices{};
 
 
 	for (const auto& shape : shapes) {
+		int indexOffset = 0;
 
-		for (const auto& index : shape.mesh.indices) {
-			Vertex vertex{};
+		for (const auto& face : shape.mesh.num_face_vertices) {
 
-			vertex.pos = {
-			attrib.vertices[3 * index.vertex_index + 0],
-			attrib.vertices[3 * index.vertex_index + 1],
-			attrib.vertices[3 * index.vertex_index + 2]
-			};
-			vertex.texCoord = {
-				attrib.texcoords[2 * index.texcoord_index + 0],
-				1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-			};
+			size_t fv = size_t( face );
 
-			vertex.color = {
-				attrib.colors[3 * index.vertex_index + 0],
-				attrib.colors[3 * index.vertex_index + 1],
-				attrib.colors[3 * index.vertex_index + 2],
-			};
+			for (int v = 0; v < fv;v++) {
+				auto index = shape.mesh.indices[indexOffset+v];
 
-			vertex.normal = {
-				attrib.normals[3 * index.normal_index + 0],
-				attrib.normals[3 * index.normal_index + 1],
-				attrib.normals[3 * index.normal_index + 2],
-			};
+				Vertex vertex{};
+
+				vertex.pos = {
+					attrib.vertices[3 * index.vertex_index + 0],
+					attrib.vertices[3 * index.vertex_index + 1],
+					attrib.vertices[3 * index.vertex_index + 2]
+				};
+					
+				vertex.texCoord = {
+					attrib.texcoords[2 * index.texcoord_index + 0],
+					1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+				};
+
+				vertex.color = {
+					attrib.colors[3 * index.vertex_index + 0],
+					attrib.colors[3 * index.vertex_index + 1],
+					attrib.colors[3 * index.vertex_index + 2],
+				};
 
 
+				vertex.normal = {
+					attrib.normals[3 * index.normal_index + 0],
+					attrib.normals[3 * index.normal_index + 1],
+					attrib.normals[3 * index.normal_index + 2],
+				};
 
-			//si el vetice no esta lo aniadimos a la lista de vertices unicos
-			if (uniqueVertices.count( vertex ) == 0) {
-				uniqueVertices[vertex] = static_cast<uint32_t>(_vertices.size());
-				_vertices.push_back( vertex );
+			
+
+				//si el vetice no esta lo aniadimos a la lista de vertices unicos
+				if (uniqueVertices.count( vertex ) == 0) {
+					uniqueVertices[vertex] = static_cast<uint32_t>(_vertices.size());
+					_vertices.push_back( vertex );
+				}
+
+				//aniadimos el indice correspondiente
+				_indices.push_back( uniqueVertices[vertex] );
 			}
 
-			//aniadimos el indice correspondiente
-			_indices.push_back( uniqueVertices[vertex] );
+			indexOffset += fv;
+
+			//calcular tangente TODO
+			glm::vec3 tangent = _vertices[_indices[_indices.size() - 1]].pos - _vertices[_indices[_indices.size() - 2]].pos;
+
+
+			for (int i = 0; i < fv; i++) {
+				tangent = _vertices[_indices[_indices.size() - 1-i]].tangent;
+			}
+
 		}
 	}
 }

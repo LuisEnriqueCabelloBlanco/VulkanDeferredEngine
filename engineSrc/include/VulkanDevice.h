@@ -8,6 +8,8 @@
 
 const std::vector<const char*> deviceExtensions = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+	VK_KHR_MAINTENANCE3_EXTENSION_NAME,
+	"VK_EXT_descriptor_indexing"
 	/*,
 	VK_KHR_SURFACE_EXTENSION_NAME*/
 };
@@ -132,7 +134,7 @@ public:
 		return sampler;
 	}
 
-	std::vector<VkDescriptorSet> createDescriptorSets(const std::vector<VkDescriptorSetLayout>& layouts, VkDescriptorPool descriptorPool );
+	std::vector<VkDescriptorSet> createDescriptorSets(const std::vector<VkDescriptorSetLayout>& layouts, VkDescriptorPool descriptorPool, void* pNext = nullptr );
 
 	void updateDescriptorSet( const std::vector<VkWriteDescriptorSet> &writes );
 

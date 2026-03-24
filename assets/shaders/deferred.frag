@@ -1,9 +1,9 @@
 #version 450
 #define M_PI 3.1415926535897932384626433832795
 
-layout (input_attachment_index = 0, set = 0, binding = 2) uniform subpassInput color;
-layout (input_attachment_index = 1, set = 0, binding = 3) uniform subpassInput normal;
-layout (input_attachment_index = 2, set = 0, binding = 5) uniform subpassInput position;
+layout (input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput color;
+layout (input_attachment_index = 1, set = 0, binding = 1) uniform subpassInput normal;
+layout (input_attachment_index = 2, set = 0, binding = 2) uniform subpassInput position;
 
 struct Light{
     vec3 dir_center; // posicon de la luz
@@ -14,13 +14,13 @@ struct Light{
 };
 
 //layout(binding  = 1) uniform sampler2D texSampler;
-layout(binding = 4 ) uniform GlobalLightData{
+layout(binding = 3 ) uniform GlobalLightData{
     vec3 eyePos;
     float ambient;
 }light;
 
 
-layout(binding= 6) readonly buffer LightBuffer {
+layout(binding= 4) readonly buffer LightBuffer {
     int count;
     Light lights[100];
 }lightBuffer;

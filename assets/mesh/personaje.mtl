@@ -11,8 +11,8 @@ Pc 0.000000
 Pcr 0.030000
 aniso 0.000000
 anisor 0.000000
-map_Kd C:/Ch45_1001_Diffuse.png
-map_Ks C:/Ch45_1001_Specular.png
-map_Pr C:/Ch45_1001_Glossiness.png
-map_Ke C:/Ch45_1001_Emissive.png
-map_Bump -bm 1.000000 C:/Ch45_1001_Normal.png
+map_Kd Ch45_1001_Diffuse.png
+map_Ks Ch45_1001_Specular.png
+map_Pr Ch45_1001_Glossiness.png
+map_Ke Ch45_1001_Emissive.png
+map_Bump -bm 1.000000 Ch45_1001_Normal.png
