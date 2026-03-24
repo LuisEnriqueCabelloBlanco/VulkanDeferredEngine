@@ -213,11 +213,11 @@ void RenderEngine::createGraphicsPipeline()
 {
     auto vertShaderCode = readFile( "./shaders/build/vertex" );
     auto fragShaderCode = readFile( "./shaders/build/fragment" );
-    auto noTexShaderCode = readFile( "./shaders/build/fragmentNoTexture" );
+    //auto noTexShaderCode = readFile( "./shaders/build/fragmentNoTexture" );
 
     VkShaderModule vertShaderModule = _device.createShaderModule( vertShaderCode );
     VkShaderModule fragShaderModule = _device.createShaderModule( fragShaderCode );
-    VkShaderModule noTexShaderModule = _device.createShaderModule( noTexShaderCode );
+    //VkShaderModule noTexShaderModule = _device.createShaderModule( noTexShaderCode );
 
 
     VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
@@ -232,11 +232,11 @@ void RenderEngine::createGraphicsPipeline()
     fragShaderStageInfo.module = fragShaderModule;
     fragShaderStageInfo.pName = "main";
 
-    VkPipelineShaderStageCreateInfo noTexShaderStageInfo{};
-    noTexShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    noTexShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    noTexShaderStageInfo.module = noTexShaderModule;
-    noTexShaderStageInfo.pName = "main";
+    //VkPipelineShaderStageCreateInfo noTexShaderStageInfo{};
+    //noTexShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    //noTexShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    //noTexShaderStageInfo.module = noTexShaderModule;
+    //noTexShaderStageInfo.pName = "main";
 
     VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
@@ -413,13 +413,13 @@ void RenderEngine::createGraphicsPipeline()
 
     graphicsPipeline = _device.createPipelines( VK_NULL_HANDLE, { pipelineInfo } )[0];
 
-    shaderStages[1] = noTexShaderStageInfo;
+    //shaderStages[1] = noTexShaderStageInfo;
 
     noTexPipeline = _device.createPipelines( VK_NULL_HANDLE, { pipelineInfo } )[0];
 
     _device.destroyShaderModule( fragShaderModule );
     _device.destroyShaderModule( vertShaderModule );
-    _device.destroyShaderModule( noTexShaderModule );
+    //_device.destroyShaderModule( noTexShaderModule );
 }
 
 void RenderEngine::createDeferredPipeline()
