@@ -19,9 +19,9 @@
 
 #include "Camera.h"
 
-constexpr int MAX_FRAMES_IN_FLIGHT = 2;
+constexpr int MAX_FRAMES_IN_FLIGHT = 1;
 
-constexpr int MAX_LIGHTS = 100; 
+constexpr int MAX_LIGHTS = 10; 
 
 constexpr int MAX_TEXTURES = 32;
 
@@ -66,7 +66,7 @@ public:
     * 15.Creamos los buffres de commandos (1 por frame al vuelo)
     * 16.Creamos las estructuras de sincronizacion
     */
-    void init();
+    void init(const std::string& appName);
 
     void cleanup();
 
@@ -106,7 +106,7 @@ private:
 
     void createRenderPass();
 
-    void createInstance();
+    void createInstance(const std::string& appName);
 
     bool checkValidationLayerSupport();
 

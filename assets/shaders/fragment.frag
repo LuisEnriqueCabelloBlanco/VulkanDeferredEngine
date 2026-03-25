@@ -5,6 +5,7 @@ struct MaterialParams{
     float metallic;
     float roughness;
     int textureIdx;
+    int normalIdx;
 };
 
 layout(push_constant, std430) uniform pc_i{
@@ -27,6 +28,13 @@ layout(location = 2) out vec4 outPos;
 void main() {
 
     outColor = texture(texSampler[mat.textureIdx],fragTexCoord)*vec4(fragColor , 1.0);
-    outNormal = vec4(TBN[2],mat.roughness);
+
+    vec3 sampleNormal = normal;
+
+    if(mat.normalIdx!=-1){
+        sampleNormal = TBN * texture(texSampler[mat.normalIdx],fragTexCoord).rgb;
+    }
+
+    outNormal = vec4(sampleNormal,mat.roughness);
     outPos = vec4(postion,mat.metallic);
 }

@@ -98,7 +98,7 @@ void RenderEngine::cleanup()
 
 }
 
-void RenderEngine::createInstance() {
+void RenderEngine::createInstance(const std::string& appName) {
 
 
 
@@ -116,7 +116,7 @@ void RenderEngine::createInstance() {
     //info de la aplicacion
     VkApplicationInfo appInfo{};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    appInfo.pApplicationName = "Proyecto Vulkan";
+    appInfo.pApplicationName = appName.c_str();
     appInfo.applicationVersion = VK_MAKE_VERSION( 1, 0, 0 );
     appInfo.pEngineName = "LL Engine";
     appInfo.engineVersion = VK_MAKE_VERSION( 1, 0, 0 );
@@ -864,11 +864,6 @@ void RenderEngine::createSyncObjects()
         imageAviablesSemaphores[i] = _device.createSemaphore( semaphoreInfo );
         renderFinishedSemaphores[i] = _device.createSemaphore( semaphoreInfo );
         inFlightFences[i] = _device.createFence( fenceInfo );
-        //if (vkCreateSemaphore(_device._device, &semaphoreInfo, nullptr, &imageAviablesSemaphores[i]) != VK_SUCCESS ||
-        //    vkCreateSemaphore(_device._device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS ||
-        //    vkCreateFence(_device._device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS) {
-        //    throw std::runtime_error("failed to create semaphores!");
-        //}
     }
 }
 
@@ -1184,13 +1179,15 @@ void RenderEngine::createDescriptorSets()
     std::vector<VkDescriptorSetLayout> layouts( MAX_FRAMES_IN_FLIGHT, descriptorSetLayout );
 
     //adicion que permite tener arrays de tamanio variable en los shaders de texturas
-    uint32_t counts[2];
-    counts[0] = 32; // Set 0 has a variable count descriptor with a maximum of 32 elements
-    counts[1] = 32; // Set 0 has a variable count descriptor with a maximum of 32 elements
+    uint32_t counts[MAX_FRAMES_IN_FLIGHT];
+
+    for (int i = 0;i < MAX_FRAMES_IN_FLIGHT;i++) {
+        counts[i] = 32; // Set 0 has a variable count descriptor with a maximum of 32 elements
+    }
 
     VkDescriptorSetVariableDescriptorCountAllocateInfo set_counts = {};
     set_counts.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
-    set_counts.descriptorSetCount = 2;
+    set_counts.descriptorSetCount = MAX_FRAMES_IN_FLIGHT;
     set_counts.pDescriptorCounts = counts;
 
     descriptorSets = _device.createDescriptorSets( layouts, descriptorPool,&set_counts );
@@ -1445,11 +1442,11 @@ RenderEngine::RenderEngine()
 {
 }
 
-void RenderEngine::init()
+void RenderEngine::init(const std::string& appName)
 {
 
-    _window.init( "Proyecto Vulkan", WIDTH, HEIGHT, instance );
-    createInstance();
+    _window.init( "appName", WIDTH, HEIGHT, instance );
+    createInstance(appName);
     setupDebugMessenger();
     _window.createSurface( instance );
     _device.init( instance, _window );
@@ -1659,7 +1656,7 @@ void RenderEngine::createRenderPass()
     renderPassInfo.pAttachments = attachments.data();
     renderPassInfo.subpassCount = 2;
     renderPassInfo.pSubpasses = subpasses;
-    renderPassInfo.dependencyCount = 2;
+    renderPassInfo.dependencyCount = 3;
     renderPassInfo.pDependencies = dependencies;
 
     //if (vkCreateRenderPass(_device._device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {

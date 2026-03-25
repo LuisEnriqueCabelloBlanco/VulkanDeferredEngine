@@ -41,6 +41,10 @@ const std::string MODEL_PATH3 = "./mesh/esfera.obj";
 const std::string TEXTURE_PATH = "./textures/ninjaTexture.png";
 const std::string TEXTURE2_PATH = "./textures/whitePixel.jpg";
 const std::string TEXTURE3_PATH = "./textures/pedro.jpeg";
+const std::string NORMAL_TEXTURE_PATH = "./textures/Ch45_1001_Normal.png";
+const std::string WALL_TEXTURE_PATH = "./textures/MuroColor.jpg";
+const std::string WALL_NORMAL_TEXTURE_PATH = "./textures/MuroNormal.jpg";
+
 
 class App
 {
@@ -49,7 +53,7 @@ public:
     App();
 
     void run() {
-        _engine.init();
+        _engine.init("AppExample");
         mainLoop();
         _engine.wait();
         freeObjects();

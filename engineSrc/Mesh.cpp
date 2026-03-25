@@ -139,7 +139,7 @@ void Mesh::loadMesh( const std::string& path )
 
 
 			for (int i = 0; i < fv; i++) {
-				tangent = _vertices[_indices[_indices.size() - 1-i]].tangent;
+				_vertices[_indices[_indices.size() - 1 - i]].tangent = tangent;
 			}
 
 		}

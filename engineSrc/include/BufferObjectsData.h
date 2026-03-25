@@ -44,6 +44,7 @@ struct MaterialData {
     float metallic;
     float roughtness;
     int texutreIndex;
+    int normalTextureIndex;
 };
 
 class Mesh;

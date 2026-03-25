@@ -34,7 +34,8 @@ void App::mainLoop() {
                     _moveDir += glm::vec3( 0, 0, -1 );
                 }
                 if (ev.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
-                    SDL_SetRelativeMouseMode( SDL_FALSE );
+                    SDL_bool b = SDL_GetRelativeMouseMode();
+                    SDL_SetRelativeMouseMode((SDL_bool)(((int)b+1)%2) );
                 }
             }
 
@@ -83,7 +84,9 @@ void App::loadModels()
     int characterTextureHandle = _engine.loadTexture( TEXTURE_PATH );
     int whiteTextureHandle = _engine.loadTexture( TEXTURE2_PATH );
     int koreanoTextureHandle = _engine.loadTexture( TEXTURE3_PATH );
-
+    int normalTexture = _engine.loadTexture( NORMAL_TEXTURE_PATH );
+    int wallColor = _engine.loadTexture( WALL_TEXTURE_PATH );
+    int wallNormal = _engine.loadTexture( WALL_NORMAL_TEXTURE_PATH );
 
     std::vector<Vertex> vertices;
     std::vector<Vertex> vertices2;
@@ -119,6 +122,7 @@ void App::loadModels()
     mat1.metallic = 0;
     mat1.roughtness = 0.95;
     mat1.texutreIndex = characterTextureHandle;
+    mat1.normalTextureIndex =normalTexture;
 
 
     MaterialData mat2;
@@ -126,12 +130,14 @@ void App::loadModels()
     mat2.metallic = 0.1;
     mat2.roughtness = 0.25;
     mat2.texutreIndex = koreanoTextureHandle;
+    mat2.normalTextureIndex = -1;
 
     MaterialData mat3;
 
-    mat3.metallic = 0.7;
-    mat3.roughtness = 0.3;
-    mat3.texutreIndex = whiteTextureHandle;
+    mat3.metallic = 0.01;
+    mat3.roughtness = 0.8;
+    mat3.texutreIndex = wallColor;
+    mat3.normalTextureIndex = wallNormal;
 
     Mesh* mesh = _engine.createMesh( vertices );
 
@@ -150,8 +156,8 @@ void App::loadModels()
     mesh2 = _engine.createMesh( *mesh2 );
     objects.push_back( { mesh2, glm::translate(glm::mat4(1),glm::vec3(-2.5,0,0)),mat2 });
 
-    for (int i = 0; i < 5;i++) {
-        for (int j = 0; j < 5; j++) {
+    for (int i = 0; i < 10;i++) {
+        for (int j = 0; j < 10; j++) {
             mesh2 = _engine.createMesh( *mesh2 );
             mat3.roughtness = i * 0.1;
             mat3.metallic = j * 0.1;
