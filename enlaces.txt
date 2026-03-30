@@ -1,0 +1,3 @@
+pagina de optimizaciones de ARM https://developer.arm.com/documentation/101897/0304/Optimization-basics/Basic-optimization-checklist
+
+renderer optimizado en vulkan https://zeux.io/2020/02/27/writing-an-efficient-vulkan-renderer/

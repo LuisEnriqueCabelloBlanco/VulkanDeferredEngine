@@ -23,7 +23,8 @@ public:
 
 	void rotateY( float degrees );
 
-	glm::vec3 getPos() { return _position; }
+	inline glm::vec3 getPos() { return _position; }
+	inline float getFarPlane() { return _farPlane; }
 private:
 	glm::vec3 _position = glm::vec3(0);
 	glm::vec3 _direction = glm::vec3(1,0,0);

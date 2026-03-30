@@ -8,13 +8,15 @@ Mesh::Mesh( Mesh& otherMesh ) :_device( otherMesh._device )
 	_vertexBuffer = otherMesh._vertexBuffer;
 	_indices = otherMesh._indices;
 	_vertices = otherMesh._vertices;
-
+	_meshAABB = calculateAABB();
 	_isCopy = true;
 }
 
 Mesh::Mesh( VulkanDevice& device, const std::string& path ) :_device( device ) {
 
 	loadMesh( path );
+	
+	_meshAABB = calculateAABB();
 
 	_vertexBuffer = _device.createVkBuffer<Vertex>( _vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT );
 	_indexBuffer = _device.createVkBuffer<uint32_t>( _indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT );
@@ -24,6 +26,7 @@ Mesh::Mesh( VulkanDevice& device, const std::vector<uint32_t>& indices, const st
 
 	_indices = indices;
 	_vertices = vertices;
+	_meshAABB = calculateAABB();
 
 	_vertexBuffer = _device.createVkBuffer<Vertex>( _vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT );
 	_indexBuffer = _device.createVkBuffer<uint32_t>( _indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT );
@@ -36,6 +39,8 @@ Mesh::Mesh( VulkanDevice& device, const std::vector<Vertex>& vertices ) :_device
 	}
 
 	_vertices = vertices;
+
+	_meshAABB = calculateAABB();
 
 	_vertexBuffer = _device.createVkBuffer<Vertex>( _vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT );
 	_indexBuffer = _device.createVkBuffer<uint32_t>( _indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT );
@@ -144,4 +149,19 @@ void Mesh::loadMesh( const std::string& path )
 
 		}
 	}
+}
+
+AABB Mesh::calculateAABB()
+{
+	AABB out{};
+
+	out.max = glm::vec3(std::numeric_limits<float>::min());
+	out.min = glm::vec3( std::numeric_limits<float>::max() );
+
+	for (auto& pos : _vertices) {
+		out.min = glm::min(pos.pos,out.min);
+		out.max = glm::max(pos.pos,out.max);
+	}
+
+	return out;
 }

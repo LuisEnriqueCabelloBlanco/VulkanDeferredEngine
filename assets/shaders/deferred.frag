@@ -138,6 +138,8 @@ void main() {
             aux.dir_center = -normalize(lightBuffer.lights[i].dir_center);
             aux.color = lightBuffer.lights[i].color;
             aux.intensity = lightBuffer.lights[i].intensity;
+
+            colorVal += PBR(aux, light.ambient, sampleColor, metallic, roughness, normalVec, viewVector);
         }
 
         //luz posicional
@@ -146,10 +148,14 @@ void main() {
             aux.dir_center = normalize(ponintToPos);
             aux.color =  lightBuffer.lights[i].color.rgb;
             aux.intensity =  lightBuffer.lights[i].intensity/(length(ponintToPos)*length(ponintToPos));
+            //TOOD hacer parametro de rango de la luz
+            if(pointToPos.length() < 100){
+                colorVal += PBR(aux, light.ambient, sampleColor, metallic, roughness, normalVec, viewVector);
+            }
 
         }
 
-        colorVal += PBR(aux, light.ambient, sampleColor, metallic, roughness, normalVec, viewVector);
+        
     }
     
     if(lightBuffer.count < 1){

@@ -93,4 +93,10 @@ private:
 
     Camera* _mainCamera;
 
+    float _deltaTime;
+
+    int _counter =0;
+
+    float timeacum = 0;
+
 };

@@ -21,7 +21,7 @@
 
 constexpr int MAX_FRAMES_IN_FLIGHT = 1;
 
-constexpr int MAX_LIGHTS = 10; 
+constexpr int MAX_LIGHTS = 1000; 
 
 constexpr int MAX_TEXTURES = 32;
 
@@ -124,6 +124,10 @@ private:
             std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl << std::endl;
         }
 
+        if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
+            throw std::exception( pCallbackData->pMessage );
+        }
+
         return VK_FALSE;
     }
 
@@ -140,7 +144,7 @@ private:
 
     void createCommandBuffers();
 
-    void recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t imageIndex, std::vector<RenderObject>& objectsArray );
+    void recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t imageIndex, std::vector<RenderObject>& objectsArray , const std::vector<int>& cullIndex );
 
     void loadModels();
 
@@ -179,10 +183,19 @@ private:
     void pushModelMatrix( VkCommandBuffer commnadBuffer, glm::mat4 model = glm::mat4( 1 ) );
 
     void pushTextureIndex( VkCommandBuffer commnadBuffer, MaterialData index );
+
+    const std::vector<int> cullObjects( const std::vector<RenderObject>& objs );
+    
+    const std::vector<Light> cullLights( const std::vector<Light>& objs );
+
+    
 public:
     void generateMipmaps( VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels );
 
 private:
+
+    bool AABBFrustrumTest( const AABB& aabb,const glm::mat4& MVP);
+
     const uint32_t WIDTH = 800;
     const uint32_t HEIGHT = 600;
     VkInstance instance;

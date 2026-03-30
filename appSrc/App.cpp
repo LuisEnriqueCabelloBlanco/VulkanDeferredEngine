@@ -1,5 +1,7 @@
 #include "App.h"
 #include <fstream>
+#include <chrono>
+#include<algorithm>
 
 
 void App::start()
@@ -10,12 +12,15 @@ void App::start()
 }
 
 void App::mainLoop() {
+    static auto startTime = std::chrono::high_resolution_clock::now();
     start();
     SDL_SetRelativeMouseMode( SDL_TRUE );
 
     bool running = true;
     while (running)
     {
+        auto frameStart = std::chrono::high_resolution_clock::now();
+
         SDL_Event ev;
         _moveDir = glm::vec3( 0 );
         while (SDL_PollEvent( &ev )) {
@@ -54,6 +59,19 @@ void App::mainLoop() {
 
         _engine.drawFrame( objects );
 
+        auto endFrame = std::chrono::high_resolution_clock::now();
+
+        _counter++;
+
+        _deltaTime = std::chrono::duration<float, std::chrono::seconds::period>( endFrame - frameStart ).count();
+    
+        //timeacum += _deltaTime;
+
+        //if (timeacum > 1) {
+        //    std::cout<< _counter<< "FPS" << "\n";
+        //    timeacum = 0;
+        //    _counter = 0;
+        //}
     }
 }
 
@@ -71,7 +89,7 @@ void App::update()
     glm::vec3 right = glm::cross( glm::vec3( 0, 1, 0 ), _mainCamera->getDirection()  );
 
 
-    glm::vec3 newPos = _mainCamera->getPos() + right * _moveDir.x + _mainCamera->getDirection() * _moveDir.z;
+    glm::vec3 newPos = _mainCamera->getPos() + (right * _moveDir.x + _mainCamera->getDirection() * _moveDir.z)*_deltaTime *10.f;
     
     _mainCamera->setPosition( newPos );
 }
@@ -130,7 +148,7 @@ void App::loadModels()
     mat2.metallic = 0.1;
     mat2.roughtness = 0.25;
     mat2.texutreIndex = koreanoTextureHandle;
-    mat2.normalTextureIndex = -1;
+    mat2.normalTextureIndex = wallNormal;
 
     MaterialData mat3;
 
@@ -156,12 +174,12 @@ void App::loadModels()
     mesh2 = _engine.createMesh( *mesh2 );
     objects.push_back( { mesh2, glm::translate(glm::mat4(1),glm::vec3(-2.5,0,0)),mat2 });
 
-    for (int i = 0; i < 10;i++) {
-        for (int j = 0; j < 10; j++) {
+    for (int i = 0; i < 100;i++) {
+        for (int j = 0; j < 100; j++) {
             mesh2 = _engine.createMesh( *mesh2 );
-            mat3.roughtness = i * 0.1;
-            mat3.metallic = j * 0.1;
-            objects.push_back( { mesh2, glm::translate( glm::mat4( 1 ),glm::vec3( -5 + i * -2.5,0,j*2.5 ) ),mat3 } );
+            mat3.roughtness = std::min(i * 0.1,1.0);
+            mat3.metallic =std::min( j * 0.1,1.0);
+            objects.push_back( { mesh2, glm::translate( glm::mat4( 1 ),glm::vec3( -5 + i * -5,0,j*5 ) ),mat3 } );
         }
     }
     
@@ -169,10 +187,17 @@ void App::loadModels()
 
 void App::addLighting()
 {
-    _engine.createDirectionalLight( glm::vec3( 0, -1, 5 ), glm::vec3( 0, 0, 1 ), 1 );
+    _engine.createDirectionalLight( glm::vec3( 0, -1, 5 ), glm::vec3( 0.3, 0.3, 0.3 ), 0.3 );
     _engine.createPointLight( glm::vec3( 0, 0, -1 ), glm::vec3( 1, 0, 0 ), 1 );
     _engine.createPointLight( glm::vec3( 1, 0, -1 ), glm::vec3( 0, 1, 0 ), 1 );
     _engine.createPointLight( glm::vec3( -1, 0, -1 ), glm::vec3( 0, 0, 1 ), 1 );
+
+
+    for (int i = 0; i < 10;i++) {
+        for (int j = 0; j < 10; j++) {
+            _engine.createPointLight( glm::vec3( -5 + i * -5, -0.5, j * 5 - 1.5 ), glm::vec3( 0.01*i, 0.01*j, (i*j)/1000 ), 1 );
+        }
+    }
 }
 
 void App::freeObjects()

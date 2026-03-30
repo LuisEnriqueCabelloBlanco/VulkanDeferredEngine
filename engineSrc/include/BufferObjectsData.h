@@ -8,7 +8,11 @@
 #include <array>
 
 
-
+enum LightType
+{
+    DIRECTIONAL,
+    POINT
+};
 
 struct DirectionalLight {
     glm::vec4 color;

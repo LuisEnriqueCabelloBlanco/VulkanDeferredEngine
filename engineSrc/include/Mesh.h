@@ -7,6 +7,11 @@
 
 class Buffer;
 
+struct AABB {
+    glm::vec3 min;
+    glm::vec3 max;
+};
+
 class Mesh {
 public:
 
@@ -19,13 +24,18 @@ public:
 
     void draw(VkCommandBuffer commnadBuffer);
 
+    inline const AABB& getAABB() { return _meshAABB; }
     //TODO loadMesh metodo estatico
 
 private:
 
     void loadMesh(const std::string& path);
 
+    AABB calculateAABB();
+
     VulkanDevice& _device;
+
+    AABB _meshAABB;
 
     bool _isCopy = false;
 
