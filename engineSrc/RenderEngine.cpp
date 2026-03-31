@@ -42,6 +42,7 @@ void RenderEngine::cleanup()
 
 	delete _lightUniformBuffer;
 	delete _lightBufferSorage;
+	delete _lightIndexStorage;
 
 	//vkDestroyDescriptorPool(_device._device, descriptorPool, nullptr);
 	_device.destroyDescriptorPool( descriptorPool );
@@ -49,13 +50,18 @@ void RenderEngine::cleanup()
 	//vkDestroyDescriptorSetLayout(_device._device, descriptorSetLayout, nullptr);
 	_device.destroyDescriptorSetLayout( descriptorSetLayout );
 	_device.destroyDescriptorSetLayout( deferredDescriptorSetLayout );
+	_device.destroyDescriptorSetLayout( _computeDescriptorSetLayout );
 
 	_device.destroyPipeline( graphicsPipeline );
 	_device.destroyPipeline( noTexPipeline );
-	_device.destroyPipelineLayout( pipelineLayout );
-
+	_device.destroyPipeline( _computePipeline );
 	_device.destroyPipeline( deferredPipeline );
+
+
+
+	_device.destroyPipelineLayout( pipelineLayout );
 	_device.destroyPipelineLayout( deferredLayout );
+	_device.destroyPipelineLayout( _computeLayout );
 
 
 	//vkDestroyRenderPass(_device._device, renderPass, nullptr);
@@ -572,6 +578,39 @@ void RenderEngine::createDeferredPipeline()
 	_device.destroyShaderModule( fragShaderModule );
 }
 
+void RenderEngine::createComputePipeline()
+{
+
+	auto computeCode = readFile( "./shaders/build/lightCull" );
+
+	VkShaderModule computeModule = _device.createShaderModule( computeCode );
+
+	VkPipelineShaderStageCreateInfo computeStageInfo{};
+	computeStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	computeStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+	computeStageInfo.module = computeModule;
+	computeStageInfo.pName = "main";
+
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	pipelineLayoutInfo.setLayoutCount = 1; // Optional
+	pipelineLayoutInfo.pSetLayouts = &_computeDescriptorSetLayout; // Optional
+
+	_computeLayout = _device.createPipelineLayout( pipelineLayoutInfo );
+
+	VkComputePipelineCreateInfo createInfo;
+
+	createInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+	createInfo.layout = _computeLayout;
+	createInfo.stage = computeStageInfo;
+	createInfo.flags = 0;
+	createInfo.pNext = NULL;
+
+	_computePipeline = _device.createcomputePipelines( VK_NULL_HANDLE, {createInfo} )[0];
+
+	_device.destroyShaderModule( computeModule );
+}
+
 void RenderEngine::createFramebuffers()
 {
 	swapChainFramebuffers.resize( _window.getImageViews().size() );
@@ -609,7 +648,7 @@ void RenderEngine::createCommandPool()
 {
 	VulkanDevice::QueueFamilyIndices queueFamilyIndices = _device.getFamilyIndexes();
 
-	commandPool = _device.createCommandPool( VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, queueFamilyIndices.graphicsFamily.value() );
+	commandPool = _device.createCommandPool( VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, queueFamilyIndices.presentFamily.value());
 	//transferPool = _device.createCommandPool( VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queueFamilyIndices.transferFamily.value() );
 }
 
@@ -640,7 +679,7 @@ Mesh* RenderEngine::createMesh( const std::vector<uint32_t>& indices, const std:
 	return new Mesh( _device, indices, vertices );
 }
 
-void RenderEngine::createPointLight( glm::vec3 position, glm::vec3 color, float intensity )
+void RenderEngine::createPointLight( glm::vec3 position, glm::vec3 color, float intensity,float range )
 {
 	Light l;
 
@@ -648,6 +687,7 @@ void RenderEngine::createPointLight( glm::vec3 position, glm::vec3 color, float 
 	l.color = color;
 	l.type = 1;
 	l.intensity = intensity;
+	l.range = range;
 
 	_lightBuffer.push_back( l );
 
@@ -695,11 +735,30 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 	if (vkBeginCommandBuffer( commandBuffer, &beginInfo ) != VK_SUCCESS) {
 		throw std::runtime_error( "failed to begin recording command buffer!" );
 	}
+	
+	VkBufferMemoryBarrier memBarr;
+	memBarr.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+	memBarr.buffer = _lightIndexStorage->getBuffer();
+	memBarr.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	memBarr.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+	memBarr.offset = 0;
+	memBarr.size = sizeof( int ) + (sizeof( int ) * MAX_LIGHTS);
+	memBarr.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	memBarr.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	memBarr.pNext = NULL;
+
+	vkCmdBindPipeline( commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _computePipeline );
+	
+	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _computeLayout, 0, 1, &_computeDescriptorSet[currentFrame], 0, nullptr);
+
+	vkCmdDispatch( commandBuffer, (MAX_LIGHTS/32)+1, 1, 1 );
+
+	vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 1, &memBarr, 0, nullptr );
 
 	VkRenderPassBeginInfo renderPassInfo{};
+	renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	renderPassInfo.renderPass = renderPass;
-	renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
 	renderPassInfo.renderArea.offset = { 0, 0 };
 	renderPassInfo.renderArea.extent = _window.getExtent();
 
@@ -712,6 +771,8 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 
 	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 	renderPassInfo.pClearValues = clearValues.data();
+
+	
 	//tomamos los datos de paso de renderizado
 	vkCmdBeginRenderPass( commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
 
@@ -811,7 +872,7 @@ void RenderEngine::drawFrame( std::vector<RenderObject>& objectsArray )
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
 	VkSemaphore waitSemaphores[] = { imageAviablesSemaphores[currentFrame] };
-	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+	VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT|VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT};
 	submitInfo.waitSemaphoreCount = 1;
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
@@ -976,17 +1037,96 @@ void RenderEngine::updateUniformBuffer( uint32_t currentImage, glm::mat4 model )
 	//vkCmdUpdateBuffer( commandBuffers[currentImage], uniformBuffers[currentImage]->getBuffer(), 0, sizeof( UniformBufferObject ), uniformBuffersMapped[currentImage] );
 }
 
+void RenderEngine::updateComputeDescritorSet()
+{
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+
+		int size = 3;
+
+		std::vector<VkWriteDescriptorSet> descriptorWrites( size );
+
+		VkDescriptorBufferInfo bufferInfo{};
+		bufferInfo.buffer = _lightIndexStorage->getBuffer();
+		bufferInfo.offset = 0;
+		bufferInfo.range = sizeof( int ) + (sizeof( int ) * MAX_LIGHTS);
+
+		descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrites[0].dstBinding = 0;
+		descriptorWrites[0].dstArrayElement = 0;
+		descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		descriptorWrites[0].descriptorCount = 1;
+		descriptorWrites[0].pBufferInfo = &bufferInfo;
+		descriptorWrites[0].dstSet = _computeDescriptorSet[i];
+
+		VkDescriptorBufferInfo storageBufferInfo2;
+		storageBufferInfo2.buffer = _lightBufferSorage->getBuffer();
+		storageBufferInfo2.offset = 0;
+		storageBufferInfo2.range = sizeof( int ) + (sizeof( Light ) * MAX_LIGHTS) + sizeof( uint8_t ) * 16;
+
+		descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrites[1].dstBinding = 1;
+		descriptorWrites[1].dstArrayElement = 0;
+		descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		descriptorWrites[1].descriptorCount = 1;
+		descriptorWrites[1].pBufferInfo = &storageBufferInfo2;
+		descriptorWrites[1].dstSet = _computeDescriptorSet[i];
+
+		VkDescriptorBufferInfo lightBuffer;
+		lightBuffer.buffer = _lightUniformBuffer->getBuffer();
+		lightBuffer.offset = 0;
+		lightBuffer.range = sizeof( GlobalLighting );
+
+		descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrites[2].dstBinding = 2;
+		descriptorWrites[2].dstArrayElement = 0;
+		descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		descriptorWrites[2].descriptorCount = 1;
+		descriptorWrites[2].pBufferInfo = &lightBuffer;
+		descriptorWrites[2].dstSet = _computeDescriptorSet[i];
+
+
+		_device.updateDescriptorSet( descriptorWrites );
+	}
+}
+
 
 void RenderEngine::createLightBuffer()
 {
 	_lighting.eyePos = glm::vec3( 0, 0, -2.5f );
 
-	_lighting.ambietnVal = 0.001;
+	_lighting.ambietnVal = 0.0001;
 
 	VkDeviceSize memorySize = sizeof( int ) + (sizeof( Light ) * MAX_LIGHTS) + sizeof( uint8_t ) * 16;
 	_lightBufferSorage = _device.createBuffer( memorySize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
 	_device.mapMemory( _lightBufferSorage->getMemory(), 0, memorySize, &_lightBufferStorageMapped );
 
+
+
+	//BUffer de indicies (el plan es que solo exista en gpu ya que es para hacer el culling de luces en un shader de computo)
+	memorySize = sizeof( int ) + (sizeof( int ) * MAX_LIGHTS);
+	_lightIndexStorage = _device.createBuffer( memorySize,(VkBufferUsageFlagBits)(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+	//std::vector<uint32_t> index;
+	//for (int i = 0; i < MAX_LIGHTS;i++) {
+	//	index.push_back( i );
+	//}
+
+	//Buffer* staginBuffer = _device.createBuffer( memorySize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+	//									 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
+	//
+	//int size = index.size();
+	//
+	//void* dataMap;
+	//_device.mapMemory( staginBuffer->getMemory(), 0, sizeof( uint32_t ), &dataMap);
+	//memcpy( dataMap, &size, sizeof( uint32_t ) );
+	//_device.unmapMemory( staginBuffer->getMemory() );
+	//_device.mapMemory( staginBuffer->getMemory(), sizeof( uint32_t ), memorySize, &dataMap);
+	//memcpy( dataMap, index.data(), index.size() * sizeof( uint32_t ) );
+	//_device.unmapMemory( staginBuffer->getMemory() );
+
+	//_device.copyBuffer( staginBuffer->getBuffer(), _lightIndexStorage->getBuffer(), memorySize);
+
+	//delete staginBuffer;
 
 }
 
@@ -1086,7 +1226,14 @@ void RenderEngine::createDescriptorSetLayout()
 	lightsBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 	lightsBinding.pImmutableSamplers = nullptr;
 
-	std::vector<VkDescriptorSetLayoutBinding> bindings2 = { input1, input2 ,input3, lightingBinding, lightsBinding };
+	VkDescriptorSetLayoutBinding lightIndexBuffer{};
+	lightIndexBuffer.binding = 5;
+	lightIndexBuffer.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	lightIndexBuffer.descriptorCount = 1;
+	lightIndexBuffer.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	lightIndexBuffer.pImmutableSamplers = nullptr;
+
+	std::vector<VkDescriptorSetLayoutBinding> bindings2 = { input1, input2 ,input3, lightingBinding, lightsBinding, lightIndexBuffer };
 	VkDescriptorSetLayoutCreateInfo deferredLayout{};
 	deferredLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 	deferredLayout.bindingCount = static_cast<uint32_t>(bindings2.size());
@@ -1094,6 +1241,40 @@ void RenderEngine::createDescriptorSetLayout()
 
 	deferredDescriptorSetLayout = _device.createDescriptorSetLayout( deferredLayout );
 
+}
+
+void RenderEngine::createComputeDescriptorSetLayout()
+{
+
+	VkDescriptorSetLayoutBinding lightIndexBuffer{};
+	lightIndexBuffer.binding = 0;
+	lightIndexBuffer.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	lightIndexBuffer.descriptorCount = 1;
+	lightIndexBuffer.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	lightIndexBuffer.pImmutableSamplers = nullptr;
+
+	VkDescriptorSetLayoutBinding lightBuffer2{};
+	lightBuffer2.binding = 1;
+	lightBuffer2.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	lightBuffer2.descriptorCount = 1;
+	lightBuffer2.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	lightBuffer2.pImmutableSamplers = nullptr;
+
+	VkDescriptorSetLayoutBinding lightingBinding{};
+	lightingBinding.binding = 2;
+	lightingBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	lightingBinding.descriptorCount = 1;
+	lightingBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	lightingBinding.pImmutableSamplers = nullptr;
+
+	std::vector<VkDescriptorSetLayoutBinding> bindings = { lightIndexBuffer,lightBuffer2, lightingBinding };
+
+	VkDescriptorSetLayoutCreateInfo computeLayout{};
+	computeLayout.bindingCount = static_cast<uint32_t>(bindings.size());
+	computeLayout.pBindings = bindings.data();
+	computeLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+
+	_computeDescriptorSetLayout = _device.createDescriptorSetLayout(computeLayout);
 }
 
 
@@ -1146,6 +1327,8 @@ void RenderEngine::createDescriptorPool()
 
 	int numOfUniformBuffres = 3;
 
+	int numOfStorageBuffers = 4;
+
 	std::array<VkDescriptorPoolSize, 4> poolSizes{};
 	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * numOfUniformBuffres;
@@ -1154,13 +1337,13 @@ void RenderEngine::createDescriptorPool()
 	poolSizes[2].type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
 	poolSizes[2].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * numOfInputAttachments * 2;
 	poolSizes[3].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	poolSizes[3].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+	poolSizes[3].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)*numOfStorageBuffers;
 
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 	poolInfo.pPoolSizes = poolSizes.data();
-	poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 2;
+	poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 3;
 
 	//if (vkCreateDescriptorPool(_device._device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
 	//    throw std::runtime_error("failed to create descriptor pool!");
@@ -1211,6 +1394,8 @@ void RenderEngine::createDescriptorSets()
 
 void RenderEngine::createDeferredDescriptorSets()
 {
+	std::vector<VkDescriptorSetLayout> layouts2( MAX_FRAMES_IN_FLIGHT, _computeDescriptorSetLayout);
+	_computeDescriptorSet = _device.createDescriptorSets( layouts2, descriptorPool );
 
 	std::vector<VkDescriptorSetLayout> layouts( MAX_FRAMES_IN_FLIGHT, deferredDescriptorSetLayout );
 	lightingDescriptorSets = _device.createDescriptorSets( layouts, descriptorPool );
@@ -1271,7 +1456,7 @@ void RenderEngine::updateLightingDescriptorSets()
 {
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 
-		std::vector<VkWriteDescriptorSet> descriptorWrites( 5 );
+		std::vector<VkWriteDescriptorSet> descriptorWrites( 6 );
 
 		VkDescriptorImageInfo inputInfo{};
 		inputInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -1344,6 +1529,20 @@ void RenderEngine::updateLightingDescriptorSets()
 		descriptorWrites[4].descriptorCount = 1;
 		descriptorWrites[4].pBufferInfo = &storageBufferInfo;
 		descriptorWrites[4].dstSet = lightingDescriptorSets[i];
+
+
+		VkDescriptorBufferInfo storageBufferInfo2;
+		storageBufferInfo2.buffer = _lightIndexStorage->getBuffer();
+		storageBufferInfo2.offset = 0;
+		storageBufferInfo2.range = sizeof( int ) + (sizeof( int ) * MAX_LIGHTS);
+						 
+		descriptorWrites[5].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrites[5].dstBinding = 5;
+		descriptorWrites[5].dstArrayElement = 0;
+		descriptorWrites[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		descriptorWrites[5].descriptorCount = 1;
+		descriptorWrites[5].pBufferInfo = &storageBufferInfo2;
+		descriptorWrites[5].dstSet = lightingDescriptorSets[i];
 
 
 		//descriptorWritesVec.push_back( std::move( descriptorWrites ) );
@@ -1542,14 +1741,17 @@ void RenderEngine::init( const std::string& appName )
 
 	graphicsQueue = _device.getGraphicsQueue();
 	presentQueue = _device.getPresentQueue();
+	computeQueue = _device.getComputeQueue();
 	_window.setDevice( &_device );
 	_window.createSwapChain();
 
 
 	createRenderPass();
 	createDescriptorSetLayout();
+	createComputeDescriptorSetLayout();
 	createGraphicsPipeline();
 	createDeferredPipeline();
+	createComputePipeline();
 
 	createColorResources();
 	createDepthResources();
@@ -1577,6 +1779,7 @@ void RenderEngine::init( const std::string& appName )
 	createDeferredDescriptorSets();
 	updateGeometryDescriptorSets();
 	updateLightingDescriptorSets();
+	updateComputeDescritorSet();
 
 }
 
@@ -1733,10 +1936,18 @@ void RenderEngine::createRenderPass()
 	dependency3.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
 	dependency3.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
+	VkSubpassDependency dependency4{};
+	dependency4.srcSubpass = VK_SUBPASS_EXTERNAL;
+	dependency4.dstSubpass = 1;
+	dependency4.srcStageMask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+	dependency4.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	dependency4.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+	dependency4.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	dependency4.dependencyFlags = VK_DEPENDENCY_DEVICE_GROUP_BIT;
+
 	VkSubpassDescription subpasses[] = { subpass,lightingSubPass };
 
-	VkSubpassDependency dependencies[] = { dependency,dependency2 , dependency3 };
-
+	VkSubpassDependency dependencies[] = { dependency,dependency2 , dependency3, dependency4 };
 
 	std::array<VkAttachmentDescription, 5> attachments = { presentAttachment, depthAttachment,colorAttachment, normalAttachment,posAttachment };
 	VkRenderPassCreateInfo renderPassInfo{};
@@ -1745,7 +1956,7 @@ void RenderEngine::createRenderPass()
 	renderPassInfo.pAttachments = attachments.data();
 	renderPassInfo.subpassCount = 2;
 	renderPassInfo.pSubpasses = subpasses;
-	renderPassInfo.dependencyCount = 3;
+	renderPassInfo.dependencyCount = 4;
 	renderPassInfo.pDependencies = dependencies;
 
 	//if (vkCreateRenderPass(_device._device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {

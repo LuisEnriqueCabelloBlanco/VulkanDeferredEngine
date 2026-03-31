@@ -155,7 +155,7 @@
       <AdditionalDependencies>SDL2.lib;vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
-      <Command>$(SolutionDir)utils/shader_compilation.bat ../assets/ $(SolutionDir)assets\shaders\build\</Command>
+      <Command>$(SolutionDir)utils/shader_compilation.bat assets/ $(SolutionDir)assets/shaders/build/</Command>
       <Message>Compilacion de los shaders</Message>
     </PreBuildEvent>
     <CustomBuildStep>
@@ -191,7 +191,7 @@
     </Link>
     <PreBuildEvent>
       <Message>Compilacion de los shaders</Message>
-      <Command>$(SolutionDir)utils/shader_compilation.bat ../assets/ $(SolutionDir)assets\shaders\build\</Command>
+      <Command>$(SolutionDir)utils/shader_compilation.bat assets/ $(SolutionDir)assets/shaders/build/</Command>
     </PreBuildEvent>
     <PostBuildEvent>
       <Command>

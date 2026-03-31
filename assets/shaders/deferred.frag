@@ -11,6 +11,7 @@ struct Light{
     //vec3 dir; // direccion de la luz (direcioal)
     vec3 color; // color
     float intensity; // intensidad
+    float range; //rango de iluminacion de luz puntual
 };
 
 //layout(binding  = 1) uniform sampler2D texSampler;
@@ -22,8 +23,13 @@ layout(binding = 3 ) uniform GlobalLightData{
 
 layout(binding= 4) readonly buffer LightBuffer {
     int count;
-    Light lights[100];
+    Light lights[];
 }lightBuffer;
+
+layout(binding = 5) readonly buffer LightIndexBuffer{
+    int count;
+    uint index[];
+}lightIndexBuffer;
 
 layout(location = 0) out vec4 outColor;
 
@@ -104,7 +110,7 @@ vec3 PBR(Light l, float ambient, vec3 albedo, float metallic, float roughness, v
 
     vec3 halfView = normalize(view+l.dir_center);
 
-    return ambient*albedo + BRDF(normalVec,view,F0,albedo, halfView, l,metallic, roughness );
+    return BRDF(normalVec,view,F0,albedo, halfView, l,metallic, roughness );
 }
 
 void main() {
@@ -128,28 +134,28 @@ void main() {
     // lightData.color = light.dirLight.color.rgb;
     // lightData.intensity = light.dirLight.intensity;
 
-
-
-    for(int i=0 ; i<lightBuffer.count;i++){
+    for(int i=0 ; i<lightIndexBuffer.count;i++){
         Light aux;
 
+        uint index = lightIndexBuffer.index[i];
+
         //luz direccional
-        if(lightBuffer.lights[i].type == 0){
-            aux.dir_center = -normalize(lightBuffer.lights[i].dir_center);
-            aux.color = lightBuffer.lights[i].color;
-            aux.intensity = lightBuffer.lights[i].intensity;
+        if(lightBuffer.lights[index].type == 0){
+            aux.dir_center = -normalize(lightBuffer.lights[index].dir_center);
+            aux.color = lightBuffer.lights[index].color;
+            aux.intensity = lightBuffer.lights[index].intensity;
 
             colorVal += PBR(aux, light.ambient, sampleColor, metallic, roughness, normalVec, viewVector);
         }
 
         //luz posicional
-        if(lightBuffer.lights[i].type == 1){
-            vec3 ponintToPos = lightBuffer.lights[i].dir_center-subpassLoad(position).rgb;
+        if(lightBuffer.lights[index].type == 1){
+            vec3 ponintToPos = lightBuffer.lights[index].dir_center-subpassLoad(position).rgb;
             aux.dir_center = normalize(ponintToPos);
-            aux.color =  lightBuffer.lights[i].color.rgb;
-            aux.intensity =  lightBuffer.lights[i].intensity/(length(ponintToPos)*length(ponintToPos));
+            aux.color =  lightBuffer.lights[index].color.rgb;
+            aux.intensity =  lightBuffer.lights[index].intensity/(length(ponintToPos)*length(ponintToPos));
             //TOOD hacer parametro de rango de la luz
-            if(pointToPos.length() < 100){
+            if(ponintToPos.length() < lightBuffer.lights[index].range){
                 colorVal += PBR(aux, light.ambient, sampleColor, metallic, roughness, normalVec, viewVector);
             }
 
@@ -157,6 +163,8 @@ void main() {
 
         
     }
+    
+    colorVal += light.ambient * sampleColor;
     
     if(lightBuffer.count < 1){
         colorVal = subpassLoad(color).rgb * light.ambient;

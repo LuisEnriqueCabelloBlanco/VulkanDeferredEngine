@@ -454,6 +454,17 @@ std::vector<VkPipeline> VulkanDevice::createPipelines( VkPipelineCache pipelineC
     return pipelines;
 }
 
+std::vector<VkPipeline> VulkanDevice::createcomputePipelines( VkPipelineCache pipelineCache, std::vector<VkComputePipelineCreateInfo> createInfos, VkAllocationCallbacks* pAllocator )
+{
+    std::vector<VkPipeline> pipelines( createInfos.size() );
+
+    if (vkCreateComputePipelines( _device, VK_NULL_HANDLE, createInfos.size(), createInfos.data(), pAllocator, pipelines.data() ) != VK_SUCCESS) {
+        throw std::runtime_error( "failed to create graphics pipeline!" );
+    }
+
+    return pipelines;
+}
+
 std::vector<VkCommandBuffer> VulkanDevice::createCommandBuffers( VkCommandPool comandPool, VkCommandBufferLevel level, uint32_t numCommandBuffers )
 {
     std::vector<VkCommandBuffer> commandBuffers( numCommandBuffers );
@@ -590,7 +601,16 @@ std::vector<VkDescriptorSet> VulkanDevice::createDescriptorSets(const std::vecto
 
     //reservamos tanta memoria como sea necesaria para todos los sets de informacion
     descriptorSets.resize( layouts.size() );
-    if (vkAllocateDescriptorSets( _device, &allocInfo, descriptorSets.data() ) != VK_SUCCESS) {
+    VkResult res =vkAllocateDescriptorSets( _device, &allocInfo, descriptorSets.data() );
+    if (res!= VK_SUCCESS) {
+        
+        if (res == VkResult::VK_ERROR_OUT_OF_POOL_MEMORY) {
+            std::cout << "No hay mas pool";
+        }
+
+        if (res == VkResult::VK_ERROR_OUT_OF_DEVICE_MEMORY) {
+            std::cout << "No hay mas memoria en el device";
+        }
         throw std::runtime_error( "failed to allocate descriptor sets!" );
     }
 
@@ -620,6 +640,13 @@ VkQueue VulkanDevice::getTransferQueue()
 {
     VkQueue q;
     vkGetDeviceQueue( _device, _familyIndx.transferFamily.value(), 0, &q );
+    return q;
+}
+
+VkQueue VulkanDevice::getComputeQueue()
+{
+    VkQueue q;
+    vkGetDeviceQueue( _device, _familyIndx.computeFamily.value(), 0, &q );
     return q;
 }
 

@@ -131,6 +131,11 @@ void App::loadModels()
     v2.texCoord = glm::vec2(2,0);
     v3.texCoord = glm::vec2(0,2);
 
+    v1.tangent = glm::vec3(normalize(v1.pos-v2.pos));
+    v2.tangent = glm::vec3(normalize(v1.pos-v2.pos));
+    v3.tangent = glm::vec3(normalize(v1.pos-v2.pos));
+
+
     vertices.push_back( v1 );
     vertices.push_back( v2 );
     vertices.push_back( v3 );
@@ -157,6 +162,13 @@ void App::loadModels()
     mat3.texutreIndex = wallColor;
     mat3.normalTextureIndex = wallNormal;
 
+    MaterialData planeMat;
+
+    planeMat.metallic = 0;
+    planeMat.roughtness = 0.5;
+    planeMat.texutreIndex = whiteTextureHandle;
+    planeMat.normalTextureIndex = -1;
+
     Mesh* mesh = _engine.createMesh( vertices );
 
     objects.push_back( { mesh, glm::mat4( 1 ),mat3 });
@@ -165,9 +177,9 @@ void App::loadModels()
 
     objects.push_back( { mesh2, glm::mat4( 1 ),mat1 } );
 
-    Mesh* mesh3 = _engine.createMesh(MODEL_PATH2);
+    Mesh* mesh3 = _engine.createMesh(MODEL_PATH4);
 
-    objects.push_back( { mesh3, glm::mat4( 10 ),mat2 } );
+    objects.push_back( { mesh3, glm::mat4( 10 ),planeMat } );
 
     mesh2 = _engine.createMesh( MODEL_PATH3 );
     objects.push_back( { mesh2, glm::translate(glm::mat4(1),glm::vec3(2.5,0,0)),mat2 });
@@ -187,15 +199,15 @@ void App::loadModels()
 
 void App::addLighting()
 {
-    _engine.createDirectionalLight( glm::vec3( 0, -1, 5 ), glm::vec3( 0.3, 0.3, 0.3 ), 0.3 );
-    _engine.createPointLight( glm::vec3( 0, 0, -1 ), glm::vec3( 1, 0, 0 ), 1 );
-    _engine.createPointLight( glm::vec3( 1, 0, -1 ), glm::vec3( 0, 1, 0 ), 1 );
-    _engine.createPointLight( glm::vec3( -1, 0, -1 ), glm::vec3( 0, 0, 1 ), 1 );
+    _engine.createDirectionalLight( glm::vec3( 0, -1, 5 ), glm::vec3( 0.3, 0.3, 0.3 ), 0.5 );
+    _engine.createPointLight( glm::vec3( 0, 0, -1 ), glm::vec3( 1, 0, 0 ), 1,10 );
+    _engine.createPointLight( glm::vec3( 1, 0, -1 ), glm::vec3( 0, 1, 0 ), 1,10 );
+    _engine.createPointLight( glm::vec3( -1, 0, -1 ), glm::vec3( 0, 0, 1 ), 1,10 );
 
 
-    for (int i = 0; i < 10;i++) {
-        for (int j = 0; j < 10; j++) {
-            _engine.createPointLight( glm::vec3( -5 + i * -5, -0.5, j * 5 - 1.5 ), glm::vec3( 0.01*i, 0.01*j, (i*j)/1000 ), 1 );
+    for (int i = 0; i < 100;i++) {
+        for (int j = 0; j < 99; j++) {
+            _engine.createPointLight( glm::vec3( -5 + i * -5, -0.5, j * 5 - 1.5 ), glm::vec3( 0.01*i, 0.01*j, 1 ),1,10);
         }
     }
 }

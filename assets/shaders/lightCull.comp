@@ -1,0 +1,64 @@
+#version 450
+#extension GL_EXT_debug_printf : enable
+
+layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
+// layout(binding = 0) uniform UniformBufferObject {
+//     mat4 view;
+//     mat4 proj;
+// } ubo;
+
+struct Light{
+    vec3 dir_center; // posicon de la luz
+    int type; // 0 direcional, 1 puntual
+    //vec3 dir; // direccion de la luz (direcioal)
+    vec3 color; // color
+    float intensity; // intensidad
+    float range; //rango de iluminacion de luz puntual
+};
+
+layout(binding = 0) buffer LightIndexBuffer{
+    int count;
+    uint index[];
+}indexBuffer;
+
+layout(binding= 1) readonly buffer LightBuffer {
+    int count;
+    Light lights[];
+}lightBuffer;
+
+layout(binding = 2) uniform CameraData{
+    vec3 eyePos;
+    float ambient;
+}cameraData;
+
+
+bool isVisible(Light light){
+    bool visible = false;
+
+    if(light.type != 0){
+        //Calcular si esta dentro del frustrum de la camara
+        vec3 pos = light.dir_center;
+
+        visible = distance(pos,cameraData.eyePos) < 100;
+    }
+
+    return light.type==0 || visible;
+}
+
+void main(){    
+
+    uint ID = gl_GlobalInvocationID.x;
+    if(ID == 0){
+        indexBuffer.count = 0;
+    }
+
+    if(ID < lightBuffer.count ){
+        bool visible = isVisible(lightBuffer.lights[ID]);
+
+        if(visible){
+            uint lastIndex = atomicAdd(indexBuffer.count,1);
+            indexBuffer.index[lastIndex] = ID;
+        }
+    }
+    debugPrintfEXT("id: %i bufferCount: %i",ID,indexBuffer.count);
+}

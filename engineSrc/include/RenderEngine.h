@@ -19,9 +19,9 @@
 
 #include "Camera.h"
 
-constexpr int MAX_FRAMES_IN_FLIGHT = 1;
+constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
-constexpr int MAX_LIGHTS = 1000; 
+constexpr int MAX_LIGHTS = 10000; 
 
 constexpr int MAX_TEXTURES = 32;
 
@@ -82,7 +82,7 @@ public:
     Mesh* createMesh( const std::vector<Vertex>& vertices );
     Mesh* createMesh( const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices );
 
-    void createPointLight(glm::vec3 position, glm::vec3 color, float intensity);
+    void createPointLight(glm::vec3 position, glm::vec3 color, float intensity, float range);
     void createDirectionalLight( glm::vec3 direction, glm::vec3 color, float intensity );
 
 
@@ -121,7 +121,7 @@ private:
 
         if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
             // Message is important enough to show
-            std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl << std::endl;
+            std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
         }
 
         if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
@@ -137,6 +137,8 @@ private:
     void createGraphicsPipeline();
 
     void createDeferredPipeline();
+    
+    void createComputePipeline();
 
     void createFramebuffers();
 
@@ -160,11 +162,13 @@ private:
 
     void updateUniformBuffer( uint32_t currentImage, glm::mat4 model );
 
+    void updateComputeDescritorSet();
+
     void createLightBuffer();
 
-
-
     void createDescriptorSetLayout();
+
+    void createComputeDescriptorSetLayout();
 
     VkFormat findDepthFormat();
 
@@ -203,6 +207,7 @@ private:
 
     VkQueue graphicsQueue;
     VkQueue presentQueue;
+    VkQueue computeQueue;
 
     VkRenderPass renderPass;
     VkDescriptorSetLayout descriptorSetLayout;
@@ -242,6 +247,14 @@ private:
     Buffer* _lightBufferSorage;
     std::vector<Light> _lightBuffer;
     void* _lightBufferStorageMapped;
+
+    Buffer* _lightIndexStorage;
+
+    std::vector<VkDescriptorSet> _computeDescriptorSet;
+    VkDescriptorSetLayout _computeDescriptorSetLayout;
+    VkPipelineLayout _computeLayout;
+    VkPipeline _computePipeline;
+
 
     Camera _mainCamera;
 

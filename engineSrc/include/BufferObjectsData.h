@@ -26,11 +26,12 @@ struct PointLight {
     float intensity;
 };
 
-struct Light {
+struct alignas(16) Light {
     glm::vec3 pos_dir;
     int type;
     glm::vec3 color;
     float intensity;
+    alignas(16) float range;
 };
 
 struct UniformBufferObject {

@@ -60,6 +60,7 @@ public:
 	VkQueue getGraphicsQueue();
 	VkQueue getPresentQueue();
 	VkQueue getTransferQueue();
+	VkQueue getComputeQueue();
 	VkSampleCountFlagBits getMssaSamples() const { return msaaSamples; }
 
 #pragma endregion
@@ -79,6 +80,8 @@ public:
 	VkSwapchainKHR createSwapChain( const VkSurfaceKHR& surface, VkFormat& format, VkExtent2D& extent, std::vector<VkImage>& images );
 
 	std::vector<VkPipeline> createPipelines( VkPipelineCache pipelineCache, std::vector<VkGraphicsPipelineCreateInfo> createInfos, VkAllocationCallbacks* pAllocator = nullptr );
+	
+	std::vector<VkPipeline> createcomputePipelines( VkPipelineCache pipelineCache, std::vector<VkComputePipelineCreateInfo> createInfos, VkAllocationCallbacks* pAllocator = nullptr );
 
 	std::vector<VkCommandBuffer> createCommandBuffers( VkCommandPool comandPool, VkCommandBufferLevel level, uint32_t numCommandBuffers );
 
