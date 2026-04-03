@@ -31,7 +31,8 @@ layout(location = 4) out mat3 TBN;
 
 void main() {
    // ubo.proj * ubo.view * ubo.model *
-   gl_Position = ubo.proj * ubo.view * modelMat * vec4(inPosition, 1.0);
+   vec4 modelPos = modelMat * vec4(inPosition, 1.0);
+   gl_Position = ubo.proj * ubo.view * modelPos;
    outPosition = (modelMat * vec4(inPosition, 1.0)).rgb;
    fragColor = inColor;
    fragTexCoord = inTexCoord;

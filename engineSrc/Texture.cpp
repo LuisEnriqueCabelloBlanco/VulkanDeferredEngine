@@ -83,7 +83,7 @@ void Texture::createImageView(VkFormat format, VkImageAspectFlags aspectFlags, u
     textureImageView = device.createImageView(textureImage, format, aspectFlags, mipLevels);
 }
 
-void Texture::createTextureSampler()
+void Texture::createTextureSampler(VkSamplerAddressMode addresMode)
 {
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -91,9 +91,9 @@ void Texture::createTextureSampler()
     samplerInfo.minFilter = VK_FILTER_LINEAR;
 
     //se podria configurar para cambiar el modo de repeticion
-    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeU = addresMode;
+    samplerInfo.addressModeV = addresMode;
+    samplerInfo.addressModeW = addresMode;
 
     //VkPhysicalDeviceProperties properties{};
     //vkGetPhysicalDeviceProperties(device._physicalDevice, &properties);

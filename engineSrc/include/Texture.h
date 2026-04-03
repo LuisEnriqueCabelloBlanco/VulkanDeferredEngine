@@ -10,7 +10,7 @@ public:
 	void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format,
 		VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties);
 	void createImageView(VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
-	void createTextureSampler();
+	void createTextureSampler( VkSamplerAddressMode addresMode = VK_SAMPLER_ADDRESS_MODE_REPEAT );
 
 
 	VkDescriptorImageInfo getTextureDescriptor(VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);

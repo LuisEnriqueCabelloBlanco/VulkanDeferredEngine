@@ -43,6 +43,7 @@ void RenderEngine::cleanup()
 	delete _lightUniformBuffer;
 	delete _lightBufferSorage;
 	delete _lightIndexStorage;
+	delete mainLightData;
 
 	//vkDestroyDescriptorPool(_device._device, descriptorPool, nullptr);
 	_device.destroyDescriptorPool( descriptorPool );
@@ -51,21 +52,24 @@ void RenderEngine::cleanup()
 	_device.destroyDescriptorSetLayout( descriptorSetLayout );
 	_device.destroyDescriptorSetLayout( deferredDescriptorSetLayout );
 	_device.destroyDescriptorSetLayout( _computeDescriptorSetLayout );
+	_device.destroyDescriptorSetLayout( _shadowDescriptorSetLayout );
 
 	_device.destroyPipeline( graphicsPipeline );
 	_device.destroyPipeline( noTexPipeline );
 	_device.destroyPipeline( _computePipeline );
 	_device.destroyPipeline( deferredPipeline );
-
+	_device.destroyPipeline( _shadowPipeline );
 
 
 	_device.destroyPipelineLayout( pipelineLayout );
 	_device.destroyPipelineLayout( deferredLayout );
 	_device.destroyPipelineLayout( _computeLayout );
+	_device.destroyPipelineLayout( _shadowPipelineLayout );
 
 
 	//vkDestroyRenderPass(_device._device, renderPass, nullptr);
 	_device.destroyRenderPass( renderPass );
+	_device.destroyRenderPass( shadowPass );
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 		_device.destroySemaphore( renderFinishedSemaphores[i] );
@@ -84,10 +88,12 @@ void RenderEngine::cleanup()
 	delete normalTexture;
 	delete colorTexture;
 	delete posTexture;
+	delete shadowMap;
 
 	for (auto framebuffer : swapChainFramebuffers) {
 		_device.destroyFrameBuffer( framebuffer );
 	}
+	_device.destroyFrameBuffer( _shadowFrameBuffer );
 
 	_window.close();
 
@@ -566,12 +572,6 @@ void RenderEngine::createDeferredPipeline()
 	pipelineInfo.subpass = 1;
 
 
-
-	//if (vkCreateGraphicsPipelines(_device._device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
-	//    throw std::runtime_error("failed to create graphics pipeline!");
-	//}
-
-
 	deferredPipeline = _device.createPipelines( VK_NULL_HANDLE, { pipelineInfo } )[0];
 
 	_device.destroyShaderModule( vertShaderModule );
@@ -611,6 +611,133 @@ void RenderEngine::createComputePipeline()
 	_device.destroyShaderModule( computeModule );
 }
 
+void RenderEngine::createShadowPipeline()
+{
+	auto vertShaderCode = readFile( "./shaders/build/shadowVertex" );
+
+	VkShaderModule vertShaderModule = _device.createShaderModule( vertShaderCode );
+
+
+
+	VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
+	vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+	vertShaderStageInfo.module = vertShaderModule;
+	vertShaderStageInfo.pName = "main";
+
+
+	VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo };
+
+
+	auto bindingDescription = Vertex::getBindingDescription();
+	auto attributeDescriptions = Vertex::getAttributeDescriptions();
+	//Configuracion de los vertices
+	VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	vertexInputInfo.vertexBindingDescriptionCount = 1;
+	vertexInputInfo.pVertexBindingDescriptions = &bindingDescription; // Optional
+	vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+	vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data(); // Optional
+
+
+	VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	inputAssembly.primitiveRestartEnable = VK_FALSE;
+
+	VkPipelineViewportStateCreateInfo viewportState{};
+	viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	viewportState.viewportCount = 1;
+	viewportState.scissorCount = 1;
+
+		VkPipelineMultisampleStateCreateInfo multisampling{};
+	multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	multisampling.sampleShadingEnable = VK_FALSE;
+	multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+	multisampling.minSampleShading = 1.0f; // Optional
+	multisampling.pSampleMask = nullptr; // Optional
+	multisampling.alphaToCoverageEnable = VK_FALSE; // Optional
+	multisampling.alphaToOneEnable = VK_FALSE; // Optional
+
+
+	VkPipelineRasterizationStateCreateInfo rasterizer{};
+	rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+	rasterizer.depthClampEnable = VK_FALSE;
+	//determina si la geometria pasa por el estado de rasterizado
+	rasterizer.rasterizerDiscardEnable = VK_FALSE;
+	//poligon mode de openGL
+	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+	//lineWidth de openGL
+	rasterizer.lineWidth = 1.0f;
+	rasterizer.cullMode = VK_CULL_MODE_NONE;
+	rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+	rasterizer.depthBiasEnable = VK_FALSE;
+	rasterizer.depthBiasConstantFactor = 0.0f; // Optional
+	rasterizer.depthBiasClamp = 0.0f; // Optional
+	rasterizer.depthBiasSlopeFactor = 0.0f; // Optional
+
+
+	VkPipelineDepthStencilStateCreateInfo depthStencil{};
+	depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	depthStencil.depthTestEnable = VK_TRUE;
+	depthStencil.depthWriteEnable = VK_TRUE;
+	depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+	depthStencil.depthBoundsTestEnable = VK_FALSE;
+	depthStencil.minDepthBounds = 0.0f; // Optional
+	depthStencil.maxDepthBounds = 1.0f; // Optional
+	depthStencil.stencilTestEnable = VK_FALSE;
+	depthStencil.front = {}; // Optional
+	depthStencil.back = {}; // Optional
+
+	std::vector<VkDynamicState> dynamicStates = {
+	VK_DYNAMIC_STATE_VIEWPORT,
+	VK_DYNAMIC_STATE_SCISSOR
+	};
+
+	VkPipelineDynamicStateCreateInfo dynamicState{};
+	dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+	dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
+	dynamicState.pDynamicStates = dynamicStates.data();
+
+
+	VkPushConstantRange range{};
+	range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	range.size = sizeof( glm::mat4 );
+	range.offset = 0;
+
+	VkPushConstantRange ranges[] = { range };
+
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	pipelineLayoutInfo.pushConstantRangeCount = 1;
+	pipelineLayoutInfo.pPushConstantRanges = ranges;
+	pipelineLayoutInfo.setLayoutCount = 1; // Optional
+	pipelineLayoutInfo.pSetLayouts = &_shadowDescriptorSetLayout; // Optional
+
+	_shadowPipelineLayout = _device.createPipelineLayout( pipelineLayoutInfo );
+
+	VkGraphicsPipelineCreateInfo pipelineInfo{};
+	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	pipelineInfo.stageCount = 1;
+	pipelineInfo.pStages = shaderStages;
+	pipelineInfo.pVertexInputState = &vertexInputInfo;
+	pipelineInfo.pInputAssemblyState = &inputAssembly;
+	pipelineInfo.pViewportState = &viewportState;
+	pipelineInfo.pRasterizationState = &rasterizer;
+	pipelineInfo.pMultisampleState = &multisampling;
+	pipelineInfo.pDepthStencilState = &depthStencil; // Optional
+	pipelineInfo.pColorBlendState = nullptr;
+	pipelineInfo.pDynamicState = &dynamicState;
+	pipelineInfo.layout = _shadowPipelineLayout;
+	pipelineInfo.renderPass = shadowPass;
+	pipelineInfo.subpass = 0;
+
+
+	_shadowPipeline = _device.createPipelines( VK_NULL_HANDLE, { pipelineInfo } )[0];
+
+	_device.destroyShaderModule( vertShaderModule );
+}
+
 void RenderEngine::createFramebuffers()
 {
 	swapChainFramebuffers.resize( _window.getImageViews().size() );
@@ -642,6 +769,29 @@ void RenderEngine::createFramebuffers()
 
 		swapChainFramebuffers[i] = _device.createFrameBuffer( framebufferInfo );
 	}
+}
+
+void RenderEngine::createShadowFrameBuffer()
+{
+	//el orden debe coincidir con la especificacion realizada en la descripcion de la pipeline
+	std::array<VkImageView, 1> attachments = {
+		shadowMap->textureImageView
+	};
+
+	VkFramebufferCreateInfo framebufferInfo{};
+	framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+	framebufferInfo.renderPass = shadowPass;
+	framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+	framebufferInfo.pAttachments = attachments.data();
+	framebufferInfo.width = _window.getExtent().width;
+	framebufferInfo.height = _window.getExtent().height;
+	framebufferInfo.layers = 1;
+
+	//if (vkCreateFramebuffer(_device._device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS) {
+	//    throw std::runtime_error("failed to create framebuffer!");
+	//}
+
+	_shadowFrameBuffer = _device.createFrameBuffer( framebufferInfo );
 }
 
 void RenderEngine::createCommandPool()
@@ -754,6 +904,8 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 	vkCmdDispatch( commandBuffer, (MAX_LIGHTS/32)+1, 1, 1 );
 
 	vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 1, &memBarr, 0, nullptr );
+
+	recordShadowPass( commandBuffer, objectsArray );
 
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
@@ -1035,6 +1187,14 @@ void RenderEngine::updateUniformBuffer( uint32_t currentImage, glm::mat4 model )
 
 	memcpy( _lightBufferMapped, &_lighting, sizeof( _lighting ) );
 	//vkCmdUpdateBuffer( commandBuffers[currentImage], uniformBuffers[currentImage]->getBuffer(), 0, sizeof( UniformBufferObject ), uniformBuffersMapped[currentImage] );
+
+	float ratio = _window.getExtent().width / _window.getExtent().height;
+	float scale = 10;
+	lightCameraUBO->proj = glm::ortho( -ratio*scale, ratio*scale, scale, -scale, 0.01f, 100.0f );
+	
+	glm::vec3 position = glm::vec3( 5, 10, -10 );
+	lightCameraUBO->view = glm::lookAt( position, position+mainLight->pos_dir,glm::vec3(0,1,0) );
+
 }
 
 void RenderEngine::updateComputeDescritorSet()
@@ -1089,12 +1249,34 @@ void RenderEngine::updateComputeDescritorSet()
 	}
 }
 
+void RenderEngine::updateShadowDescriptorSet()
+{
+	int size = 1;
+
+	std::vector<VkWriteDescriptorSet> descriptorWrites( size );
+
+	VkDescriptorBufferInfo bufferInfo{};
+	bufferInfo.buffer = mainLightData->getBuffer();
+	bufferInfo.offset = 0;
+	bufferInfo.range = sizeof( UniformBufferObject );
+
+	descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrites[0].dstBinding = 0;
+	descriptorWrites[0].dstArrayElement = 0;
+	descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	descriptorWrites[0].descriptorCount = 1;
+	descriptorWrites[0].pBufferInfo = &bufferInfo;
+	descriptorWrites[0].dstSet = _shadowDescriptorSet;
+
+	_device.updateDescriptorSet( descriptorWrites );
+}
+
 
 void RenderEngine::createLightBuffer()
 {
 	_lighting.eyePos = glm::vec3( 0, 0, -2.5f );
 
-	_lighting.ambietnVal = 0.0001;
+	_lighting.ambietnVal = 0.01;
 
 	VkDeviceSize memorySize = sizeof( int ) + (sizeof( Light ) * MAX_LIGHTS) + sizeof( uint8_t ) * 16;
 	_lightBufferSorage = _device.createBuffer( memorySize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
@@ -1233,7 +1415,17 @@ void RenderEngine::createDescriptorSetLayout()
 	lightIndexBuffer.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 	lightIndexBuffer.pImmutableSamplers = nullptr;
 
-	std::vector<VkDescriptorSetLayoutBinding> bindings2 = { input1, input2 ,input3, lightingBinding, lightsBinding, lightIndexBuffer };
+	VkDescriptorSetLayoutBinding shadowMap{};
+	shadowMap.binding = 6;
+	shadowMap.descriptorCount = 1;
+	shadowMap.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	shadowMap.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	shadowMap.pImmutableSamplers = nullptr;
+
+	uboLayoutBinding.binding = 7;
+	uboLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+	std::vector<VkDescriptorSetLayoutBinding> bindings2 = { input1, input2 ,input3, lightingBinding, lightsBinding, lightIndexBuffer,shadowMap,uboLayoutBinding };
 	VkDescriptorSetLayoutCreateInfo deferredLayout{};
 	deferredLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 	deferredLayout.bindingCount = static_cast<uint32_t>(bindings2.size());
@@ -1277,6 +1469,27 @@ void RenderEngine::createComputeDescriptorSetLayout()
 	_computeDescriptorSetLayout = _device.createDescriptorSetLayout(computeLayout);
 }
 
+void RenderEngine::createShadowDescriptorSetLayout()
+{
+	VkDescriptorSetLayoutBinding uboLayoutBinding{};
+	uboLayoutBinding.binding = 0;
+	uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	uboLayoutBinding.descriptorCount = 1;
+	uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	uboLayoutBinding.pImmutableSamplers = nullptr;
+
+
+	std::vector<VkDescriptorSetLayoutBinding> bindings = { uboLayoutBinding };
+	VkDescriptorSetLayoutCreateInfo layoutInfo{};
+	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+	layoutInfo.pBindings = bindings.data();
+	layoutInfo.pNext = NULL;
+
+
+	_shadowDescriptorSetLayout = _device.createDescriptorSetLayout( layoutInfo );
+}
+
 
 VkFormat RenderEngine::findDepthFormat()
 {
@@ -1317,11 +1530,14 @@ void RenderEngine::createUniformBuffers()
 	_device.mapMemory( _lightUniformBuffer->getMemory(), 0, lightBufferSize, &_lightBufferMapped );
 	memcpy( _lightBufferMapped, &_lighting, sizeof( _lighting ) );
 
+
+	mainLightData = _device.createBuffer( bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
+	_device.mapMemory( mainLightData->getMemory(), 0, bufferSize, (void**) &lightCameraUBO);
 }
 
 void RenderEngine::createDescriptorPool()
 {
-	int numOfTextures = 3;
+	int numOfTextures = 4;
 
 	int numOfInputAttachments = 3;
 
@@ -1331,7 +1547,7 @@ void RenderEngine::createDescriptorPool()
 
 	std::array<VkDescriptorPoolSize, 4> poolSizes{};
 	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * numOfUniformBuffres;
+	poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * numOfUniformBuffres+1;
 	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * numOfTextures;
 	poolSizes[2].type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
@@ -1343,7 +1559,7 @@ void RenderEngine::createDescriptorPool()
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 	poolInfo.pPoolSizes = poolSizes.data();
-	poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 3;
+	poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 3+1;
 
 	//if (vkCreateDescriptorPool(_device._device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
 	//    throw std::runtime_error("failed to create descriptor pool!");
@@ -1360,14 +1576,16 @@ void RenderEngine::createDepthResources()
 
 	depthTexture->createImage( _window.getExtent().width, _window.getExtent().height, 1, VK_SAMPLE_COUNT_1_BIT, depthFormat,
 							   VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );
-	//depthTexture->textureImageView = _device.createImageView(depthTexture->textureImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT,1);
 	depthTexture->createImageView( depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1 );
 
-	//trasitionImageLayout(depthTexture->textureImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,1);
 
 
-	/*createImage(_swapChainExtent.width, _swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageMemory);
-	depthImageView = createImageView(depthImage, depthFormat);*/
+	shadowMap = new Texture( _device );
+
+	shadowMap->createImage( _window.getExtent().width, _window.getExtent().height, 1, VK_SAMPLE_COUNT_1_BIT, depthFormat,
+							   VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );
+	shadowMap->createImageView( depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1 );
+	shadowMap->createTextureSampler(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER);
 }
 
 
@@ -1394,13 +1612,20 @@ void RenderEngine::createDescriptorSets()
 
 void RenderEngine::createDeferredDescriptorSets()
 {
-	std::vector<VkDescriptorSetLayout> layouts2( MAX_FRAMES_IN_FLIGHT, _computeDescriptorSetLayout);
-	_computeDescriptorSet = _device.createDescriptorSets( layouts2, descriptorPool );
-
 	std::vector<VkDescriptorSetLayout> layouts( MAX_FRAMES_IN_FLIGHT, deferredDescriptorSetLayout );
 	lightingDescriptorSets = _device.createDescriptorSets( layouts, descriptorPool );
+}
 
+void RenderEngine::createComputeDescriptorSets()
+{
+	std::vector<VkDescriptorSetLayout> layouts2( MAX_FRAMES_IN_FLIGHT, _computeDescriptorSetLayout );
+	_computeDescriptorSet = _device.createDescriptorSets( layouts2, descriptorPool );
+}
 
+void RenderEngine::createShadowDesciptorSet()
+{
+	std::vector<VkDescriptorSetLayout> layouts( 1, _shadowDescriptorSetLayout );
+	_shadowDescriptorSet = _device.createDescriptorSets( layouts, descriptorPool )[0];
 }
 
 void RenderEngine::updateGeometryDescriptorSets()
@@ -1456,7 +1681,7 @@ void RenderEngine::updateLightingDescriptorSets()
 {
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 
-		std::vector<VkWriteDescriptorSet> descriptorWrites( 6 );
+		std::vector<VkWriteDescriptorSet> descriptorWrites( 8 );
 
 		VkDescriptorImageInfo inputInfo{};
 		inputInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -1545,6 +1770,31 @@ void RenderEngine::updateLightingDescriptorSets()
 		descriptorWrites[5].dstSet = lightingDescriptorSets[i];
 
 
+		VkDescriptorImageInfo imgInfo = shadowMap->getTextureDescriptor( VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL );
+
+		descriptorWrites[6].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrites[6].dstBinding = 6;
+		descriptorWrites[6].dstArrayElement = 0;
+		descriptorWrites[6].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		descriptorWrites[6].descriptorCount = 1;
+		descriptorWrites[6].pImageInfo = &imgInfo;
+		descriptorWrites[6].pBufferInfo = VK_NULL_HANDLE;
+		descriptorWrites[6].dstSet = lightingDescriptorSets[i];
+
+		VkDescriptorBufferInfo bufferInfo{};
+		bufferInfo.buffer = mainLightData->getBuffer();
+		bufferInfo.offset = 0;
+		bufferInfo.range = sizeof( UniformBufferObject );
+
+		descriptorWrites[7].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrites[7].dstBinding = 7;
+		descriptorWrites[7].dstArrayElement = 0;
+		descriptorWrites[7].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		descriptorWrites[7].descriptorCount = 1;
+		descriptorWrites[7].pBufferInfo = &bufferInfo;
+		descriptorWrites[7].dstSet = lightingDescriptorSets[i];
+
+
 		//descriptorWritesVec.push_back( std::move( descriptorWrites ) );
 		_device.updateDescriptorSet( descriptorWrites );
 	}
@@ -1558,6 +1808,86 @@ void RenderEngine::pushModelMatrix( VkCommandBuffer commnadBuffer, glm::mat4 mod
 void RenderEngine::pushTextureIndex( VkCommandBuffer commnadBuffer, MaterialData material )
 {
 	vkCmdPushConstants( commnadBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof( glm::mat4 ), sizeof( material ), &material );
+}
+
+void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::vector<RenderObject>& objectsArray )
+{
+	VkRenderPassBeginInfo renderPassInfo{};
+	renderPassInfo.framebuffer = _shadowFrameBuffer;
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassInfo.renderPass = shadowPass;
+	renderPassInfo.renderArea.offset = { 0, 0 };
+	VkExtent2D ext;
+	ext.width = 800;
+	ext.height = 600;
+	renderPassInfo.renderArea.extent = ext;
+
+	std::array<VkClearValue, 1> clearValues{};
+	clearValues[0].depthStencil = {1.0f, 0 };
+
+
+	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+	renderPassInfo.pClearValues = clearValues.data();
+
+
+	//tomamos los datos de paso de renderizado
+	vkCmdBeginRenderPass( commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
+
+	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _shadowPipelineLayout, 0, 1, &_shadowDescriptorSet, 0, nullptr );
+	//Aplicamos la pipeline definida
+	vkCmdBindPipeline( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _shadowPipeline );
+
+	//Llamadas a los estados dinamicos
+	VkViewport viewport{};
+	viewport.x = 0.0f;
+	viewport.y = 0.0f;
+	viewport.width = 800;
+	viewport.height = 600;
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+	vkCmdSetViewport( commandBuffer, 0, 1, &viewport );
+
+	VkRect2D scissor{};
+	scissor.offset = { 0, 0 };
+	scissor.extent = _window.getExtent();
+	vkCmdSetScissor( commandBuffer, 0, 1, &scissor );
+
+
+
+	for (auto& object : objectsArray) {
+
+		pushModelMatrix( commandBuffer, object.modelMatrix );
+		object.mesh->draw( commandBuffer );
+	}
+
+	vkCmdEndRenderPass( commandBuffer );
+
+	VkImageMemoryBarrier barrier{};
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	barrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL;
+
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+	barrier.image = shadowMap->textureImage;
+	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+	barrier.subresourceRange.baseMipLevel = 0;
+	barrier.subresourceRange.levelCount = 1;
+	barrier.subresourceRange.baseArrayLayer = 0;
+	barrier.subresourceRange.layerCount = 1;
+	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+	vkCmdPipelineBarrier(
+		commandBuffer,
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		0,
+		0, nullptr,
+		0, nullptr,
+		1, &barrier
+	);
+
 }
 
 const std::vector<int> RenderEngine::cullObjects( const std::vector<RenderObject>& objs )
@@ -1597,6 +1927,15 @@ const std::vector<Light> RenderEngine::cullLights( const std::vector<Light>& lig
 	}
 
 	return out;
+}
+
+void RenderEngine::setMainLight( int index )
+{
+	assert( index < _lightBuffer.size() );
+	assert( _lightBuffer[index].type == 0 ); //solo las luces direccionales pueden ser luces principales
+
+
+	mainLight = &_lightBuffer[index];
 }
 
 
@@ -1746,18 +2085,24 @@ void RenderEngine::init( const std::string& appName )
 	_window.createSwapChain();
 
 
+	createComputeDescriptorSetLayout();
+	createComputePipeline();
+
+	createShadowPass();
+	createShadowDescriptorSetLayout();
+	createShadowPipeline();
+
 	createRenderPass();
 	createDescriptorSetLayout();
-	createComputeDescriptorSetLayout();
 	createGraphicsPipeline();
 	createDeferredPipeline();
-	createComputePipeline();
 
 	createColorResources();
 	createDepthResources();
 	createNormalResources();
 
 	createFramebuffers();
+	createShadowFrameBuffer();
 
 	createCommandPool();
 	createCommandBuffers();
@@ -1777,9 +2122,12 @@ void RenderEngine::init( const std::string& appName )
 
 	createDescriptorSets();
 	createDeferredDescriptorSets();
+	createComputeDescriptorSets();
+	createShadowDesciptorSet();
 	updateGeometryDescriptorSets();
 	updateLightingDescriptorSets();
 	updateComputeDescritorSet();
+	updateShadowDescriptorSet();
 
 }
 
@@ -1959,11 +2307,44 @@ void RenderEngine::createRenderPass()
 	renderPassInfo.dependencyCount = 4;
 	renderPassInfo.pDependencies = dependencies;
 
-	//if (vkCreateRenderPass(_device._device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
-	//    throw std::runtime_error("failed to create render pass!");
-	//}
-
 	renderPass = _device.createRenderPass( renderPassInfo );
+}
+
+void RenderEngine::createShadowPass()
+{
+	VkAttachmentDescription depthAttachment{};
+	depthAttachment.format = findDepthFormat();
+	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+
+	VkAttachmentReference depthAttachmentRef{};
+	depthAttachmentRef.attachment = 0;
+	depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subpass{};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.colorAttachmentCount = 0;
+	subpass.pColorAttachments = NULL;
+	subpass.pDepthStencilAttachment = &depthAttachmentRef;
+
+	std::array<VkAttachmentDescription, 1> attachments = { depthAttachment};
+	VkRenderPassCreateInfo renderPassInfo{};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+	renderPassInfo.pAttachments = attachments.data();
+	renderPassInfo.subpassCount = 1;
+	renderPassInfo.pSubpasses = &subpass;
+	renderPassInfo.dependencyCount = 0;
+	renderPassInfo.pDependencies = NULL;
+
+
+	shadowPass = _device.createRenderPass( renderPassInfo );
 }
 
 //void App::framebufferResizeCallback(GLFWwindow* window, int width, int height)

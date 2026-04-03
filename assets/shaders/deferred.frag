@@ -31,6 +31,15 @@ layout(binding = 5) readonly buffer LightIndexBuffer{
     uint index[];
 }lightIndexBuffer;
 
+
+layout(binding  = 6) uniform sampler2D shadowMap;
+
+layout(binding = 7) uniform  UniformBufferObject {
+    mat4 view;
+    mat4 proj;
+} lightSpace;
+
+
 layout(location = 0) out vec4 outColor;
 
 
@@ -165,20 +174,25 @@ void main() {
     }
     
     colorVal += light.ambient * sampleColor;
+
+    //Shadow Casting
+    
+    vec4 pixelPositionWS = lightSpace.proj* lightSpace.view* vec4(subpassLoad(position).rgb,1);
+
+    vec2 projCoords = (pixelPositionWS.xy/pixelPositionWS.w)*0.5+0.5;
+
+    float lightDepth = texture(shadowMap,projCoords).r;
+    float currentDepth = pixelPositionWS.z/pixelPositionWS.w;
+
+    float bias = 0.005;
+
+    if(currentDepth-bias >= lightDepth && lightDepth != 0){
+        colorVal = light.ambient * sampleColor;
+    }
     
     if(lightBuffer.count < 1){
         colorVal = subpassLoad(color).rgb * light.ambient;
     }
-    
-
-    // vec3 ponintToPos = light.pointLight.position-subpassLoad(position).rgb;
-    // //color += BRDF(light.pointLight.intensity,ponintDir,viewVector,normalVec,roughness);
-
-    // lightData.dir = normalize(ponintToPos);
-    // lightData.color = light.pointLight.color.rgb;
-    // lightData.intensity = light.pointLight.intensity/(length(ponintToPos)*length(ponintToPos));
-
-    // colorVal += PBR(lightData, light.ambient, sampleColor, metallic, roughness, normalVec, viewVector);
 
     outColor = vec4(colorVal,1);
     //outColor = subpassLoad(position);

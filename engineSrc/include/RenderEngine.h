@@ -8,6 +8,7 @@
 #include <optional>
 #include <limits> // Necessary for std::numeric_limits
 #include <algorithm> // Necessary for std::clamp
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <array>
 #include "VulkanWindow.h"
@@ -102,9 +103,13 @@ public:
 
     void handleWindowEvent( SDL_WindowEvent event);
 
+    void setMainLight( int index );
+
 private:
 
     void createRenderPass();
+
+    void createShadowPass();
 
     void createInstance(const std::string& appName);
 
@@ -140,7 +145,11 @@ private:
     
     void createComputePipeline();
 
+    void createShadowPipeline();
+
     void createFramebuffers();
+
+    void createShadowFrameBuffer();
 
     void createCommandPool();
 
@@ -164,11 +173,15 @@ private:
 
     void updateComputeDescritorSet();
 
+    void updateShadowDescriptorSet();
+
     void createLightBuffer();
 
     void createDescriptorSetLayout();
 
     void createComputeDescriptorSetLayout();
+
+    void createShadowDescriptorSetLayout();
 
     VkFormat findDepthFormat();
 
@@ -184,13 +197,22 @@ private:
 
     void createDeferredDescriptorSets();
 
+    void createComputeDescriptorSets();
+
+    void createShadowDesciptorSet();
+
     void pushModelMatrix( VkCommandBuffer commnadBuffer, glm::mat4 model = glm::mat4( 1 ) );
 
     void pushTextureIndex( VkCommandBuffer commnadBuffer, MaterialData index );
 
+    void recordShadowPass( VkCommandBuffer commandBuffer, const std::vector<RenderObject>& objectsArray );
+
+    void recordMainRender( VkCommandBuffer commandBuffer );
+
     const std::vector<int> cullObjects( const std::vector<RenderObject>& objs );
     
     const std::vector<Light> cullLights( const std::vector<Light>& objs );
+
 
     
 public:
@@ -215,12 +237,19 @@ private:
     VkPipeline graphicsPipeline;
     VkPipeline noTexPipeline;
 
+
+    VkRenderPass shadowPass;
+    VkDescriptorSetLayout _shadowDescriptorSetLayout;
+    VkPipelineLayout _shadowPipelineLayout;
+    VkPipeline _shadowPipeline;
+
+
     VkDescriptorSetLayout deferredDescriptorSetLayout;
     VkPipelineLayout deferredLayout;
     VkPipeline deferredPipeline;
 
     std::vector<VkFramebuffer> swapChainFramebuffers;
-
+    VkFramebuffer _shadowFrameBuffer;
 
     VkCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
@@ -228,6 +257,7 @@ private:
     VkDescriptorPool descriptorPool;
     std::vector<VkDescriptorSet> descriptorSets;
     std::vector<VkDescriptorSet> lightingDescriptorSets;
+    VkDescriptorSet _shadowDescriptorSet;
 
     //Sinc structures
     std::vector<VkSemaphore> imageAviablesSemaphores;
@@ -255,7 +285,7 @@ private:
     VkPipelineLayout _computeLayout;
     VkPipeline _computePipeline;
 
-
+    
     Camera _mainCamera;
 
     VulkanDevice _device;
@@ -267,6 +297,11 @@ private:
     Texture* normalTexture;
     Texture* colorTexture;
     Texture* posTexture;
+
+    Texture* shadowMap;
+    Light* mainLight;
+    Buffer* mainLightData;
+    UniformBufferObject* lightCameraUBO;
 
     GlobalLighting _lighting;
 

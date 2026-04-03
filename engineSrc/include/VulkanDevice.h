@@ -105,7 +105,7 @@ public:
 	template <typename t>
 	Buffer* createVkBuffer( const std::vector<t>& data, VkBufferUsageFlags usage ) {
 		VkDeviceSize bufferSize = sizeof( t ) * data.size();
-
+		//Creamos un buffer intermedio que nos permite transportar los datos de CPU a GPU
 		Buffer* staginBuffer = createBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 							  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
 

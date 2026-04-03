@@ -199,7 +199,7 @@ void App::loadModels()
 
 void App::addLighting()
 {
-    _engine.createDirectionalLight( glm::vec3( 0, -1, 5 ), glm::vec3( 0.3, 0.3, 0.3 ), 0.5 );
+    _engine.createDirectionalLight( glm::vec3( -0.5, -1, 1 ), glm::vec3( 0.3, 0.3, 0.3 ), 0.5 );
     _engine.createPointLight( glm::vec3( 0, 0, -1 ), glm::vec3( 1, 0, 0 ), 1,10 );
     _engine.createPointLight( glm::vec3( 1, 0, -1 ), glm::vec3( 0, 1, 0 ), 1,10 );
     _engine.createPointLight( glm::vec3( -1, 0, -1 ), glm::vec3( 0, 0, 1 ), 1,10 );
@@ -210,6 +210,7 @@ void App::addLighting()
             _engine.createPointLight( glm::vec3( -5 + i * -5, -0.5, j * 5 - 1.5 ), glm::vec3( 0.01*i, 0.01*j, 1 ),1,10);
         }
     }
+    _engine.setMainLight( 0 );
 }
 
 void App::freeObjects()
