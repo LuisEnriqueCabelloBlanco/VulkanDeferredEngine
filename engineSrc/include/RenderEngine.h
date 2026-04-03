@@ -5,16 +5,11 @@
 #include <vulkan/vulkan.h>
 #include <iostream>
 #include <vector>
-#include <optional>
-#include <limits> // Necessary for std::numeric_limits
-#include <algorithm> // Necessary for std::clamp
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
-#include <array>
 #include "VulkanWindow.h"
 #include "VulkanDevice.h"
 #include "Texture.h"
-#include "Utils.h"
 #include "BufferObjectsData.h"
 #include "Mesh.h"
 
@@ -183,6 +178,14 @@ private:
 
     void createShadowDescriptorSetLayout();
 
+    void createInputAttachmentDescriptorSetLayout();
+
+    void createTextureArrayDescriptorSetLayout();
+
+    void createViewProjectionDescriptorSetLayout();
+
+    void createIndexedObjectsBufferDescriptroSetLayout();
+
     VkFormat findDepthFormat();
 
     bool hasStencilComponent( VkFormat format );
@@ -193,7 +196,7 @@ private:
 
     void createDepthResources();
 
-    void createDescriptorSets();
+    void createGeometryDescriptorSets();
 
     void createDeferredDescriptorSets();
 
@@ -232,19 +235,17 @@ private:
     VkQueue computeQueue;
 
     VkRenderPass renderPass;
-    VkDescriptorSetLayout descriptorSetLayout;
     VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
     VkPipeline noTexPipeline;
 
-
     VkRenderPass shadowPass;
-    VkDescriptorSetLayout _shadowDescriptorSetLayout;
     VkPipelineLayout _shadowPipelineLayout;
     VkPipeline _shadowPipeline;
 
+    VkPipelineLayout _computeLayout;
+    VkPipeline _computePipeline;
 
-    VkDescriptorSetLayout deferredDescriptorSetLayout;
     VkPipelineLayout deferredLayout;
     VkPipeline deferredPipeline;
 
@@ -253,11 +254,6 @@ private:
 
     VkCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
-
-    VkDescriptorPool descriptorPool;
-    std::vector<VkDescriptorSet> descriptorSets;
-    std::vector<VkDescriptorSet> lightingDescriptorSets;
-    VkDescriptorSet _shadowDescriptorSet;
 
     //Sinc structures
     std::vector<VkSemaphore> imageAviablesSemaphores;
@@ -280,20 +276,14 @@ private:
 
     Buffer* _lightIndexStorage;
 
-    std::vector<VkDescriptorSet> _computeDescriptorSet;
-    VkDescriptorSetLayout _computeDescriptorSetLayout;
-    VkPipelineLayout _computeLayout;
-    VkPipeline _computePipeline;
-
-    
     Camera _mainCamera;
 
     VulkanDevice _device;
     VulkanWindow _window;
 
-    Texture* depthTexture;
     Texture* msaaTexture;
 
+    Texture* depthTexture;
     Texture* normalTexture;
     Texture* colorTexture;
     Texture* posTexture;
@@ -301,10 +291,27 @@ private:
     Texture* shadowMap;
     Light* mainLight;
     Buffer* mainLightData;
-    UniformBufferObject* lightCameraUBO;
+    ViewProjectionData* lightCameraUBO;
 
     GlobalLighting _lighting;
 
     std::vector<Texture*> _textureArray;
+
+    VkDescriptorPool descriptorPool;
+
+    VkDescriptorSetLayout _inputAttachmentsDescriptorSetLayout;
+    VkDescriptorSetLayout _textureArrayDescriptorSetLayout;
+    VkDescriptorSetLayout _viewProjectionDescriptorSetLayout;
+    VkDescriptorSetLayout _indexedObjectsBufferDescriptroSetLayout;
+    VkDescriptorSetLayout _computeDescriptorSetLayout;
+    VkDescriptorSetLayout deferredDescriptorSetLayout;
+
+    std::vector<VkDescriptorSet> _computeDescriptorSet;
+    std::vector<VkDescriptorSet> _inputAttachemntsDescriptorSet;
+    std::vector<VkDescriptorSet> _cameraDescriptorSet;
+    std::vector<VkDescriptorSet> _globalLightingDescriptorSets;
+    VkDescriptorSet _textureArrayDescriptorSet;
+    VkDescriptorSet _mainLightDescriptorSet;
+    VkDescriptorSet _lightsDataBufferDescriptroSet;
 };
 

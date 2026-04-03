@@ -1,5 +1,5 @@
 #include "RenderEngine.h"
-#include <fstream>
+#include "Utils.h"
 //#define TINYOBJLOADER_IMPLEMENTATION
 //#include "tiny_obj_loader.h"
 #include <SDL2/SDL_vulkan.h>
@@ -45,14 +45,14 @@ void RenderEngine::cleanup()
 	delete _lightIndexStorage;
 	delete mainLightData;
 
-	//vkDestroyDescriptorPool(_device._device, descriptorPool, nullptr);
 	_device.destroyDescriptorPool( descriptorPool );
 
-	//vkDestroyDescriptorSetLayout(_device._device, descriptorSetLayout, nullptr);
-	_device.destroyDescriptorSetLayout( descriptorSetLayout );
 	_device.destroyDescriptorSetLayout( deferredDescriptorSetLayout );
 	_device.destroyDescriptorSetLayout( _computeDescriptorSetLayout );
-	_device.destroyDescriptorSetLayout( _shadowDescriptorSetLayout );
+	_device.destroyDescriptorSetLayout( _inputAttachmentsDescriptorSetLayout );
+	_device.destroyDescriptorSetLayout( _textureArrayDescriptorSetLayout );
+	_device.destroyDescriptorSetLayout( _viewProjectionDescriptorSetLayout );
+	_device.destroyDescriptorSetLayout( _indexedObjectsBufferDescriptroSetLayout );
 
 	_device.destroyPipeline( graphicsPipeline );
 	_device.destroyPipeline( noTexPipeline );
@@ -389,12 +389,14 @@ void RenderEngine::createGraphicsPipeline()
 
 	VkPushConstantRange ranges[] = { range,range2 };
 
+	VkDescriptorSetLayout layouts[] = { _viewProjectionDescriptorSetLayout, _textureArrayDescriptorSetLayout };
+
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.pushConstantRangeCount = 2;
 	pipelineLayoutInfo.pPushConstantRanges = ranges;
-	pipelineLayoutInfo.setLayoutCount = 1; // Optional
-	pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout; // Optional
+	pipelineLayoutInfo.setLayoutCount = 2; // Optional
+	pipelineLayoutInfo.pSetLayouts = layouts; // Optional
 
 	pipelineLayout = _device.createPipelineLayout( pipelineLayoutInfo );
 
@@ -548,10 +550,17 @@ void RenderEngine::createDeferredPipeline()
 	dynamicState.pDynamicStates = dynamicStates.data();
 
 
+	VkDescriptorSetLayout layouts[] = { 
+		_inputAttachmentsDescriptorSetLayout,
+		_viewProjectionDescriptorSetLayout,
+		_indexedObjectsBufferDescriptroSetLayout ,
+		deferredDescriptorSetLayout 
+	};
+
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipelineLayoutInfo.setLayoutCount = 1; // Optional
-	pipelineLayoutInfo.pSetLayouts = &deferredDescriptorSetLayout; // Optional
+	pipelineLayoutInfo.setLayoutCount = 4; // Optional
+	pipelineLayoutInfo.pSetLayouts = layouts; // Optional
 
 	deferredLayout = _device.createPipelineLayout( pipelineLayoutInfo );
 
@@ -591,10 +600,12 @@ void RenderEngine::createComputePipeline()
 	computeStageInfo.module = computeModule;
 	computeStageInfo.pName = "main";
 
+	VkDescriptorSetLayout layouts[]{ _indexedObjectsBufferDescriptroSetLayout, _computeDescriptorSetLayout };
+
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipelineLayoutInfo.setLayoutCount = 1; // Optional
-	pipelineLayoutInfo.pSetLayouts = &_computeDescriptorSetLayout; // Optional
+	pipelineLayoutInfo.setLayoutCount = 2; // Optional
+	pipelineLayoutInfo.pSetLayouts = layouts; // Optional
 
 	_computeLayout = _device.createPipelineLayout( pipelineLayoutInfo );
 
@@ -712,7 +723,7 @@ void RenderEngine::createShadowPipeline()
 	pipelineLayoutInfo.pushConstantRangeCount = 1;
 	pipelineLayoutInfo.pPushConstantRanges = ranges;
 	pipelineLayoutInfo.setLayoutCount = 1; // Optional
-	pipelineLayoutInfo.pSetLayouts = &_shadowDescriptorSetLayout; // Optional
+	pipelineLayoutInfo.pSetLayouts = &_viewProjectionDescriptorSetLayout; // Optional
 
 	_shadowPipelineLayout = _device.createPipelineLayout( pipelineLayoutInfo );
 
@@ -783,8 +794,8 @@ void RenderEngine::createShadowFrameBuffer()
 	framebufferInfo.renderPass = shadowPass;
 	framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
 	framebufferInfo.pAttachments = attachments.data();
-	framebufferInfo.width = _window.getExtent().width;
-	framebufferInfo.height = _window.getExtent().height;
+	framebufferInfo.width = shadowMap->texWidth;
+	framebufferInfo.height = shadowMap->texHeight;
 	framebufferInfo.layers = 1;
 
 	//if (vkCreateFramebuffer(_device._device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS) {
@@ -899,7 +910,9 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 
 	vkCmdBindPipeline( commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _computePipeline );
 	
-	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _computeLayout, 0, 1, &_computeDescriptorSet[currentFrame], 0, nullptr);
+	VkDescriptorSet computeSets[] = {_lightsDataBufferDescriptroSet,_computeDescriptorSet[currentFrame] };
+
+	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _computeLayout, 0, 2, computeSets, 0, nullptr);
 
 	vkCmdDispatch( commandBuffer, (MAX_LIGHTS/32)+1, 1, 1 );
 
@@ -928,7 +941,9 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 	//tomamos los datos de paso de renderizado
 	vkCmdBeginRenderPass( commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
 
-	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr );
+	VkDescriptorSet descriptors[] = { _cameraDescriptorSet[currentFrame],_textureArrayDescriptorSet };
+
+	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 2, descriptors, 0, nullptr );
 	//Aplicamos la pipeline definida
 	vkCmdBindPipeline( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline );
 
@@ -960,7 +975,14 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 
 	vkCmdNextSubpass( commandBuffer, VK_SUBPASS_CONTENTS_INLINE );
 
-	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredLayout, 0, 1, &lightingDescriptorSets[currentFrame], 0, nullptr );
+	VkDescriptorSet sets[] = { 
+		_inputAttachemntsDescriptorSet[currentFrame], 
+		_mainLightDescriptorSet, 
+		_lightsDataBufferDescriptroSet, 
+		_globalLightingDescriptorSets[currentFrame]
+	};
+
+	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredLayout, 0, 4, sets, 0, nullptr );
 
 	vkCmdBindPipeline( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredPipeline );
 
@@ -1175,7 +1197,7 @@ void RenderEngine::updateUniformBuffer( uint32_t currentImage, glm::mat4 model )
 	auto currentTime = std::chrono::high_resolution_clock::now();
 	float time = std::chrono::duration<float, std::chrono::seconds::period>( currentTime - startTime ).count();
 
-	UniformBufferObject ubo{};
+	ViewProjectionData ubo{};
 	//ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	ubo.view = _mainCamera.getViewMatrix();//glm::lookAt(glm::vec3(0, 0, -2.5f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	ubo.proj = _mainCamera.getProjMatrix(); //glm::perspective( glm::radians( 90.0f ), _window.getExtent().width / (float)_window.getExtent().height, 0.1f, 10.0f );
@@ -1186,7 +1208,7 @@ void RenderEngine::updateUniformBuffer( uint32_t currentImage, glm::mat4 model )
 	_lighting.eyePos = _mainCamera.getPos();
 
 	memcpy( _lightBufferMapped, &_lighting, sizeof( _lighting ) );
-	//vkCmdUpdateBuffer( commandBuffers[currentImage], uniformBuffers[currentImage]->getBuffer(), 0, sizeof( UniformBufferObject ), uniformBuffersMapped[currentImage] );
+	//vkCmdUpdateBuffer( commandBuffers[currentImage], uniformBuffers[currentImage]->getBuffer(), 0, sizeof( ViewProjectionData ), uniformBuffersMapped[currentImage] );
 
 	float ratio = _window.getExtent().width / _window.getExtent().height;
 	float scale = 10;
@@ -1216,7 +1238,7 @@ void RenderEngine::updateComputeDescritorSet()
 		descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 		descriptorWrites[0].descriptorCount = 1;
 		descriptorWrites[0].pBufferInfo = &bufferInfo;
-		descriptorWrites[0].dstSet = _computeDescriptorSet[i];
+		descriptorWrites[0].dstSet = _lightsDataBufferDescriptroSet;
 
 		VkDescriptorBufferInfo storageBufferInfo2;
 		storageBufferInfo2.buffer = _lightBufferSorage->getBuffer();
@@ -1229,7 +1251,7 @@ void RenderEngine::updateComputeDescritorSet()
 		descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 		descriptorWrites[1].descriptorCount = 1;
 		descriptorWrites[1].pBufferInfo = &storageBufferInfo2;
-		descriptorWrites[1].dstSet = _computeDescriptorSet[i];
+		descriptorWrites[1].dstSet = _lightsDataBufferDescriptroSet;
 
 		VkDescriptorBufferInfo lightBuffer;
 		lightBuffer.buffer = _lightUniformBuffer->getBuffer();
@@ -1258,7 +1280,7 @@ void RenderEngine::updateShadowDescriptorSet()
 	VkDescriptorBufferInfo bufferInfo{};
 	bufferInfo.buffer = mainLightData->getBuffer();
 	bufferInfo.offset = 0;
-	bufferInfo.range = sizeof( UniformBufferObject );
+	bufferInfo.range = sizeof( ViewProjectionData );
 
 	descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	descriptorWrites[0].dstBinding = 0;
@@ -1266,7 +1288,7 @@ void RenderEngine::updateShadowDescriptorSet()
 	descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	descriptorWrites[0].descriptorCount = 1;
 	descriptorWrites[0].pBufferInfo = &bufferInfo;
-	descriptorWrites[0].dstSet = _shadowDescriptorSet;
+	descriptorWrites[0].dstSet = _mainLightDescriptorSet;
 
 	_device.updateDescriptorSet( descriptorWrites );
 }
@@ -1333,45 +1355,75 @@ void RenderEngine::handleWindowEvent( SDL_WindowEvent event )
 
 void RenderEngine::createDescriptorSetLayout()
 {
-	VkDescriptorSetLayoutBinding uboLayoutBinding{};
-	uboLayoutBinding.binding = 0;
-	uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	uboLayoutBinding.descriptorCount = 1;
-	uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	uboLayoutBinding.pImmutableSamplers = nullptr;
-
-	VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-	samplerLayoutBinding.binding = 1;
-	samplerLayoutBinding.descriptorCount = MAX_TEXTURES;
-	samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	samplerLayoutBinding.pImmutableSamplers = nullptr;
-	samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-	//flags para determinar que se trata de un binding de ocupacion variable
-	VkDescriptorBindingFlags flags[2];
-	flags[0] = 0;
-	flags[1] = VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
-
-	VkDescriptorSetLayoutBindingFlagsCreateInfo binding_flags{};
-	binding_flags.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
-	binding_flags.bindingCount = 2;
-	binding_flags.pBindingFlags = flags;
+	VkDescriptorSetLayoutBinding lightingBinding{};
+	lightingBinding.binding = 3;
+	lightingBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	lightingBinding.descriptorCount = 1;
+	lightingBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	lightingBinding.pImmutableSamplers = nullptr;
 
 
+	VkDescriptorSetLayoutBinding shadowMap{};
+	shadowMap.binding = 6;
+	shadowMap.descriptorCount = 1;
+	shadowMap.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	shadowMap.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	shadowMap.pImmutableSamplers = nullptr;
 
-	std::vector<VkDescriptorSetLayoutBinding> bindings = { uboLayoutBinding, samplerLayoutBinding };
-	VkDescriptorSetLayoutCreateInfo layoutInfo{};
-	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
-	layoutInfo.pBindings = bindings.data();
-	layoutInfo.pNext = &binding_flags;
+	std::vector<VkDescriptorSetLayoutBinding> bindings2 = { /*input1, input2 ,input3,*/ lightingBinding,shadowMap };
+	VkDescriptorSetLayoutCreateInfo deferredLayout{};
+	deferredLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	deferredLayout.bindingCount = static_cast<uint32_t>(bindings2.size());
+	deferredLayout.pBindings = bindings2.data();
 
-	//if (vkCreateDescriptorSetLayout(_device._device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
-	//    throw std::runtime_error("failed to create descriptor set layout!");
-	//}
+	deferredDescriptorSetLayout = _device.createDescriptorSetLayout( deferredLayout );
 
-	descriptorSetLayout = _device.createDescriptorSetLayout( layoutInfo );
+}
 
+void RenderEngine::createComputeDescriptorSetLayout()
+{
+
+
+	VkDescriptorSetLayoutBinding lightingBinding{};
+	lightingBinding.binding = 2;
+	lightingBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	lightingBinding.descriptorCount = 1;
+	lightingBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	lightingBinding.pImmutableSamplers = nullptr;
+
+	std::vector<VkDescriptorSetLayoutBinding> bindings = { lightingBinding };
+
+	VkDescriptorSetLayoutCreateInfo computeLayout{};
+	computeLayout.bindingCount = static_cast<uint32_t>(bindings.size());
+	computeLayout.pBindings = bindings.data();
+	computeLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+
+	_computeDescriptorSetLayout = _device.createDescriptorSetLayout(computeLayout);
+}
+
+void RenderEngine::createShadowDescriptorSetLayout()
+{
+	//VkDescriptorSetLayoutBinding uboLayoutBinding{};
+	//uboLayoutBinding.binding = 0;
+	//uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	//uboLayoutBinding.descriptorCount = 1;
+	//uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	//uboLayoutBinding.pImmutableSamplers = nullptr;
+
+
+	//std::vector<VkDescriptorSetLayoutBinding> bindings = { uboLayoutBinding };
+	//VkDescriptorSetLayoutCreateInfo layoutInfo{};
+	//layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	//layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+	//layoutInfo.pBindings = bindings.data();
+	//layoutInfo.pNext = NULL;
+
+
+	//_shadowDescriptorSetLayout = _device.createDescriptorSetLayout( layoutInfo );
+}
+
+void RenderEngine::createInputAttachmentDescriptorSetLayout()
+{
 
 	//color
 	VkDescriptorSetLayoutBinding input1{};
@@ -1386,96 +1438,58 @@ void RenderEngine::createDescriptorSetLayout()
 	input2.descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
 	input2.descriptorCount = 1;
 	input2.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
+	//position
 	VkDescriptorSetLayoutBinding input3{};
 	input3.binding = 2;
 	input3.descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
 	input3.descriptorCount = 1;
 	input3.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-	VkDescriptorSetLayoutBinding lightingBinding{};
-	lightingBinding.binding = 3;
-	lightingBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	lightingBinding.descriptorCount = 1;
-	lightingBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-	lightingBinding.pImmutableSamplers = nullptr;
+	std::vector<VkDescriptorSetLayoutBinding> bindings = { input1,input2, input3 };
 
+	VkDescriptorSetLayoutCreateInfo inputLayout{};
+	inputLayout.bindingCount = static_cast<uint32_t>(bindings.size());
+	inputLayout.pBindings = bindings.data();
+	inputLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 
-	VkDescriptorSetLayoutBinding lightsBinding{};
-	lightsBinding.binding = 4;
-	lightsBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	lightsBinding.descriptorCount = 1;
-	lightsBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-	lightsBinding.pImmutableSamplers = nullptr;
-
-	VkDescriptorSetLayoutBinding lightIndexBuffer{};
-	lightIndexBuffer.binding = 5;
-	lightIndexBuffer.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	lightIndexBuffer.descriptorCount = 1;
-	lightIndexBuffer.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-	lightIndexBuffer.pImmutableSamplers = nullptr;
-
-	VkDescriptorSetLayoutBinding shadowMap{};
-	shadowMap.binding = 6;
-	shadowMap.descriptorCount = 1;
-	shadowMap.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	shadowMap.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-	shadowMap.pImmutableSamplers = nullptr;
-
-	uboLayoutBinding.binding = 7;
-	uboLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-	std::vector<VkDescriptorSetLayoutBinding> bindings2 = { input1, input2 ,input3, lightingBinding, lightsBinding, lightIndexBuffer,shadowMap,uboLayoutBinding };
-	VkDescriptorSetLayoutCreateInfo deferredLayout{};
-	deferredLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	deferredLayout.bindingCount = static_cast<uint32_t>(bindings2.size());
-	deferredLayout.pBindings = bindings2.data();
-
-	deferredDescriptorSetLayout = _device.createDescriptorSetLayout( deferredLayout );
-
+	_inputAttachmentsDescriptorSetLayout = _device.createDescriptorSetLayout( inputLayout );
 }
 
-void RenderEngine::createComputeDescriptorSetLayout()
+void RenderEngine::createTextureArrayDescriptorSetLayout()
 {
+	VkDescriptorSetLayoutBinding samplerLayoutBinding{};
+	samplerLayoutBinding.binding = 0;
+	samplerLayoutBinding.descriptorCount = MAX_TEXTURES;
+	samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	samplerLayoutBinding.pImmutableSamplers = nullptr;
+	samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-	VkDescriptorSetLayoutBinding lightIndexBuffer{};
-	lightIndexBuffer.binding = 0;
-	lightIndexBuffer.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	lightIndexBuffer.descriptorCount = 1;
-	lightIndexBuffer.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-	lightIndexBuffer.pImmutableSamplers = nullptr;
+	//flags para determinar que se trata de un binding de ocupacion variable
+	VkDescriptorBindingFlags flags[1];
+	flags[0] = VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
 
-	VkDescriptorSetLayoutBinding lightBuffer2{};
-	lightBuffer2.binding = 1;
-	lightBuffer2.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	lightBuffer2.descriptorCount = 1;
-	lightBuffer2.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-	lightBuffer2.pImmutableSamplers = nullptr;
+	VkDescriptorSetLayoutBindingFlagsCreateInfo binding_flags{};
+	binding_flags.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+	binding_flags.bindingCount = 1;
+	binding_flags.pBindingFlags = flags;
 
-	VkDescriptorSetLayoutBinding lightingBinding{};
-	lightingBinding.binding = 2;
-	lightingBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	lightingBinding.descriptorCount = 1;
-	lightingBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-	lightingBinding.pImmutableSamplers = nullptr;
+	VkDescriptorSetLayoutCreateInfo layoutInfo{};
+	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutInfo.bindingCount = 1;
+	layoutInfo.pBindings = &samplerLayoutBinding;
+	layoutInfo.pNext = &binding_flags;
 
-	std::vector<VkDescriptorSetLayoutBinding> bindings = { lightIndexBuffer,lightBuffer2, lightingBinding };
+	_textureArrayDescriptorSetLayout = _device.createDescriptorSetLayout( layoutInfo );
 
-	VkDescriptorSetLayoutCreateInfo computeLayout{};
-	computeLayout.bindingCount = static_cast<uint32_t>(bindings.size());
-	computeLayout.pBindings = bindings.data();
-	computeLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-
-	_computeDescriptorSetLayout = _device.createDescriptorSetLayout(computeLayout);
 }
 
-void RenderEngine::createShadowDescriptorSetLayout()
+void RenderEngine::createViewProjectionDescriptorSetLayout()
 {
 	VkDescriptorSetLayoutBinding uboLayoutBinding{};
 	uboLayoutBinding.binding = 0;
 	uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	uboLayoutBinding.descriptorCount = 1;
-	uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	uboLayoutBinding.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS;
 	uboLayoutBinding.pImmutableSamplers = nullptr;
 
 
@@ -1484,10 +1498,35 @@ void RenderEngine::createShadowDescriptorSetLayout()
 	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 	layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
 	layoutInfo.pBindings = bindings.data();
-	layoutInfo.pNext = NULL;
+	layoutInfo.pNext = nullptr;
 
+	_viewProjectionDescriptorSetLayout = _device.createDescriptorSetLayout( layoutInfo );
+}
 
-	_shadowDescriptorSetLayout = _device.createDescriptorSetLayout( layoutInfo );
+void RenderEngine::createIndexedObjectsBufferDescriptroSetLayout()
+{
+	VkDescriptorSetLayoutBinding indexBuffer{};
+	indexBuffer.binding = 0;
+	indexBuffer.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	indexBuffer.descriptorCount = 1;
+	indexBuffer.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+	indexBuffer.pImmutableSamplers = nullptr;
+
+	VkDescriptorSetLayoutBinding objectBuffer{};
+	objectBuffer.binding = 1;
+	objectBuffer.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	objectBuffer.descriptorCount = 1;
+	objectBuffer.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT| VK_SHADER_STAGE_FRAGMENT_BIT;
+	objectBuffer.pImmutableSamplers = nullptr;
+
+	std::vector<VkDescriptorSetLayoutBinding> bindings = { indexBuffer,objectBuffer };
+
+	VkDescriptorSetLayoutCreateInfo computeLayout{};
+	computeLayout.bindingCount = static_cast<uint32_t>(bindings.size());
+	computeLayout.pBindings = bindings.data();
+	computeLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+
+	_indexedObjectsBufferDescriptroSetLayout = _device.createDescriptorSetLayout( computeLayout );
 }
 
 
@@ -1507,7 +1546,7 @@ bool RenderEngine::hasStencilComponent( VkFormat format )
 
 void RenderEngine::createUniformBuffers()
 {
-	VkDeviceSize bufferSize = sizeof( UniformBufferObject );
+	VkDeviceSize bufferSize = sizeof( ViewProjectionData );
 
 	uniformBuffers.resize( MAX_FRAMES_IN_FLIGHT );
 	//uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
@@ -1559,7 +1598,7 @@ void RenderEngine::createDescriptorPool()
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 	poolInfo.pPoolSizes = poolSizes.data();
-	poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 3+1;
+	poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 5+3;
 
 	//if (vkCreateDescriptorPool(_device._device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
 	//    throw std::runtime_error("failed to create descriptor pool!");
@@ -1582,38 +1621,47 @@ void RenderEngine::createDepthResources()
 
 	shadowMap = new Texture( _device );
 
-	shadowMap->createImage( _window.getExtent().width, _window.getExtent().height, 1, VK_SAMPLE_COUNT_1_BIT, depthFormat,
+	shadowMap->createImage( 1920, 1080, 1, VK_SAMPLE_COUNT_1_BIT, depthFormat,
 							   VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );
 	shadowMap->createImageView( depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1 );
 	shadowMap->createTextureSampler(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER);
 }
 
 
-void RenderEngine::createDescriptorSets()
+void RenderEngine::createGeometryDescriptorSets()
 {
 
-	std::vector<VkDescriptorSetLayout> layouts( MAX_FRAMES_IN_FLIGHT, descriptorSetLayout );
+	std::vector<VkDescriptorSetLayout> layouts( MAX_FRAMES_IN_FLIGHT,_viewProjectionDescriptorSetLayout );
+
+
+	_cameraDescriptorSet = _device.createDescriptorSets( layouts, descriptorPool);
+
 
 	//adicion que permite tener arrays de tamanio variable en los shaders de texturas
-	uint32_t counts[MAX_FRAMES_IN_FLIGHT];
-
-	for (int i = 0;i < MAX_FRAMES_IN_FLIGHT;i++) {
-		counts[i] = 32; // Set 0 has a variable count descriptor with a maximum of 32 elements
-	}
-
+	std::vector<VkDescriptorSetLayout> layouts2( 1, _textureArrayDescriptorSetLayout );
+	uint32_t counts = 32;
 	VkDescriptorSetVariableDescriptorCountAllocateInfo set_counts = {};
 	set_counts.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
-	set_counts.descriptorSetCount = MAX_FRAMES_IN_FLIGHT;
-	set_counts.pDescriptorCounts = counts;
+	set_counts.descriptorSetCount = 1;
+	set_counts.pDescriptorCounts = &counts;
 
-	descriptorSets = _device.createDescriptorSets( layouts, descriptorPool, &set_counts );
+	_textureArrayDescriptorSet = _device.createDescriptorSets( layouts2, descriptorPool,&set_counts )[0];
 
 }
 
 void RenderEngine::createDeferredDescriptorSets()
 {
 	std::vector<VkDescriptorSetLayout> layouts( MAX_FRAMES_IN_FLIGHT, deferredDescriptorSetLayout );
-	lightingDescriptorSets = _device.createDescriptorSets( layouts, descriptorPool );
+	_globalLightingDescriptorSets = _device.createDescriptorSets( layouts, descriptorPool );
+
+	std::vector<VkDescriptorSetLayout> layouts2( MAX_FRAMES_IN_FLIGHT, _inputAttachmentsDescriptorSetLayout );
+	_inputAttachemntsDescriptorSet = _device.createDescriptorSets( layouts2, descriptorPool );
+
+	std::vector<VkDescriptorSetLayout> layouts3( 1, _viewProjectionDescriptorSetLayout);
+	_mainLightDescriptorSet = _device.createDescriptorSets( layouts3, descriptorPool )[0];
+
+	std::vector<VkDescriptorSetLayout> layouts4( 1, _indexedObjectsBufferDescriptroSetLayout );
+	_lightsDataBufferDescriptroSet = _device.createDescriptorSets( layouts4, descriptorPool )[0];
 }
 
 void RenderEngine::createComputeDescriptorSets()
@@ -1624,8 +1672,7 @@ void RenderEngine::createComputeDescriptorSets()
 
 void RenderEngine::createShadowDesciptorSet()
 {
-	std::vector<VkDescriptorSetLayout> layouts( 1, _shadowDescriptorSetLayout );
-	_shadowDescriptorSet = _device.createDescriptorSets( layouts, descriptorPool )[0];
+
 }
 
 void RenderEngine::updateGeometryDescriptorSets()
@@ -1643,7 +1690,7 @@ void RenderEngine::updateGeometryDescriptorSets()
 		VkDescriptorBufferInfo bufferInfo{};
 		bufferInfo.buffer = uniformBuffers[i]->getBuffer();
 		bufferInfo.offset = 0;
-		bufferInfo.range = sizeof( UniformBufferObject );
+		bufferInfo.range = sizeof( ViewProjectionData );
 
 		descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		descriptorWrites[0].dstBinding = 0;
@@ -1651,7 +1698,7 @@ void RenderEngine::updateGeometryDescriptorSets()
 		descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		descriptorWrites[0].descriptorCount = 1;
 		descriptorWrites[0].pBufferInfo = &bufferInfo;
-		descriptorWrites[0].dstSet = descriptorSets[i];
+		descriptorWrites[0].dstSet = _cameraDescriptorSet[i];
 
 
 
@@ -1664,13 +1711,13 @@ void RenderEngine::updateGeometryDescriptorSets()
 			}
 
 			descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrites[1].dstBinding = 1;
+			descriptorWrites[1].dstBinding = 0;
 			descriptorWrites[1].dstArrayElement = 0;
 			descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 			descriptorWrites[1].descriptorCount = imagesDesc.size();
 			descriptorWrites[1].pImageInfo = imagesDesc.data();
 			descriptorWrites[1].pBufferInfo = VK_NULL_HANDLE;
-			descriptorWrites[1].dstSet = descriptorSets[i];
+			descriptorWrites[1].dstSet = _textureArrayDescriptorSet;
 		}
 
 		_device.updateDescriptorSet( descriptorWrites );
@@ -1681,7 +1728,7 @@ void RenderEngine::updateLightingDescriptorSets()
 {
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 
-		std::vector<VkWriteDescriptorSet> descriptorWrites( 8 );
+		std::vector<VkWriteDescriptorSet> descriptorWrites( 6 );
 
 		VkDescriptorImageInfo inputInfo{};
 		inputInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -1694,7 +1741,7 @@ void RenderEngine::updateLightingDescriptorSets()
 		descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
 		descriptorWrites[0].descriptorCount = 1;
 		descriptorWrites[0].pImageInfo = &inputInfo;
-		descriptorWrites[0].dstSet = lightingDescriptorSets[i];
+		descriptorWrites[0].dstSet = _inputAttachemntsDescriptorSet[i];
 
 
 		VkDescriptorImageInfo inputInfo2{};
@@ -1708,21 +1755,7 @@ void RenderEngine::updateLightingDescriptorSets()
 		descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
 		descriptorWrites[1].descriptorCount = 1;
 		descriptorWrites[1].pImageInfo = &inputInfo2;
-		descriptorWrites[1].dstSet = lightingDescriptorSets[i];
-
-
-		VkDescriptorBufferInfo lightBuffer;
-		lightBuffer.buffer = _lightUniformBuffer->getBuffer();
-		lightBuffer.offset = 0;
-		lightBuffer.range = sizeof( GlobalLighting );
-
-		descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrites[2].dstBinding = 3;
-		descriptorWrites[2].dstArrayElement = 0;
-		descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		descriptorWrites[2].descriptorCount = 1;
-		descriptorWrites[2].pBufferInfo = &lightBuffer;
-		descriptorWrites[2].dstSet = lightingDescriptorSets[i];
+		descriptorWrites[1].dstSet = _inputAttachemntsDescriptorSet[i];
 
 		//vkUpdateDescriptorSets(_device._device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 
@@ -1738,61 +1771,73 @@ void RenderEngine::updateLightingDescriptorSets()
 		descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
 		descriptorWrites[3].descriptorCount = 1;
 		descriptorWrites[3].pImageInfo = &inputInfo3;
-		descriptorWrites[3].dstSet = lightingDescriptorSets[i];
+		descriptorWrites[3].dstSet = _inputAttachemntsDescriptorSet[i];
 
 
+		VkDescriptorBufferInfo lightBuffer;
+		lightBuffer.buffer = _lightUniformBuffer->getBuffer();
+		lightBuffer.offset = 0;
+		lightBuffer.range = sizeof( GlobalLighting );
 
-		VkDescriptorBufferInfo storageBufferInfo;
-		storageBufferInfo.buffer = _lightBufferSorage->getBuffer();
-		storageBufferInfo.offset = 0;
-		storageBufferInfo.range = sizeof( int ) + (sizeof( Light ) * MAX_LIGHTS) + sizeof( uint8_t ) * 16;
+		descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrites[2].dstBinding = 3;
+		descriptorWrites[2].dstArrayElement = 0;
+		descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		descriptorWrites[2].descriptorCount = 1;
+		descriptorWrites[2].pBufferInfo = &lightBuffer;
+		descriptorWrites[2].dstSet = _globalLightingDescriptorSets[i];
 
-		descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrites[4].dstBinding = 4;
-		descriptorWrites[4].dstArrayElement = 0;
-		descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		descriptorWrites[4].descriptorCount = 1;
-		descriptorWrites[4].pBufferInfo = &storageBufferInfo;
-		descriptorWrites[4].dstSet = lightingDescriptorSets[i];
+		//VkDescriptorBufferInfo storageBufferInfo;
+		//storageBufferInfo.buffer = _lightBufferSorage->getBuffer();
+		//storageBufferInfo.offset = 0;
+		//storageBufferInfo.range = sizeof( int ) + (sizeof( Light ) * MAX_LIGHTS) + sizeof( uint8_t ) * 16;
+
+		//descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		//descriptorWrites[4].dstBinding = 1;
+		//descriptorWrites[4].dstArrayElement = 0;
+		//descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		//descriptorWrites[4].descriptorCount = 1;
+		//descriptorWrites[4].pBufferInfo = &storageBufferInfo;
+		//descriptorWrites[4].dstSet = _lightsDataBufferDescriptroSet;
 
 
-		VkDescriptorBufferInfo storageBufferInfo2;
-		storageBufferInfo2.buffer = _lightIndexStorage->getBuffer();
-		storageBufferInfo2.offset = 0;
-		storageBufferInfo2.range = sizeof( int ) + (sizeof( int ) * MAX_LIGHTS);
-						 
-		descriptorWrites[5].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrites[5].dstBinding = 5;
-		descriptorWrites[5].dstArrayElement = 0;
-		descriptorWrites[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		descriptorWrites[5].descriptorCount = 1;
-		descriptorWrites[5].pBufferInfo = &storageBufferInfo2;
-		descriptorWrites[5].dstSet = lightingDescriptorSets[i];
+		//VkDescriptorBufferInfo storageBufferInfo2;
+		//storageBufferInfo2.buffer = _lightIndexStorage->getBuffer();
+		//storageBufferInfo2.offset = 0;
+		//storageBufferInfo2.range = sizeof( int ) + (sizeof( int ) * MAX_LIGHTS);
+		//				 
+		//descriptorWrites[5].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		//descriptorWrites[5].dstBinding = 5;
+		//descriptorWrites[5].dstArrayElement = 0;
+		//descriptorWrites[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		//descriptorWrites[5].descriptorCount = 1;
+		//descriptorWrites[5].pBufferInfo = &storageBufferInfo2;
+		//descriptorWrites[5].dstSet = _lightsDataBufferDescriptroSet;
 
 
 		VkDescriptorImageInfo imgInfo = shadowMap->getTextureDescriptor( VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL );
 
-		descriptorWrites[6].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrites[6].dstBinding = 6;
-		descriptorWrites[6].dstArrayElement = 0;
-		descriptorWrites[6].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		descriptorWrites[6].descriptorCount = 1;
-		descriptorWrites[6].pImageInfo = &imgInfo;
-		descriptorWrites[6].pBufferInfo = VK_NULL_HANDLE;
-		descriptorWrites[6].dstSet = lightingDescriptorSets[i];
+		descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrites[4].dstBinding = 6;
+		descriptorWrites[4].dstArrayElement = 0;
+		descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		descriptorWrites[4].descriptorCount = 1;
+		descriptorWrites[4].pImageInfo = &imgInfo;
+		descriptorWrites[4].pBufferInfo = VK_NULL_HANDLE;
+		descriptorWrites[4].dstSet = _globalLightingDescriptorSets[i];
 
 		VkDescriptorBufferInfo bufferInfo{};
 		bufferInfo.buffer = mainLightData->getBuffer();
 		bufferInfo.offset = 0;
-		bufferInfo.range = sizeof( UniformBufferObject );
+		bufferInfo.range = sizeof( ViewProjectionData );
 
-		descriptorWrites[7].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrites[7].dstBinding = 7;
-		descriptorWrites[7].dstArrayElement = 0;
-		descriptorWrites[7].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		descriptorWrites[7].descriptorCount = 1;
-		descriptorWrites[7].pBufferInfo = &bufferInfo;
-		descriptorWrites[7].dstSet = lightingDescriptorSets[i];
+		descriptorWrites[5].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrites[5].dstBinding = 0;
+		descriptorWrites[5].dstArrayElement = 0;
+		descriptorWrites[5].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		descriptorWrites[5].descriptorCount = 1;
+		descriptorWrites[5].pBufferInfo = &bufferInfo;
+		descriptorWrites[5].dstSet = _mainLightDescriptorSet;
 
 
 		//descriptorWritesVec.push_back( std::move( descriptorWrites ) );
@@ -1818,8 +1863,8 @@ void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::v
 	renderPassInfo.renderPass = shadowPass;
 	renderPassInfo.renderArea.offset = { 0, 0 };
 	VkExtent2D ext;
-	ext.width = 800;
-	ext.height = 600;
+	ext.width = shadowMap->texWidth;
+	ext.height = shadowMap->texHeight;
 	renderPassInfo.renderArea.extent = ext;
 
 	std::array<VkClearValue, 1> clearValues{};
@@ -1833,7 +1878,7 @@ void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::v
 	//tomamos los datos de paso de renderizado
 	vkCmdBeginRenderPass( commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
 
-	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _shadowPipelineLayout, 0, 1, &_shadowDescriptorSet, 0, nullptr );
+	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _shadowPipelineLayout, 0, 1, &_mainLightDescriptorSet, 0, nullptr );
 	//Aplicamos la pipeline definida
 	vkCmdBindPipeline( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _shadowPipeline );
 
@@ -1841,15 +1886,15 @@ void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::v
 	VkViewport viewport{};
 	viewport.x = 0.0f;
 	viewport.y = 0.0f;
-	viewport.width = 800;
-	viewport.height = 600;
+	viewport.width = shadowMap->texWidth;
+	viewport.height = shadowMap->texHeight;
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 	vkCmdSetViewport( commandBuffer, 0, 1, &viewport );
 
 	VkRect2D scissor{};
 	scissor.offset = { 0, 0 };
-	scissor.extent = _window.getExtent();
+	scissor.extent = ext;
 	vkCmdSetScissor( commandBuffer, 0, 1, &scissor );
 
 
@@ -2084,6 +2129,10 @@ void RenderEngine::init( const std::string& appName )
 	_window.setDevice( &_device );
 	_window.createSwapChain();
 
+	createInputAttachmentDescriptorSetLayout();
+	createTextureArrayDescriptorSetLayout();
+	createViewProjectionDescriptorSetLayout();
+	createIndexedObjectsBufferDescriptroSetLayout();
 
 	createComputeDescriptorSetLayout();
 	createComputePipeline();
@@ -2120,7 +2169,7 @@ void RenderEngine::init( const std::string& appName )
 						  90.f, _window.getExtent().width / (float)_window.getExtent().height, 0.1f, 40.f );
 
 
-	createDescriptorSets();
+	createGeometryDescriptorSets();
 	createDeferredDescriptorSets();
 	createComputeDescriptorSets();
 	createShadowDesciptorSet();

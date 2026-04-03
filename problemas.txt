@@ -1,0 +1,1 @@
+Cuando redimensionas la pantalla la textura del shadowmap está en un layout indefinido

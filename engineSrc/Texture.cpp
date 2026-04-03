@@ -52,12 +52,6 @@ void Texture::loadTexture(const std::string& path)
     device.transitionImageLayout(textureImage, mFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,mipLevels);
     //app.generateMipmaps(textureImage,mFormat, texWidth, texHeight, mipLevels);
 
-
-    //vkDestroyBuffer(device._device, stagingBuffer, nullptr);
-    //device.destroyBuffer( stagingBuffer );
-    //vkFreeMemory(device._device, stagingBufferMemory, nullptr);
-    //device.freeMemory( stagingBufferMemory );
-
     delete staging;
 
     createImageView(mFormat,VK_IMAGE_ASPECT_COLOR_BIT,mipLevels);

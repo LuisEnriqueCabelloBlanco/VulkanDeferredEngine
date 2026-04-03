@@ -16,17 +16,17 @@ struct Light{
     float range; //rango de iluminacion de luz puntual
 };
 
-layout(binding = 0) buffer LightIndexBuffer{
+layout(set =0, binding = 0) buffer LightIndexBuffer{
     int count;
     uint index[];
 }indexBuffer;
 
-layout(binding= 1) readonly buffer LightBuffer {
+layout(set = 0, binding= 1) readonly buffer LightBuffer {
     int count;
     Light lights[];
 }lightBuffer;
 
-layout(binding = 2) uniform CameraData{
+layout(set= 1, binding = 2) uniform CameraData{
     vec3 eyePos;
     float ambient;
 }cameraData;
@@ -39,7 +39,7 @@ bool isVisible(Light light){
         //Calcular si esta dentro del frustrum de la camara
         vec3 pos = light.dir_center;
 
-        visible = distance(pos,cameraData.eyePos) < 100;
+        visible = distance(pos,cameraData.eyePos) < light.range;
     }
 
     return light.type==0 || visible;

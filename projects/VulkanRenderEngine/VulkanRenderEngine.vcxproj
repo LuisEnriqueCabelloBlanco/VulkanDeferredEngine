@@ -26,6 +26,7 @@
     <ClCompile Include="..\..\engineSrc\SwapChain.cpp" />
     <ClCompile Include="..\..\engineSrc\Texture.cpp" />
     <ClCompile Include="..\..\engineSrc\tinyimage.cpp" />
+    <ClCompile Include="..\..\engineSrc\Vertex.cpp" />
     <ClCompile Include="..\..\engineSrc\VulkanDevice.cpp" />
     <ClCompile Include="..\..\engineSrc\VulkanWindow.cpp" />
   </ItemGroup>
@@ -41,6 +42,7 @@
     <ClInclude Include="..\..\engineSrc\include\tinyimage.h" />
     <ClInclude Include="..\..\engineSrc\include\tiny_obj_loader.h" />
     <ClInclude Include="..\..\engineSrc\include\Utils.h" />
+    <ClInclude Include="..\..\engineSrc\include\Vertex.h" />
     <ClInclude Include="..\..\engineSrc\include\VulkanDevice.h" />
     <ClInclude Include="..\..\engineSrc\include\VulkanWindow.h" />
   </ItemGroup>

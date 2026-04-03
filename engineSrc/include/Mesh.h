@@ -2,8 +2,8 @@
 #include<vulkan/vulkan_core.h>
 #include<vector>
 #include<string>
-#include"BufferObjectsData.h"
 #include"VulkanDevice.h"
+#include"Vertex.h"
 
 class Buffer;
 

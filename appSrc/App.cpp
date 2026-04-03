@@ -186,8 +186,8 @@ void App::loadModels()
     mesh2 = _engine.createMesh( *mesh2 );
     objects.push_back( { mesh2, glm::translate(glm::mat4(1),glm::vec3(-2.5,0,0)),mat2 });
 
-    for (int i = 0; i < 100;i++) {
-        for (int j = 0; j < 100; j++) {
+    for (int i = 0; i < 10;i++) {
+        for (int j = 0; j < 10; j++) {
             mesh2 = _engine.createMesh( *mesh2 );
             mat3.roughtness = std::min(i * 0.1,1.0);
             mat3.metallic =std::min( j * 0.1,1.0);
@@ -205,8 +205,8 @@ void App::addLighting()
     _engine.createPointLight( glm::vec3( -1, 0, -1 ), glm::vec3( 0, 0, 1 ), 1,10 );
 
 
-    for (int i = 0; i < 100;i++) {
-        for (int j = 0; j < 99; j++) {
+    for (int i = 0; i < 10;i++) {
+        for (int j = 0; j < 10; j++) {
             _engine.createPointLight( glm::vec3( -5 + i * -5, -0.5, j * 5 - 1.5 ), glm::vec3( 0.01*i, 0.01*j, 1 ),1,10);
         }
     }

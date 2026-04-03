@@ -14,30 +14,31 @@ struct Light{
     float range; //rango de iluminacion de luz puntual
 };
 
-//layout(binding  = 1) uniform sampler2D texSampler;
-layout(binding = 3 ) uniform GlobalLightData{
-    vec3 eyePos;
-    float ambient;
-}light;
 
+layout(set = 1,binding = 0) uniform  UniformBufferObject {
+    mat4 view;
+    mat4 proj;
+} lightSpace;
 
-layout(binding= 4) readonly buffer LightBuffer {
-    int count;
-    Light lights[];
-}lightBuffer;
-
-layout(binding = 5) readonly buffer LightIndexBuffer{
+layout(set = 2,binding = 0) readonly buffer LightIndexBuffer{
     int count;
     uint index[];
 }lightIndexBuffer;
 
+layout(set = 2,binding= 1) readonly buffer LightBuffer {
+    int count;
+    Light lights[];
+}lightBuffer;
 
-layout(binding  = 6) uniform sampler2D shadowMap;
+//layout(binding  = 1) uniform sampler2D texSampler;
+layout(set = 3, binding = 3 ) uniform GlobalLightData{
+    vec3 eyePos;
+    float ambient;
+}light;
 
-layout(binding = 7) uniform  UniformBufferObject {
-    mat4 view;
-    mat4 proj;
-} lightSpace;
+layout(set = 3,binding  = 6) uniform sampler2D shadowMap;
+
+
 
 
 layout(location = 0) out vec4 outColor;
@@ -122,6 +123,21 @@ vec3 PBR(Light l, float ambient, vec3 albedo, float metallic, float roughness, v
     return BRDF(normalVec,view,F0,albedo, halfView, l,metallic, roughness );
 }
 
+void shadowCasting(inout vec3 colorVal){
+    vec4 pixelPositionWS = lightSpace.proj* lightSpace.view* vec4(subpassLoad(position).rgb,1);
+
+    vec2 projCoords = (pixelPositionWS.xy/pixelPositionWS.w)*0.5+0.5;
+
+    float lightDepth = texture(shadowMap,projCoords).r;
+    float currentDepth = pixelPositionWS.z/pixelPositionWS.w;
+
+    float bias = 0.005;
+
+    if(currentDepth-bias >= lightDepth && lightDepth != 0){
+        colorVal = light.ambient * subpassLoad(color).rgb;
+    }
+}
+
 void main() {
 
     float roughness = subpassLoad(normal).a;
@@ -176,19 +192,7 @@ void main() {
     colorVal += light.ambient * sampleColor;
 
     //Shadow Casting
-    
-    vec4 pixelPositionWS = lightSpace.proj* lightSpace.view* vec4(subpassLoad(position).rgb,1);
-
-    vec2 projCoords = (pixelPositionWS.xy/pixelPositionWS.w)*0.5+0.5;
-
-    float lightDepth = texture(shadowMap,projCoords).r;
-    float currentDepth = pixelPositionWS.z/pixelPositionWS.w;
-
-    float bias = 0.005;
-
-    if(currentDepth-bias >= lightDepth && lightDepth != 0){
-        colorVal = light.ambient * sampleColor;
-    }
+    shadowCasting(colorVal);
     
     if(lightBuffer.count < 1){
         colorVal = subpassLoad(color).rgb * light.ambient;
