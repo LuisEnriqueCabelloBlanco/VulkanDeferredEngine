@@ -6,9 +6,20 @@
 
 void App::start()
 {
+
     _mainCamera = &_engine.getMainCamera();
+    auto startTime = std::chrono::high_resolution_clock::now();
     loadModels();
+    auto endTime = std::chrono::high_resolution_clock::now();
+    std::cout << "Tiempo en cargar los modelos: "<<
+        std::chrono::duration<float, std::chrono::seconds::period>( endTime - startTime ).count() << "\n";
+    
+    
+    startTime = std::chrono::high_resolution_clock::now();
     addLighting();
+    endTime = std::chrono::high_resolution_clock::now();
+    std::cout << "Tiempo en cargar las luces: " << 
+        std::chrono::duration<float, std::chrono::seconds::period>( endTime - startTime ).count() << "\n";
 }
 
 void App::mainLoop() {
@@ -65,13 +76,6 @@ void App::mainLoop() {
 
         _deltaTime = std::chrono::duration<float, std::chrono::seconds::period>( endFrame - frameStart ).count();
     
-        //timeacum += _deltaTime;
-
-        //if (timeacum > 1) {
-        //    std::cout<< _counter<< "FPS" << "\n";
-        //    timeacum = 0;
-        //    _counter = 0;
-        //}
     }
 }
 
@@ -84,7 +88,7 @@ void App::update()
 
     objects[0].modelMatrix = glm::translate( glm::rotate( glm::mat4( 1 ), glm::radians( -10.f ), glm::vec3( 0, 1, 0 ) ), glm::vec3( sin( time ) * 1.5f, 0, 0 ) );
     objects[1].modelMatrix = glm::translate(glm::rotate( glm::mat4( 1.0f ), time * glm::radians( 180.0f ), glm::vec3( 0.0f, 1.0f, 0.0f ) ),glm::vec3(0,-1,0) );
-    objects[2].modelMatrix = glm::scale( glm::translate( glm::mat4( 1 ), glm::vec3( 0, -1, 0 ) ) , glm::vec3( 10 ) );
+   
 
     glm::vec3 right = glm::cross( glm::vec3( 0, 1, 0 ), _mainCamera->getDirection()  );
 
@@ -169,29 +173,33 @@ void App::loadModels()
     planeMat.texutreIndex = whiteTextureHandle;
     planeMat.normalTextureIndex = -1;
 
-    Mesh* mesh = _engine.createMesh( vertices );
 
-    objects.push_back( { mesh, glm::mat4( 1 ),mat3 });
+    //TODO crear gestor de recursos
+    triangle = _engine.createMesh( vertices );
+    character = _engine.createMesh(MODEL_PATH );
+    esfera = _engine.createMesh( MODEL_PATH3 );
+    planoSincolor = _engine.createMesh(MODEL_PATH4);
 
-    Mesh* mesh2 = _engine.createMesh(MODEL_PATH );
 
-    objects.push_back( { mesh2, glm::mat4( 1 ),mat1 } );
 
-    Mesh* mesh3 = _engine.createMesh(MODEL_PATH4);
+    objects.push_back( { triangle, glm::mat4( 1 ),mat3 });
+    objects.push_back( { character, glm::mat4( 1 ),mat1 } );
+    //objects.push_back( { planoSincolor, glm::mat4( 10 ),planeMat } );
 
-    objects.push_back( { mesh3, glm::mat4( 10 ),planeMat } );
+    objects.push_back( { esfera, glm::translate(glm::mat4(1),glm::vec3(2.5,0,0)),mat2 });;
+    objects.push_back( { esfera, glm::translate(glm::mat4(1),glm::vec3(-2.5,0,0)),mat2 });
 
-    mesh2 = _engine.createMesh( MODEL_PATH3 );
-    objects.push_back( { mesh2, glm::translate(glm::mat4(1),glm::vec3(2.5,0,0)),mat2 });
-    mesh2 = _engine.createMesh( *mesh2 );
-    objects.push_back( { mesh2, glm::translate(glm::mat4(1),glm::vec3(-2.5,0,0)),mat2 });
-
-    for (int i = 0; i < 10;i++) {
-        for (int j = 0; j < 10; j++) {
-            mesh2 = _engine.createMesh( *mesh2 );
+    for (int i = 0; i < 100;i++) {
+        for (int j = 0; j < 100; j++) {
             mat3.roughtness = std::min(i * 0.1,1.0);
             mat3.metallic =std::min( j * 0.1,1.0);
-            objects.push_back( { mesh2, glm::translate( glm::mat4( 1 ),glm::vec3( -5 + i * -5,0,j*5 ) ),mat3 } );
+            objects.push_back( { esfera, glm::translate( glm::mat4( 1 ),glm::vec3( -5 + i * -5,0,j*5 ) ),mat3 } );
+        }
+    }
+
+    for (int i = 0; i < 10; i++) {
+        for (int j = 0; j < 10; j++) {
+            objects.push_back( { planoSincolor, glm::scale( glm::translate( glm::mat4( 1 ), glm::vec3( i * -5, -1, j * 5 ) ) , glm::vec3( 10 ) ),planeMat } );
         }
     }
     
@@ -199,25 +207,28 @@ void App::loadModels()
 
 void App::addLighting()
 {
-    _engine.createDirectionalLight( glm::vec3( -0.5, -1, 1 ), glm::vec3( 0.3, 0.3, 0.3 ), 0.5 );
-    _engine.createPointLight( glm::vec3( 0, 0, -1 ), glm::vec3( 1, 0, 0 ), 1,10 );
-    _engine.createPointLight( glm::vec3( 1, 0, -1 ), glm::vec3( 0, 1, 0 ), 1,10 );
-    _engine.createPointLight( glm::vec3( -1, 0, -1 ), glm::vec3( 0, 0, 1 ), 1,10 );
+    _engine.createDirectionalLight( glm::vec3( -2, -0.9, 4 ), glm::vec3( 0.1, 0.1, 0.1 ), 1, true );
+    _engine.createPointLight( glm::vec3( 0, 0, -1 ), glm::vec3( 1, 0, 0 ), 1,10, true );
+    _engine.createPointLight( glm::vec3( 1, 0, -1 ), glm::vec3( 0, 1, 0 ), 1,10, true );
+    _engine.createPointLight( glm::vec3( -1, 0, -1 ), glm::vec3( 0, 0, 1 ), 1,10, true );
 
 
     for (int i = 0; i < 10;i++) {
         for (int j = 0; j < 10; j++) {
-            _engine.createPointLight( glm::vec3( -5 + i * -5, -0.5, j * 5 - 1.5 ), glm::vec3( 0.01*i, 0.01*j, 1 ),1,10);
+            _engine.createPointLight( glm::vec3( -5 + i * -5, -0.5, j * 5 - 1.5 ), glm::vec3( 0.01 * i, 0.01 * j, 1 ), 1, 10, true);
         }
     }
     _engine.setMainLight( 0 );
+
+    _engine.updateLightBuffer();
 }
 
 void App::freeObjects()
 {
-    for (auto obj : objects) {
-        delete obj.mesh;
-    }
+    delete triangle;
+    delete character;
+    delete esfera;
+    delete planoSincolor;
 }
 
 

@@ -1,0 +1,74 @@
+#version 450
+
+layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
+
+struct AABBModel{
+    vec3 minBound;
+    vec3 maxBound;
+    mat4 modelMat;
+};
+
+
+layout(set =0, binding = 0) buffer AABBIndexBuffer{
+    int count;
+    uint index[];
+}indexBuffer;
+
+layout(set =0, binding = 1) buffer BoundsBuffer{
+    int count;
+    AABBModel aabb[];
+}boundBuffer;
+
+
+layout(set = 1,binding = 0) uniform CameraData {
+    mat4 view;
+    mat4 proj;
+} cameraData;
+
+bool isVisible (AABBModel boundBox){
+	vec4 corners[8] = {
+		{boundBox.minBound.x, boundBox.minBound.y, boundBox.minBound.z, 1.0}, // x y z
+		{boundBox.maxBound.x, boundBox.minBound.y, boundBox.minBound.z, 1.0}, // X y z
+		{boundBox.minBound.x, boundBox.maxBound.y, boundBox.minBound.z, 1.0}, // x Y z
+		{boundBox.maxBound.x, boundBox.maxBound.y, boundBox.minBound.z, 1.0}, // X Y z
+
+		{boundBox.minBound.x, boundBox.minBound.y, boundBox.maxBound.z, 1.0}, // x y Z
+		{boundBox.maxBound.x, boundBox.minBound.y, boundBox.maxBound.z, 1.0}, // X y Z
+		{boundBox.minBound.x, boundBox.maxBound.y, boundBox.maxBound.z, 1.0}, // x Y Z
+		{boundBox.maxBound.x, boundBox.maxBound.y, boundBox.maxBound.z, 1.0}, // X Y Z
+	};
+
+    bool inside = false;
+
+    for (uint corner_idx = 0; corner_idx < 8 && !inside; corner_idx++) {
+        // Transform vertex
+        vec4 corner = cameraData.proj * cameraData.view *  boundBox.modelMat * corners[corner_idx];
+        // Check vertex against clip space bounds
+        inside = inside || (
+            (corner.x <= corner.w && corner.x > -corner.w)&&
+            (corner.y <= corner.w && corner.y > -corner.w)&&
+            (corner.z <= corner.w && corner.w > 0)
+            );
+    }
+
+    return inside;
+}
+
+
+void main(){
+    uint ID = gl_GlobalInvocationID.x;
+
+    if(ID == 0){
+        indexBuffer.count = 0;
+    }
+
+    bool visible = true;
+    
+    if( ID < boundBuffer.count){
+
+        if(isVisible(boundBuffer.aabb[ID])){
+            uint lastIndex = atomicAdd(indexBuffer.count,1);
+            indexBuffer.index[lastIndex] = ID;
+        }
+    }
+}

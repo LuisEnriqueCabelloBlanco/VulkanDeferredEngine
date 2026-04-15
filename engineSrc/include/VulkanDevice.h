@@ -97,10 +97,9 @@ public:
 
 	VkFence createFence( VkFenceCreateInfo createInfo, VkAllocationCallbacks* pAllocator = nullptr );
 
-
+	void createBuffer( VkDeviceSize size, VkBufferUsageFlagBits usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory, std::vector<uint32_t> familyIndex = std::vector<uint32_t>(0) );
 	
 	Buffer* createBuffer( VkDeviceSize size, VkBufferUsageFlagBits usage, VkMemoryPropertyFlags properties);
-
 
 	template <typename t>
 	Buffer* createVkBuffer( const std::vector<t>& data, VkBufferUsageFlags usage ) {
@@ -161,7 +160,7 @@ public:
 		vkFreeCommandBuffers( _device, pool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data() );
 	}
 
-	void copyBuffer( VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+	void copyBuffer( VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDeviceSize offSetSrc = 0, VkDeviceSize offSetDst = 0 );
 
 	//Copia un buffer con los datos de la imagen a una imagen de vulkan
 	void copyBufferToImage( VkBuffer buffer, VkImage image, uint32_t width, uint32_t height );
@@ -293,7 +292,7 @@ public:
 
 private:
 
-	void createBuffer( VkDeviceSize size, VkBufferUsageFlagBits usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory );
+	
 
 	void pickPhysicalDevice();
 	bool isDeviceSuitable( VkPhysicalDevice device );

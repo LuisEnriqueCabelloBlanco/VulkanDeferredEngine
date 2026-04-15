@@ -73,8 +73,6 @@ private:
     void start();
 
     void update();
-    
-    void drawFrame();
 
     void loadModels();
 
@@ -100,4 +98,9 @@ private:
 
     float timeacum = 0;
 
+
+    Mesh* triangle;
+    Mesh* character;
+    Mesh* esfera;
+    Mesh* planoSincolor;
 };

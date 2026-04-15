@@ -17,7 +17,9 @@
 
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
-constexpr int MAX_LIGHTS = 10000; 
+constexpr int MAX_LIGHTS = 100000; 
+
+constexpr int MAX_CULL_OBJECTS = 100000;
 
 constexpr int MAX_TEXTURES = 32;
 
@@ -78,8 +80,8 @@ public:
     Mesh* createMesh( const std::vector<Vertex>& vertices );
     Mesh* createMesh( const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices );
 
-    void createPointLight(glm::vec3 position, glm::vec3 color, float intensity, float range);
-    void createDirectionalLight( glm::vec3 direction, glm::vec3 color, float intensity );
+    void createPointLight(glm::vec3 position, glm::vec3 color, float intensity, float range, bool preload = false);
+    void createDirectionalLight( glm::vec3 direction, glm::vec3 color, float intensity, bool preload = false );
 
 
     /**
@@ -140,6 +142,8 @@ private:
     
     void createComputePipeline();
 
+    void createObjectCullPipeline();
+
     void createShadowPipeline();
 
     void createFramebuffers();
@@ -149,6 +153,10 @@ private:
     void createCommandPool();
 
     void createCommandBuffers();
+
+    void createComputeCommandPool();
+
+    void createComputeCommandBuffer();
 
     void recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t imageIndex, std::vector<RenderObject>& objectsArray , const std::vector<int>& cullIndex );
 
@@ -170,7 +178,11 @@ private:
 
     void updateShadowDescriptorSet();
 
+    void updateCullDescriptorSet();
+
     void createLightBuffer();
+
+    void createCullingBufers();
 
     void createDescriptorSetLayout();
 
@@ -202,6 +214,8 @@ private:
 
     void createComputeDescriptorSets();
 
+    void createObjectCullDescriptorSets();
+
     void createShadowDesciptorSet();
 
     void pushModelMatrix( VkCommandBuffer commnadBuffer, glm::mat4 model = glm::mat4( 1 ) );
@@ -212,10 +226,11 @@ private:
 
     void recordMainRender( VkCommandBuffer commandBuffer );
 
-    const std::vector<int> cullObjects( const std::vector<RenderObject>& objs );
+    const std::vector<int> cullObjects( const std::vector<RenderObject>& objs, ViewProjectionData& cameraDesc );
     
     const std::vector<Light> cullLights( const std::vector<Light>& objs );
 
+    void computeCullObects( std::vector<RenderObject>& objectsArray );
 
     
 public:
@@ -229,6 +244,8 @@ private:
     const uint32_t HEIGHT = 600;
     VkInstance instance;
     VkDebugUtilsMessengerEXT debugMessenger;
+
+    VkSampleCountFlagBits _msaaSamples = VK_SAMPLE_COUNT_1_BIT;
 
     VkQueue graphicsQueue;
     VkQueue presentQueue;
@@ -246,11 +263,17 @@ private:
     VkPipelineLayout _computeLayout;
     VkPipeline _computePipeline;
 
+    VkPipelineLayout _objectCullingPipelineLayout;
+    VkPipeline _objectCullingPipeline;
+
     VkPipelineLayout deferredLayout;
     VkPipeline deferredPipeline;
 
     std::vector<VkFramebuffer> swapChainFramebuffers;
     VkFramebuffer _shadowFrameBuffer;
+
+    VkCommandPool computeComandPool;
+    VkCommandBuffer computeCommandBuffer;
 
     VkCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
@@ -275,6 +298,15 @@ private:
     void* _lightBufferStorageMapped;
 
     Buffer* _lightIndexStorage;
+
+    Buffer* _AABBModelStorage;
+    void* _AABBModelStorageMapped;
+
+    Buffer* _lightCulledObjectIndex;
+    int* _lightCulledObjectIndexMapped;
+
+    Buffer* _cameraCulledObjectIndex;
+    int* _cameraCulledObjectIndexMapped;
 
     Camera _mainCamera;
 
@@ -310,8 +342,12 @@ private:
     std::vector<VkDescriptorSet> _inputAttachemntsDescriptorSet;
     std::vector<VkDescriptorSet> _cameraDescriptorSet;
     std::vector<VkDescriptorSet> _globalLightingDescriptorSets;
+
     VkDescriptorSet _textureArrayDescriptorSet;
     VkDescriptorSet _mainLightDescriptorSet;
     VkDescriptorSet _lightsDataBufferDescriptroSet;
+    VkDescriptorSet _cameraCullDescriptorSet;
+    VkDescriptorSet _lightCullDescriptorSet;
+
 };
 

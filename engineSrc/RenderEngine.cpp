@@ -43,6 +43,9 @@ void RenderEngine::cleanup()
 	delete _lightUniformBuffer;
 	delete _lightBufferSorage;
 	delete _lightIndexStorage;
+	delete _AABBModelStorage;
+	delete _lightCulledObjectIndex;
+	delete _cameraCulledObjectIndex;
 	delete mainLightData;
 
 	_device.destroyDescriptorPool( descriptorPool );
@@ -59,12 +62,14 @@ void RenderEngine::cleanup()
 	_device.destroyPipeline( _computePipeline );
 	_device.destroyPipeline( deferredPipeline );
 	_device.destroyPipeline( _shadowPipeline );
+	_device.destroyPipeline( _objectCullingPipeline );
 
 
 	_device.destroyPipelineLayout( pipelineLayout );
 	_device.destroyPipelineLayout( deferredLayout );
 	_device.destroyPipelineLayout( _computeLayout );
 	_device.destroyPipelineLayout( _shadowPipelineLayout );
+	_device.destroyPipelineLayout( _objectCullingPipelineLayout );
 
 
 	//vkDestroyRenderPass(_device._device, renderPass, nullptr);
@@ -622,6 +627,40 @@ void RenderEngine::createComputePipeline()
 	_device.destroyShaderModule( computeModule );
 }
 
+void RenderEngine::createObjectCullPipeline()
+{
+	auto computeCode = readFile( "./shaders/build/objectCull" );
+
+	VkShaderModule computeModule = _device.createShaderModule( computeCode );
+
+	VkPipelineShaderStageCreateInfo computeStageInfo{};
+	computeStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	computeStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+	computeStageInfo.module = computeModule;
+	computeStageInfo.pName = "main";
+
+	VkDescriptorSetLayout layouts[]{ _indexedObjectsBufferDescriptroSetLayout, _viewProjectionDescriptorSetLayout };
+
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	pipelineLayoutInfo.setLayoutCount = 2; // Optional
+	pipelineLayoutInfo.pSetLayouts = layouts; // Optional
+
+	_objectCullingPipelineLayout = _device.createPipelineLayout( pipelineLayoutInfo );
+
+	VkComputePipelineCreateInfo createInfo;
+
+	createInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+	createInfo.layout = _objectCullingPipelineLayout;
+	createInfo.stage = computeStageInfo;
+	createInfo.flags = 0;
+	createInfo.pNext = NULL;
+
+	_objectCullingPipeline = _device.createcomputePipelines( VK_NULL_HANDLE, { createInfo } )[0];
+
+	_device.destroyShaderModule( computeModule );
+}
+
 void RenderEngine::createShadowPipeline()
 {
 	auto vertShaderCode = readFile( "./shaders/build/shadowVertex" );
@@ -840,7 +879,7 @@ Mesh* RenderEngine::createMesh( const std::vector<uint32_t>& indices, const std:
 	return new Mesh( _device, indices, vertices );
 }
 
-void RenderEngine::createPointLight( glm::vec3 position, glm::vec3 color, float intensity,float range )
+void RenderEngine::createPointLight( glm::vec3 position, glm::vec3 color, float intensity,float range, bool preload )
 {
 	Light l;
 
@@ -852,10 +891,12 @@ void RenderEngine::createPointLight( glm::vec3 position, glm::vec3 color, float 
 
 	_lightBuffer.push_back( l );
 
-	updateLightBuffer();
+	if (!preload) {
+		updateLightBuffer();
+	}
 }
 
-void RenderEngine::createDirectionalLight( glm::vec3 direction, glm::vec3 color, float intensity )
+void RenderEngine::createDirectionalLight( glm::vec3 direction, glm::vec3 color, float intensity, bool preload )
 {
 	Light l;
 
@@ -866,7 +907,9 @@ void RenderEngine::createDirectionalLight( glm::vec3 direction, glm::vec3 color,
 
 	_lightBuffer.push_back( l );
 
-	updateLightBuffer();
+	if (!preload) {
+		updateLightBuffer();
+	}
 }
 
 int RenderEngine::loadTexture( const std::string& path ) {
@@ -897,6 +940,43 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 		throw std::runtime_error( "failed to begin recording command buffer!" );
 	}
 	
+
+	//std::vector<AABBModel> stagingCull;
+	//stagingCull.reserve( objectsArray.size() );
+
+	//for (auto object : objectsArray) {
+	//	AABBModel amod;
+	//	amod.maxBound = object.mesh->getAABB().max;
+	//	amod.minBound = object.mesh->getAABB().min;
+	//	amod.modelMat = object.modelMatrix;
+	//	stagingCull.emplace_back( amod );
+	//}
+
+	//int size = stagingCull.size();
+
+	//memcpy( _AABBModelStorageMapped, &size, sizeof( int ) );
+
+	////+16 por alineamietno en memoria en la gpu
+	//void* arrayStart = (uint8_t*)_AABBModelStorageMapped + 16;
+	//memcpy( arrayStart, stagingCull.data(), sizeof( AABBModel ) * stagingCull.size() );
+
+
+	//vkCmdBindPipeline( commandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_COMPUTE, _objectCullingPipeline );
+
+	//VkDescriptorSet cullSets[] = { _cameraCullDescriptorSet, _cameraDescriptorSet[currentFrame] };
+
+	//vkCmdBindDescriptorSets( commandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_COMPUTE, _objectCullingPipelineLayout, 0, 2, cullSets, 0, nullptr );
+
+	//vkCmdDispatch( commandBuffers[currentFrame], (objectsArray.size() / 32) + 1, 1, 1 );
+
+
+	//VkDescriptorSet cullSets2[] = { _lightCullDescriptorSet, _mainLightDescriptorSet };
+
+	//vkCmdBindDescriptorSets( commandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_COMPUTE, _objectCullingPipelineLayout, 0, 2, cullSets2, 0, nullptr );
+
+	//vkCmdDispatch( commandBuffers[currentFrame], (objectsArray.size() / 32) + 1, 1, 1 );
+
+
 	VkBufferMemoryBarrier memBarr;
 	memBarr.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
 	memBarr.buffer = _lightIndexStorage->getBuffer();
@@ -1027,7 +1107,11 @@ void RenderEngine::drawFrame( std::vector<RenderObject>& objectsArray )
 		throw std::runtime_error( "failed to acquire swap chain image!" );
 	}
 	//vkResetFences(_device._device, 1, &inFlightFences[currentFrame]);
-	auto outObjects = cullObjects( objectsArray );
+	ViewProjectionData camDesc;
+	camDesc.proj = _mainCamera.getProjMatrix();
+	camDesc.view = _mainCamera.getViewMatrix();
+	auto outObjects = cullObjects( objectsArray, camDesc);
+
 	updateUniformBuffer( currentFrame, glm::mat4( 1.0f ) );
 	updateLightBuffer();
 	_device.resetFences( inFlightFences[currentFrame] );
@@ -1036,11 +1120,12 @@ void RenderEngine::drawFrame( std::vector<RenderObject>& objectsArray )
 	if (outObjects.size() == 0) {
 		std::cout << "No hay objetos a pintar\n";
 	}
+	Mesh::_lastRenderedMesh = nullptr;
 	vkResetCommandBuffer( commandBuffers[currentFrame], 0 );
 	auto start = std::chrono::high_resolution_clock::now();
 	recordCommandBuffer( commandBuffers[currentFrame], imageIndex, objectsArray, outObjects );
 	auto end = std::chrono::high_resolution_clock::now();
-	std::cout << "Time to record: " <<std::chrono::duration<float, std::chrono::milliseconds::period>(end - start)<<"\n";
+	//std::cout << "Time to record: " <<std::chrono::duration<float, std::chrono::milliseconds::period>(end - start)<<"\n";
 
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1211,10 +1296,10 @@ void RenderEngine::updateUniformBuffer( uint32_t currentImage, glm::mat4 model )
 	//vkCmdUpdateBuffer( commandBuffers[currentImage], uniformBuffers[currentImage]->getBuffer(), 0, sizeof( ViewProjectionData ), uniformBuffersMapped[currentImage] );
 
 	float ratio = _window.getExtent().width / _window.getExtent().height;
-	float scale = 10;
+	float scale = 20;
 	lightCameraUBO->proj = glm::ortho( -ratio*scale, ratio*scale, scale, -scale, 0.01f, 100.0f );
 	
-	glm::vec3 position = glm::vec3( 5, 10, -10 );
+	glm::vec3 position = glm::vec3( 5, 10, -10 ) + _mainCamera.getPos();
 	lightCameraUBO->view = glm::lookAt( position, position+mainLight->pos_dir,glm::vec3(0,1,0) );
 
 }
@@ -1293,6 +1378,68 @@ void RenderEngine::updateShadowDescriptorSet()
 	_device.updateDescriptorSet( descriptorWrites );
 }
 
+void RenderEngine::updateCullDescriptorSet()
+{
+	int size = 4;
+
+	std::vector<VkWriteDescriptorSet> descriptorWrites( size );
+
+	VkDescriptorBufferInfo bufferInfo{};
+	bufferInfo.buffer = _cameraCulledObjectIndex->getBuffer();
+	bufferInfo.offset = 0;
+	bufferInfo.range = VK_WHOLE_SIZE;
+
+	descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrites[0].dstBinding = 0;
+	descriptorWrites[0].dstArrayElement = 0;
+	descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	descriptorWrites[0].descriptorCount = 1;
+	descriptorWrites[0].pBufferInfo = &bufferInfo;
+	descriptorWrites[0].dstSet = _cameraCullDescriptorSet;
+
+	VkDescriptorBufferInfo bufferInfo2{};
+	bufferInfo2.buffer = _AABBModelStorage->getBuffer();
+	bufferInfo2.offset = 0;
+	bufferInfo2.range = VK_WHOLE_SIZE;
+
+	descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrites[1].dstBinding = 1;
+	descriptorWrites[1].dstArrayElement = 0;
+	descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	descriptorWrites[1].descriptorCount = 1;
+	descriptorWrites[1].pBufferInfo = &bufferInfo2;
+	descriptorWrites[1].dstSet = _cameraCullDescriptorSet;
+
+
+	VkDescriptorBufferInfo bufferInfo3{};
+	bufferInfo3.buffer = _lightCulledObjectIndex->getBuffer();
+	bufferInfo3.offset = 0;
+	bufferInfo3.range = VK_WHOLE_SIZE;
+
+	descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrites[2].dstBinding = 0;
+	descriptorWrites[2].dstArrayElement = 0;
+	descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	descriptorWrites[2].descriptorCount = 1;
+	descriptorWrites[2].pBufferInfo = &bufferInfo3;
+	descriptorWrites[2].dstSet = _lightCullDescriptorSet;
+
+	VkDescriptorBufferInfo bufferInfo4{};
+	bufferInfo4.buffer = _AABBModelStorage->getBuffer();
+	bufferInfo4.offset = 0;
+	bufferInfo4.range = VK_WHOLE_SIZE;
+
+	descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrites[3].dstBinding = 1;
+	descriptorWrites[3].dstArrayElement = 0;
+	descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	descriptorWrites[3].descriptorCount = 1;
+	descriptorWrites[3].pBufferInfo = &bufferInfo4;
+	descriptorWrites[3].dstSet = _lightCullDescriptorSet;
+
+	_device.updateDescriptorSet( descriptorWrites );
+}
+
 
 void RenderEngine::createLightBuffer()
 {
@@ -1304,12 +1451,16 @@ void RenderEngine::createLightBuffer()
 	_lightBufferSorage = _device.createBuffer( memorySize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
 	_device.mapMemory( _lightBufferSorage->getMemory(), 0, memorySize, &_lightBufferStorageMapped );
 
-
-
 	//BUffer de indicies (el plan es que solo exista en gpu ya que es para hacer el culling de luces en un shader de computo)
 	memorySize = sizeof( int ) + (sizeof( int ) * MAX_LIGHTS);
 	_lightIndexStorage = _device.createBuffer( memorySize,(VkBufferUsageFlagBits)(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
+
+	//memorySize = sizeof( int ) + (sizeof( AABBModel ) * MAX_CULL_OBJECTS);
+	//_AABBModelStorage = _device.createBuffer( memorySize, (VkBufferUsageFlagBits)(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );
+	//_device.mapMemory( _AABBModelStorage->getMemory(), 0, memorySize, &_AABBModelStorageMapped);
+	
+	
 	//std::vector<uint32_t> index;
 	//for (int i = 0; i < MAX_LIGHTS;i++) {
 	//	index.push_back( i );
@@ -1332,6 +1483,23 @@ void RenderEngine::createLightBuffer()
 
 	//delete staginBuffer;
 
+}
+
+void RenderEngine::createCullingBufers()
+{
+	VkDeviceSize memorySize = sizeof( int ) + (sizeof( AABBModel ) * MAX_CULL_OBJECTS) + sizeof( uint8_t ) * 16;
+	_AABBModelStorage = _device.createBuffer( memorySize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
+	_device.mapMemory( _AABBModelStorage->getMemory(), 0, memorySize, &_AABBModelStorageMapped );
+
+	memorySize= sizeof( int ) + (sizeof( int ) * MAX_CULL_OBJECTS);
+	_lightCulledObjectIndex = _device.createBuffer( memorySize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT , VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
+	
+	//_device.mapMemory( _lightCulledObjectIndex->getMemory(), 0, sizeof( int ),(void**)&_lightObjectCount);
+	_device.mapMemory( _lightCulledObjectIndex->getMemory(), 0, memorySize,(void**)&_lightCulledObjectIndexMapped);
+
+	_cameraCulledObjectIndex = _device.createBuffer( memorySize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
+	//_device.mapMemory( _cameraCulledObjectIndex->getMemory(), 0, sizeof( int ), (void**)&_cameraObjectCount );
+	_device.mapMemory( _cameraCulledObjectIndex->getMemory(), 0, memorySize, (void**)&_cameraCulledObjectIndexMapped );
 }
 
 void RenderEngine::updateLightBuffer() {
@@ -1489,7 +1657,7 @@ void RenderEngine::createViewProjectionDescriptorSetLayout()
 	uboLayoutBinding.binding = 0;
 	uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	uboLayoutBinding.descriptorCount = 1;
-	uboLayoutBinding.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS;
+	uboLayoutBinding.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS | VK_SHADER_STAGE_COMPUTE_BIT;
 	uboLayoutBinding.pImmutableSamplers = nullptr;
 
 
@@ -1580,9 +1748,9 @@ void RenderEngine::createDescriptorPool()
 
 	int numOfInputAttachments = 3;
 
-	int numOfUniformBuffres = 3;
+	int numOfUniformBuffres = 4;
 
-	int numOfStorageBuffers = 4;
+	int numOfStorageBuffers = 6;
 
 	std::array<VkDescriptorPoolSize, 4> poolSizes{};
 	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -1598,11 +1766,7 @@ void RenderEngine::createDescriptorPool()
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 	poolInfo.pPoolSizes = poolSizes.data();
-	poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 5+3;
-
-	//if (vkCreateDescriptorPool(_device._device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
-	//    throw std::runtime_error("failed to create descriptor pool!");
-	//}
+	poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 5+5;
 
 	descriptorPool = _device.createDescriptorPool( poolInfo );
 }
@@ -1668,6 +1832,13 @@ void RenderEngine::createComputeDescriptorSets()
 {
 	std::vector<VkDescriptorSetLayout> layouts2( MAX_FRAMES_IN_FLIGHT, _computeDescriptorSetLayout );
 	_computeDescriptorSet = _device.createDescriptorSets( layouts2, descriptorPool );
+}
+
+void RenderEngine::createObjectCullDescriptorSets()
+{
+	std::vector<VkDescriptorSetLayout> layouts2( MAX_FRAMES_IN_FLIGHT, _indexedObjectsBufferDescriptroSetLayout );
+	_cameraCullDescriptorSet = _device.createDescriptorSets( layouts2, descriptorPool )[0];
+	_lightCullDescriptorSet = _device.createDescriptorSets( layouts2, descriptorPool )[0];
 }
 
 void RenderEngine::createShadowDesciptorSet()
@@ -1757,8 +1928,6 @@ void RenderEngine::updateLightingDescriptorSets()
 		descriptorWrites[1].pImageInfo = &inputInfo2;
 		descriptorWrites[1].dstSet = _inputAttachemntsDescriptorSet[i];
 
-		//vkUpdateDescriptorSets(_device._device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
-
 
 		VkDescriptorImageInfo inputInfo3{};
 		inputInfo3.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -1786,33 +1955,6 @@ void RenderEngine::updateLightingDescriptorSets()
 		descriptorWrites[2].descriptorCount = 1;
 		descriptorWrites[2].pBufferInfo = &lightBuffer;
 		descriptorWrites[2].dstSet = _globalLightingDescriptorSets[i];
-
-		//VkDescriptorBufferInfo storageBufferInfo;
-		//storageBufferInfo.buffer = _lightBufferSorage->getBuffer();
-		//storageBufferInfo.offset = 0;
-		//storageBufferInfo.range = sizeof( int ) + (sizeof( Light ) * MAX_LIGHTS) + sizeof( uint8_t ) * 16;
-
-		//descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		//descriptorWrites[4].dstBinding = 1;
-		//descriptorWrites[4].dstArrayElement = 0;
-		//descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		//descriptorWrites[4].descriptorCount = 1;
-		//descriptorWrites[4].pBufferInfo = &storageBufferInfo;
-		//descriptorWrites[4].dstSet = _lightsDataBufferDescriptroSet;
-
-
-		//VkDescriptorBufferInfo storageBufferInfo2;
-		//storageBufferInfo2.buffer = _lightIndexStorage->getBuffer();
-		//storageBufferInfo2.offset = 0;
-		//storageBufferInfo2.range = sizeof( int ) + (sizeof( int ) * MAX_LIGHTS);
-		//				 
-		//descriptorWrites[5].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		//descriptorWrites[5].dstBinding = 5;
-		//descriptorWrites[5].dstArrayElement = 0;
-		//descriptorWrites[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		//descriptorWrites[5].descriptorCount = 1;
-		//descriptorWrites[5].pBufferInfo = &storageBufferInfo2;
-		//descriptorWrites[5].dstSet = _lightsDataBufferDescriptroSet;
 
 
 		VkDescriptorImageInfo imgInfo = shadowMap->getTextureDescriptor( VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL );
@@ -1857,6 +1999,10 @@ void RenderEngine::pushTextureIndex( VkCommandBuffer commnadBuffer, MaterialData
 
 void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::vector<RenderObject>& objectsArray )
 {
+	
+	std::vector<int> cullIndex = cullObjects( objectsArray,*lightCameraUBO );
+
+
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.framebuffer = _shadowFrameBuffer;
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -1897,12 +2043,10 @@ void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::v
 	scissor.extent = ext;
 	vkCmdSetScissor( commandBuffer, 0, 1, &scissor );
 
+	for (auto& index : cullIndex) {
 
-
-	for (auto& object : objectsArray) {
-
-		pushModelMatrix( commandBuffer, object.modelMatrix );
-		object.mesh->draw( commandBuffer );
+		pushModelMatrix( commandBuffer, objectsArray[index].modelMatrix);
+		objectsArray[index].mesh->draw( commandBuffer );
 	}
 
 	vkCmdEndRenderPass( commandBuffer );
@@ -1935,12 +2079,12 @@ void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::v
 
 }
 
-const std::vector<int> RenderEngine::cullObjects( const std::vector<RenderObject>& objs )
+const std::vector<int> RenderEngine::cullObjects( const std::vector<RenderObject>& objs, ViewProjectionData& cameraDesc )
 {
 	auto start = std::chrono::high_resolution_clock::now();
 	std::vector<int> out;
 	out.reserve(objs.size());
-	glm::mat4 VP = _mainCamera.getProjMatrix() * _mainCamera.getViewMatrix();
+	glm::mat4 VP = cameraDesc.proj * cameraDesc.view;
 
 	int i = 0;
 	for (const auto& obj : objs) {
@@ -1952,7 +2096,7 @@ const std::vector<int> RenderEngine::cullObjects( const std::vector<RenderObject
 	}
 	auto end = std::chrono::high_resolution_clock::now();
 
-	std::cout <<"Objects To paint: "<< out.size() << " Time to process object Culling: " << std::chrono::duration<float, std::chrono::milliseconds::period>(end-start) << "\n";
+	//std::cout <<"Objects To paint: "<< out.size() << " Time to process object Culling: " << std::chrono::duration<float, std::chrono::milliseconds::period>(end-start) << "\n";
 	return out;
 }
 
@@ -2133,9 +2277,12 @@ void RenderEngine::init( const std::string& appName )
 	createTextureArrayDescriptorSetLayout();
 	createViewProjectionDescriptorSetLayout();
 	createIndexedObjectsBufferDescriptroSetLayout();
+	
 
 	createComputeDescriptorSetLayout();
 	createComputePipeline();
+
+	createObjectCullPipeline();
 
 	createShadowPass();
 	createShadowDescriptorSetLayout();
@@ -2164,6 +2311,7 @@ void RenderEngine::init( const std::string& appName )
 
 	createUniformBuffers();
 	createLightBuffer();
+	createCullingBufers();
 
 	_mainCamera = Camera( glm::vec3( 0, 0, -2.5f ), glm::vec3( 0, 0, 1.f ), glm::vec3( 0.0f, 1.0f, 0.0f ),
 						  90.f, _window.getExtent().width / (float)_window.getExtent().height, 0.1f, 40.f );
@@ -2173,10 +2321,13 @@ void RenderEngine::init( const std::string& appName )
 	createDeferredDescriptorSets();
 	createComputeDescriptorSets();
 	createShadowDesciptorSet();
+	createObjectCullDescriptorSets();
+	
 	updateGeometryDescriptorSets();
 	updateLightingDescriptorSets();
 	updateComputeDescritorSet();
 	updateShadowDescriptorSet();
+	updateCullDescriptorSet();
 
 }
 
@@ -2194,7 +2345,7 @@ void RenderEngine::createRenderPass()
 
 	VkAttachmentDescription colorAttachment{};
 	colorAttachment.format = _window.getFormat();
-	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT /*_device.msaaSamples*/;
+	colorAttachment.samples = _msaaSamples /*_device.msaaSamples*/;
 	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -2204,7 +2355,7 @@ void RenderEngine::createRenderPass()
 
 	VkAttachmentDescription normalAttachment{};
 	normalAttachment.format = VK_FORMAT_R16G16B16A16_SFLOAT;
-	normalAttachment.samples = VK_SAMPLE_COUNT_1_BIT /*_device.msaaSamples*/;
+	normalAttachment.samples = _msaaSamples /*_device.msaaSamples*/;
 	normalAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	normalAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	normalAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -2215,7 +2366,7 @@ void RenderEngine::createRenderPass()
 
 	VkAttachmentDescription posAttachment{};
 	posAttachment.format = VK_FORMAT_R16G16B16A16_SFLOAT;
-	posAttachment.samples = VK_SAMPLE_COUNT_1_BIT /*_device.msaaSamples*/;
+	posAttachment.samples = _msaaSamples /*_device.msaaSamples*/;
 	posAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	posAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	posAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -2225,7 +2376,7 @@ void RenderEngine::createRenderPass()
 
 	VkAttachmentDescription depthAttachment{};
 	depthAttachment.format = findDepthFormat();
-	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	depthAttachment.samples = _msaaSamples;
 	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;

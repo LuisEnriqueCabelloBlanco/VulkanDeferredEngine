@@ -5,6 +5,7 @@
 #include"VulkanDevice.h"
 #include"Vertex.h"
 
+class RenderEngine;
 class Buffer;
 
 struct AABB {
@@ -13,6 +14,7 @@ struct AABB {
 };
 
 class Mesh {
+    friend RenderEngine;
 public:
 
     Mesh( Mesh& otherMesh );
@@ -28,6 +30,8 @@ public:
     //TODO loadMesh metodo estatico
 
 private:
+
+    static Mesh* _lastRenderedMesh;
 
     void loadMesh(const std::string& path);
 

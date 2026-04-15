@@ -123,7 +123,8 @@ vec3 PBR(Light l, float ambient, vec3 albedo, float metallic, float roughness, v
     return BRDF(normalVec,view,F0,albedo, halfView, l,metallic, roughness );
 }
 
-void shadowCasting(inout vec3 colorVal){
+//Evalua si se debe sombrear o no
+bool shadowCasting(){
     vec4 pixelPositionWS = lightSpace.proj* lightSpace.view* vec4(subpassLoad(position).rgb,1);
 
     vec2 projCoords = (pixelPositionWS.xy/pixelPositionWS.w)*0.5+0.5;
@@ -131,11 +132,9 @@ void shadowCasting(inout vec3 colorVal){
     float lightDepth = texture(shadowMap,projCoords).r;
     float currentDepth = pixelPositionWS.z/pixelPositionWS.w;
 
-    float bias = 0.005;
+    float bias = max(0.05 * (1.0 - dot(normalize(subpassLoad(normal).rgb), -lightBuffer.lights[0].dir_center)), 0.005);
 
-    if(currentDepth-bias >= lightDepth && lightDepth != 0){
-        colorVal = light.ambient * subpassLoad(color).rgb;
-    }
+    return (currentDepth-bias >= lightDepth && lightDepth != 0);
 }
 
 void main() {
@@ -151,8 +150,8 @@ void main() {
 
 
 
-    vec3 colorVal = vec3(0);
-    
+    vec3 colorVal = subpassLoad(color).rgb * light.ambient;
+
     // Light lightData;
 
     // lightData.dir = -normalize(light.dirLight.direction);
@@ -164,13 +163,16 @@ void main() {
 
         uint index = lightIndexBuffer.index[i];
 
+        
         //luz direccional
         if(lightBuffer.lights[index].type == 0){
             aux.dir_center = -normalize(lightBuffer.lights[index].dir_center);
             aux.color = lightBuffer.lights[index].color;
             aux.intensity = lightBuffer.lights[index].intensity;
 
-            colorVal += PBR(aux, light.ambient, sampleColor, metallic, roughness, normalVec, viewVector);
+            if(!shadowCasting() ){
+                colorVal += PBR(aux, light.ambient, sampleColor, metallic, roughness, normalVec, viewVector);
+            }
         }
 
         //luz posicional
@@ -189,10 +191,10 @@ void main() {
         
     }
     
-    colorVal += light.ambient * sampleColor;
+    //colorVal += light.ambient * sampleColor;
 
     //Shadow Casting
-    shadowCasting(colorVal);
+
     
     if(lightBuffer.count < 1){
         colorVal = subpassLoad(color).rgb * light.ambient;

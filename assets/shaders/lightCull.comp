@@ -39,7 +39,7 @@ bool isVisible(Light light){
         //Calcular si esta dentro del frustrum de la camara
         vec3 pos = light.dir_center;
 
-        visible = distance(pos,cameraData.eyePos) < light.range;
+        visible = distance(pos,cameraData.eyePos) < 100;
     }
 
     return light.type==0 || visible;
@@ -60,5 +60,5 @@ void main(){
             indexBuffer.index[lastIndex] = ID;
         }
     }
-    debugPrintfEXT("id: %i bufferCount: %i",ID,indexBuffer.count);
+    //debugPrintfEXT("id: %i bufferCount: %i",ID,indexBuffer.count);
 }

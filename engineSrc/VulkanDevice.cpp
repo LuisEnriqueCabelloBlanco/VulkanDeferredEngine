@@ -196,7 +196,7 @@ VkDeviceMemory VulkanDevice::bindMemoryToImage( VkImage image )
 
 void VulkanDevice::pickPhysicalDevice()
 {
-    uint32_t deviceCount = 0;
+    uint32_t deviceCount = 0;   
     vkEnumeratePhysicalDevices(_vkInstance, &deviceCount, nullptr);
     if (deviceCount == 0) {
         throw std::runtime_error("failed to find GPUs with Vulkan support!");
@@ -549,16 +549,34 @@ VkFence VulkanDevice::createFence( VkFenceCreateInfo createInfo, VkAllocationCal
     return fence;
 }
 
-void VulkanDevice::createBuffer( VkDeviceSize size, VkBufferUsageFlagBits usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory )
+/**
+ * @brief funcion que solo debe ser usada desde Buffer
+ * @param size 
+ * @param usage 
+ * @param properties 
+ * @param buffer 
+ * @param bufferMemory 
+ */
+void VulkanDevice::createBuffer( VkDeviceSize size, VkBufferUsageFlagBits usage, VkMemoryPropertyFlags properties, 
+                                 VkBuffer& buffer, VkDeviceMemory& bufferMemory, std::vector<uint32_t> familyIndex)
 {
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferInfo.size = size;
     bufferInfo.usage = usage;
     bufferInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
+
     uint32_t indices[] = { _familyIndx.graphicsFamily.value(), _familyIndx.transferFamily.value() };
-    bufferInfo.pQueueFamilyIndices = indices;
-    bufferInfo.queueFamilyIndexCount = 2;
+    if (familyIndex.size() == 0) {
+        bufferInfo.pQueueFamilyIndices = indices;
+        bufferInfo.queueFamilyIndexCount = 2;
+        //std::cout << "No se pasaron indices"<<"\n";
+    }
+    else {
+        bufferInfo.pQueueFamilyIndices = familyIndex.data();
+        bufferInfo.queueFamilyIndexCount = familyIndex.size();
+        //std::cout << "Se pasaron indices"<<"\n";
+    }
 
     if (vkCreateBuffer( _device, &bufferInfo, nullptr, &buffer ) != VK_SUCCESS) {
         throw std::runtime_error( "failed to create buffer!" );
@@ -581,11 +599,7 @@ void VulkanDevice::createBuffer( VkDeviceSize size, VkBufferUsageFlagBits usage,
 
 Buffer* VulkanDevice::createBuffer( VkDeviceSize size, VkBufferUsageFlagBits usage, VkMemoryPropertyFlags properties )
 {
-    VkBuffer buffer;
-    VkDeviceMemory memory;
-    createBuffer(size,usage,properties,buffer,memory);
-
-    return new Buffer(buffer,memory,this);
+    return new Buffer(size, usage, properties,this);
 }
 
 std::vector<VkDescriptorSet> VulkanDevice::createDescriptorSets(const std::vector<VkDescriptorSetLayout>& layouts, VkDescriptorPool descriptorPool, void* pNext )
@@ -690,13 +704,13 @@ VkSurfaceFormatKHR VulkanDevice::chooseSwapSurfaceFormat( const std::vector<VkSu
     return availableFormats[0];
 }
 
-void VulkanDevice::copyBuffer( VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+void VulkanDevice::copyBuffer( VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size,VkDeviceSize offSetSrc, VkDeviceSize offSetDst )
 {
     VkCommandBuffer commandBuffer = beginSingleTimeCommands( _transferPool );
 
     VkBufferCopy copyRegion{};
-    copyRegion.srcOffset = 0; // Optional
-    copyRegion.dstOffset = 0; // Optional
+    copyRegion.srcOffset = offSetSrc; // Optional
+    copyRegion.dstOffset = offSetDst; // Optional
     copyRegion.size = size;
     vkCmdCopyBuffer( commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion );
 

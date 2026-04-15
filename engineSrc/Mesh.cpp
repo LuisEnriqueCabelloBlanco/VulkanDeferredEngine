@@ -2,13 +2,16 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
 
+
+Mesh* Mesh::_lastRenderedMesh = nullptr;
+
 Mesh::Mesh( Mesh& otherMesh ) :_device( otherMesh._device )
 {
 	_indexBuffer = otherMesh._indexBuffer;
 	_vertexBuffer = otherMesh._vertexBuffer;
 	_indices = otherMesh._indices;
 	_vertices = otherMesh._vertices;
-	_meshAABB = calculateAABB();
+	_meshAABB = otherMesh._meshAABB;
 	_isCopy = true;
 }
 
@@ -48,20 +51,21 @@ Mesh::Mesh( VulkanDevice& device, const std::vector<Vertex>& vertices ) :_device
 
 Mesh::~Mesh()
 {
-	if (!_isCopy) {
-		delete _vertexBuffer;
-		delete _indexBuffer;
-	}
-
+	delete _vertexBuffer;
+	delete _indexBuffer;
 }
 
 void Mesh::draw( VkCommandBuffer commandBuffer )
 {
-	VkBuffer vertexBuffers[] = { _vertexBuffer->getBuffer() };
-	VkDeviceSize offsets[] = { 0 };
-	vkCmdBindVertexBuffers( commandBuffer, 0, 1, vertexBuffers, offsets );
-	vkCmdBindIndexBuffer( commandBuffer, _indexBuffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32 );
+	if (_lastRenderedMesh != this) {
+		VkBuffer vertexBuffers[] = { _vertexBuffer->getBuffer() };
+		VkDeviceSize offsets[] = { 0 };
+		vkCmdBindVertexBuffers( commandBuffer, 0, 1, vertexBuffers, offsets );
+		vkCmdBindIndexBuffer( commandBuffer, _indexBuffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32 );
+	}
 	vkCmdDrawIndexed( commandBuffer, static_cast<uint32_t>(_indices.size()), 1, 0, 0, 0 );
+	
+	_lastRenderedMesh = this;
 }
 
 void Mesh::loadMesh( const std::string& path )

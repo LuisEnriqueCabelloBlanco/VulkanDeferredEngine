@@ -48,3 +48,9 @@ struct RenderObject {
     MaterialData mat;
 };
 
+
+struct AABBModel {
+    glm::vec3 minBound;
+    glm::vec3 maxBound;
+    glm::mat4 modelMat;
+};
