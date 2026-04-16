@@ -9,30 +9,14 @@
 //#include <glm/gtx/hash.hpp>
 
 
-
-#include<SDL2/SDL_events.h>
-
-
-#include <chrono>
-
-#include <vulkan/vulkan.h>
 #include <iostream>
+#include <string>
 #include <vector>
-#include <optional>
-#include <limits> // Necessary for std::numeric_limits
-#include <algorithm> // Necessary for std::clamp
+
 #include <glm/glm.hpp>
-#include <array>
-#include "VulkanWindow.h"
-#include "VulkanDevice.h"
-#include "Texture.h"
-#include "Utils.h"
-#include "BufferObjectsData.h"
-#include "Mesh.h"
+#include <SDL2/SDL_events.h>
 
-#include "Camera.h"
-
-#include "RenderEngine.h"
+#include "EngineAPI.h"
 
 
 const std::string MODEL_PATH = "./mesh/personaje.obj";

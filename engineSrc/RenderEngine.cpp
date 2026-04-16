@@ -859,11 +859,6 @@ void RenderEngine::createCommandBuffers()
 
 }
 
-Mesh* RenderEngine::createMesh( Mesh& meshCopy )
-{
-	return new Mesh( meshCopy );
-}
-
 Mesh* RenderEngine::createMesh( const std::string& path )
 {
 	return new Mesh( _device, path );
@@ -906,6 +901,10 @@ void RenderEngine::createDirectionalLight( glm::vec3 direction, glm::vec3 color,
 	l.intensity = intensity;
 
 	_lightBuffer.push_back( l );
+
+	if (_mainLightIndex < 0) {
+		_mainLightIndex = static_cast<int>(_lightBuffer.size()) - 1;
+	}
 
 	if (!preload) {
 		updateLightBuffer();
@@ -1295,12 +1294,16 @@ void RenderEngine::updateUniformBuffer( uint32_t currentImage, glm::mat4 model )
 	memcpy( _lightBufferMapped, &_lighting, sizeof( _lighting ) );
 	//vkCmdUpdateBuffer( commandBuffers[currentImage], uniformBuffers[currentImage]->getBuffer(), 0, sizeof( ViewProjectionData ), uniformBuffersMapped[currentImage] );
 
-	float ratio = _window.getExtent().width / _window.getExtent().height;
+	float ratio = _window.getExtent().width / static_cast<float>(_window.getExtent().height);
 	float scale = 20;
 	lightCameraUBO->proj = glm::ortho( -ratio*scale, ratio*scale, scale, -scale, 0.01f, 100.0f );
 	
 	glm::vec3 position = glm::vec3( 5, 10, -10 ) + _mainCamera.getPos();
-	lightCameraUBO->view = glm::lookAt( position, position+mainLight->pos_dir,glm::vec3(0,1,0) );
+	glm::vec3 lightDir( 0.0f, -1.0f, 0.0f );
+	if (_mainLightIndex >= 0 && _mainLightIndex < static_cast<int>(_lightBuffer.size()) && _lightBuffer[_mainLightIndex].type == DIRECTIONAL) {
+		lightDir = _lightBuffer[_mainLightIndex].pos_dir;
+	}
+	lightCameraUBO->view = glm::lookAt( position, position + lightDir, glm::vec3( 0, 1, 0 ) );
 
 }
 
@@ -1515,8 +1518,7 @@ void RenderEngine::updateLightBuffer() {
 	void* arrayStart = (uint8_t*)_lightBufferStorageMapped + 16;
 	memcpy( arrayStart, _lightBuffer.data(), sizeof( Light ) * _lightBuffer.size() );
 }
-
-void RenderEngine::handleWindowEvent( SDL_WindowEvent event )
+void RenderEngine::handleWindowEvent( const WindowEvent& event )
 {
 	_window.handleWindowEvent( event );
 }
@@ -2120,11 +2122,10 @@ const std::vector<Light> RenderEngine::cullLights( const std::vector<Light>& lig
 
 void RenderEngine::setMainLight( int index )
 {
-	assert( index < _lightBuffer.size() );
+	assert( index >= 0 && index < static_cast<int>(_lightBuffer.size()) );
 	assert( _lightBuffer[index].type == 0 ); //solo las luces direccionales pueden ser luces principales
 
-
-	mainLight = &_lightBuffer[index];
+	_mainLightIndex = index;
 }
 
 

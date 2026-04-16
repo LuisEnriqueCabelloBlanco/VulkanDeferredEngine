@@ -4,10 +4,10 @@
 #include <vector>
 #include <iostream>
 #include <vulkan/vulkan.h>
-#include <SDL2/SDL_events.h>
+#include "WindowEvent.h"
 
 
-class SDL_Window;
+struct SDL_Window;
 class VulkanDevice;
 class VulkanWindow
 {
@@ -46,7 +46,7 @@ public:
 
 	void cleanUpSwapChain();
 
-	void handleWindowEvent( const SDL_WindowEvent& ev );
+	void handleWindowEvent( const WindowEvent& ev );
 private:
 
 	VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);

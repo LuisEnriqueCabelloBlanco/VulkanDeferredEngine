@@ -5,16 +5,6 @@
 
 Mesh* Mesh::_lastRenderedMesh = nullptr;
 
-Mesh::Mesh( Mesh& otherMesh ) :_device( otherMesh._device )
-{
-	_indexBuffer = otherMesh._indexBuffer;
-	_vertexBuffer = otherMesh._vertexBuffer;
-	_indices = otherMesh._indices;
-	_vertices = otherMesh._vertices;
-	_meshAABB = otherMesh._meshAABB;
-	_isCopy = true;
-}
-
 Mesh::Mesh( VulkanDevice& device, const std::string& path ) :_device( device ) {
 
 	loadMesh( path );
@@ -51,6 +41,10 @@ Mesh::Mesh( VulkanDevice& device, const std::vector<Vertex>& vertices ) :_device
 
 Mesh::~Mesh()
 {
+	if (_lastRenderedMesh == this) {
+		_lastRenderedMesh = nullptr;
+	}
+
 	delete _vertexBuffer;
 	delete _indexBuffer;
 }

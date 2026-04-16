@@ -13,12 +13,12 @@ void App::start()
     auto endTime = std::chrono::high_resolution_clock::now();
     std::cout << "Tiempo en cargar los modelos: "<<
         std::chrono::duration<float, std::chrono::seconds::period>( endTime - startTime ).count() << "\n";
-    
-    
+
+
     startTime = std::chrono::high_resolution_clock::now();
     addLighting();
     endTime = std::chrono::high_resolution_clock::now();
-    std::cout << "Tiempo en cargar las luces: " << 
+    std::cout << "Tiempo en cargar las luces: " <<
         std::chrono::duration<float, std::chrono::seconds::period>( endTime - startTime ).count() << "\n";
 }
 
@@ -62,7 +62,16 @@ void App::mainLoop() {
                 running = false;
             }
             if (ev.type == SDL_WINDOWEVENT) {
-                _engine.handleWindowEvent( ev.window );
+                WindowEvent out;
+                out.type = WindowEventType::Unknown;
+                out.width = ev.window.data1;
+                out.height = ev.window.data2;
+
+                if (ev.window.event == SDL_WINDOWEVENT_RESIZED) {
+                    out.type = WindowEventType::Resized;
+                }
+
+                _engine.handleWindowEvent( out );
             }
         }
 
@@ -75,7 +84,7 @@ void App::mainLoop() {
         _counter++;
 
         _deltaTime = std::chrono::duration<float, std::chrono::seconds::period>( endFrame - frameStart ).count();
-    
+
     }
 }
 
@@ -88,13 +97,13 @@ void App::update()
 
     objects[0].modelMatrix = glm::translate( glm::rotate( glm::mat4( 1 ), glm::radians( -10.f ), glm::vec3( 0, 1, 0 ) ), glm::vec3( sin( time ) * 1.5f, 0, 0 ) );
     objects[1].modelMatrix = glm::translate(glm::rotate( glm::mat4( 1.0f ), time * glm::radians( 180.0f ), glm::vec3( 0.0f, 1.0f, 0.0f ) ),glm::vec3(0,-1,0) );
-   
+
 
     glm::vec3 right = glm::cross( glm::vec3( 0, 1, 0 ), _mainCamera->getDirection()  );
 
 
     glm::vec3 newPos = _mainCamera->getPos() + (right * _moveDir.x + _mainCamera->getDirection() * _moveDir.z)*_deltaTime *10.f;
-    
+
     _mainCamera->setPosition( newPos );
 }
 
@@ -130,7 +139,7 @@ void App::loadModels()
     v1.normal = glm::vec3( 0.f, 0.0f, -1.f );
     v2.normal = glm::vec3( 0.f, 0.0f, -1.f );
     v3.normal = glm::vec3( 0.f, 0.0f, -1.f );
-    
+
     v1.texCoord = glm::vec2(0,0);
     v2.texCoord = glm::vec2(2,0);
     v3.texCoord = glm::vec2(0,2);
@@ -180,8 +189,7 @@ void App::loadModels()
     esfera = _engine.createMesh( MODEL_PATH3 );
     planoSincolor = _engine.createMesh(MODEL_PATH4);
 
-
-
+    
     objects.push_back( { triangle, glm::mat4( 1 ),mat3 });
     objects.push_back( { character, glm::mat4( 1 ),mat1 } );
     //objects.push_back( { planoSincolor, glm::mat4( 10 ),planeMat } );
@@ -202,7 +210,7 @@ void App::loadModels()
             objects.push_back( { planoSincolor, glm::scale( glm::translate( glm::mat4( 1 ), glm::vec3( i * -5, -1, j * 5 ) ) , glm::vec3( 10 ) ),planeMat } );
         }
     }
-    
+
 }
 
 void App::addLighting()

@@ -12,6 +12,7 @@
 #include "Texture.h"
 #include "BufferObjectsData.h"
 #include "Mesh.h"
+#include "WindowEvent.h"
 
 #include "Camera.h"
 
@@ -75,7 +76,6 @@ public:
     Camera& getMainCamera() { return _mainCamera; }
 
 
-    Mesh* createMesh( Mesh& meshCopy );
     Mesh* createMesh( const std::string& path );
     Mesh* createMesh( const std::vector<Vertex>& vertices );
     Mesh* createMesh( const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices );
@@ -98,7 +98,7 @@ public:
 
     void updateLightBuffer();
 
-    void handleWindowEvent( SDL_WindowEvent event);
+    void handleWindowEvent( const WindowEvent& event );
 
     void setMainLight( int index );
 
@@ -321,7 +321,7 @@ private:
     Texture* posTexture;
 
     Texture* shadowMap;
-    Light* mainLight;
+    int _mainLightIndex = -1;
     Buffer* mainLightData;
     ViewProjectionData* lightCameraUBO;
 
