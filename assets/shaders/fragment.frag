@@ -2,6 +2,7 @@
 #extension GL_EXT_nonuniform_qualifier : enable
 
 struct MaterialParams{
+    vec4 baseColor;
     float metallic;
     float roughness;
     int textureIdx;
@@ -19,15 +20,20 @@ layout(location = 1) in vec2 fragTexCoord;
 layout(location = 2) in vec3 normal;
 layout(location = 3) in vec3 postion;
 layout(location = 4) in mat3 TBN;
- 
+
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec4 outNormal;
 layout(location = 2) out vec4 outPos;
 
 
 void main() {
+    vec4 albedo = mat.baseColor * vec4(fragColor, 1.0);
 
-    outColor = texture(texSampler[mat.textureIdx],fragTexCoord)*vec4(fragColor , 1.0);
+    if(mat.textureIdx != -1){
+        albedo *= texture(texSampler[mat.textureIdx], fragTexCoord);
+    }
+
+    outColor = albedo;
 
     vec3 sampleNormal = normal;
 

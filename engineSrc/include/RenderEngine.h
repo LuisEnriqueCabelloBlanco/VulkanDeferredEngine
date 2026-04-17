@@ -261,7 +261,6 @@ private:
     VkRenderPass renderPass;
     VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
-    VkPipeline noTexPipeline;
 
     VkRenderPass shadowPass;
     VkPipelineLayout _shadowPipelineLayout;

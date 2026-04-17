@@ -3,14 +3,14 @@
 //#define TINYOBJLOADER_IMPLEMENTATION
 //#include "tiny_obj_loader.h"
 #include <SDL2/SDL_vulkan.h>
-#include <cassert>
 #include "Mesh.h"
 
 namespace {
 	struct alignas(16) MaterialData {
+		glm::vec4 baseColor;
 		float metallic;
 		float roughtness;
-		int texutreIndex;
+		int textureIndex;
 		int normalTextureIndex;
 	};
 }
@@ -67,7 +67,6 @@ void RenderEngine::cleanup()
 	_device.destroyDescriptorSetLayout( _indexedObjectsBufferDescriptroSetLayout );
 
 	_device.destroyPipeline( graphicsPipeline );
-	_device.destroyPipeline( noTexPipeline );
 	_device.destroyPipeline( _computePipeline );
 	_device.destroyPipeline( deferredPipeline );
 	_device.destroyPipeline( _shadowPipeline );
@@ -239,11 +238,9 @@ void RenderEngine::createGraphicsPipeline()
 {
 	auto vertShaderCode = readFile( "./shaders/build/vertex" );
 	auto fragShaderCode = readFile( "./shaders/build/fragment" );
-	//auto noTexShaderCode = readFile( "./shaders/build/fragmentNoTexture" );
 
 	VkShaderModule vertShaderModule = _device.createShaderModule( vertShaderCode );
 	VkShaderModule fragShaderModule = _device.createShaderModule( fragShaderCode );
-	//VkShaderModule noTexShaderModule = _device.createShaderModule( noTexShaderCode );
 
 
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
@@ -257,12 +254,6 @@ void RenderEngine::createGraphicsPipeline()
 	fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 	fragShaderStageInfo.module = fragShaderModule;
 	fragShaderStageInfo.pName = "main";
-
-	//VkPipelineShaderStageCreateInfo noTexShaderStageInfo{};
-	//noTexShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	//noTexShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	//noTexShaderStageInfo.module = noTexShaderModule;
-	//noTexShaderStageInfo.pName = "main";
 
 	VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
@@ -441,13 +432,8 @@ void RenderEngine::createGraphicsPipeline()
 
 	graphicsPipeline = _device.createPipelines( VK_NULL_HANDLE, { pipelineInfo } )[0];
 
-	//shaderStages[1] = noTexShaderStageInfo;
-
-	noTexPipeline = _device.createPipelines( VK_NULL_HANDLE, { pipelineInfo } )[0];
-
 	_device.destroyShaderModule( fragShaderModule );
 	_device.destroyShaderModule( vertShaderModule );
-	//_device.destroyShaderModule( noTexShaderModule );
 }
 
 void RenderEngine::createDeferredPipeline()
@@ -963,13 +949,13 @@ TextureHandle RenderEngine::loadTexture( const std::string& path ) {
 
 MaterialHandle RenderEngine::createMaterial( const MaterialDesc& material )
 {
-	if (!material.baseColorTexture.isValid() || material.baseColorTexture.id >= _textureArray.size()) {
-		throw std::runtime_error( "RenderEngine::createMaterial called with invalid base color texture handle" );
+	if (material.baseColorTexture.isValid() && material.baseColorTexture.id >= _textureArray.size()) {
+		throw std::runtime_error( "RenderEngine::createMaterial called with out-of-range base color texture handle" );
 	}
 
 	if (material.normalTexture.isValid()) {
 		if (material.normalTexture.id >= _textureArray.size()) {
-			throw std::runtime_error( "RenderEngine::createMaterial called with invalid normal texture handle" );
+			throw std::runtime_error( "RenderEngine::createMaterial called with out-of-range normal texture handle" );
 		}
 	}
 
@@ -2071,18 +2057,19 @@ void RenderEngine::pushModelMatrix( VkCommandBuffer commnadBuffer, glm::mat4 mod
 
 void RenderEngine::pushTextureIndex( VkCommandBuffer commnadBuffer, const MaterialDesc& material )
 {
-	if (!material.baseColorTexture.isValid() || material.baseColorTexture.id >= _textureArray.size()) {
-		throw std::runtime_error( "RenderEngine::pushTextureIndex called with invalid base color texture handle" );
+	if (material.baseColorTexture.isValid() && material.baseColorTexture.id >= _textureArray.size()) {
+		throw std::runtime_error( "RenderEngine::pushTextureIndex called with out-of-range base color texture handle" );
 	}
 
 	if (material.normalTexture.isValid() && material.normalTexture.id >= _textureArray.size()) {
-		throw std::runtime_error( "RenderEngine::pushTextureIndex called with invalid normal texture handle" );
+		throw std::runtime_error( "RenderEngine::pushTextureIndex called with out-of-range normal texture handle" );
 	}
 
 	MaterialData gpuMaterial{};
+	gpuMaterial.baseColor = material.baseColor;
 	gpuMaterial.metallic = material.metallic;
 	gpuMaterial.roughtness = material.roughtness;
-	gpuMaterial.texutreIndex = static_cast<int>(material.baseColorTexture.id);
+	gpuMaterial.textureIndex = material.baseColorTexture.isValid() ? static_cast<int>(material.baseColorTexture.id) : -1;
 	gpuMaterial.normalTextureIndex = material.normalTexture.isValid() ? static_cast<int>(material.normalTexture.id) : -1;
 
 	vkCmdPushConstants( commnadBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof( glm::mat4 ), sizeof( gpuMaterial ), &gpuMaterial );

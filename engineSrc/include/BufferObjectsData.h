@@ -3,6 +3,7 @@
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
 #include <array>
@@ -58,6 +59,7 @@ struct MaterialHandle {
 };
 
 struct MaterialDesc {
+    glm::vec4 baseColor = glm::vec4( 1.0f );
     float metallic = 0.0f;
     float roughtness = 1.0f;
     TextureHandle baseColorTexture;
