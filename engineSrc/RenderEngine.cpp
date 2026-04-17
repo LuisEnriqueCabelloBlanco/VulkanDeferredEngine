@@ -934,6 +934,14 @@ void RenderEngine::createDirectionalLight( glm::vec3 direction, glm::vec3 color,
 }
 
 TextureHandle RenderEngine::loadTexture( const std::string& path ) {
+	if (path.empty()) {
+		throw std::runtime_error( "RenderEngine::loadTexture called with empty path" );
+	}
+
+	if (_textureArray.size() >= static_cast<size_t>(MAX_TEXTURES)) {
+		throw std::runtime_error( "RenderEngine::loadTexture exceeded MAX_TEXTURES. Increase MAX_TEXTURES and descriptor pool/layout capacity before loading more textures." );
+	}
+
 	TextureHandle handle;
 	handle.id = static_cast<uint32_t>(_textureArray.size());
 
@@ -949,14 +957,17 @@ TextureHandle RenderEngine::loadTexture( const std::string& path ) {
 
 MaterialHandle RenderEngine::createMaterial( const MaterialDesc& material )
 {
-	if (material.baseColorTexture.isValid() && material.baseColorTexture.id >= _textureArray.size()) {
-		throw std::runtime_error( "RenderEngine::createMaterial called with out-of-range base color texture handle" );
+	if (material.baseColorTexture.isValid()) {
+        if(material.baseColorTexture.id >= _textureArray.size())
+		    throw std::runtime_error( "RenderEngine::createMaterial called with out-of-range base color texture handle" );
+        if (material.baseColorTexture.id >= static_cast<uint32_t>(MAX_TEXTURES))
+		    throw std::runtime_error( "RenderEngine::createMaterial called with base color texture handle outside MAX_TEXTURES" );
 	}
-
 	if (material.normalTexture.isValid()) {
-		if (material.normalTexture.id >= _textureArray.size()) {
+		if (material.normalTexture.id >= _textureArray.size())
 			throw std::runtime_error( "RenderEngine::createMaterial called with out-of-range normal texture handle" );
-		}
+		if (material.normalTexture.id >= static_cast<uint32_t>(MAX_TEXTURES))
+			throw std::runtime_error( "RenderEngine::createMaterial called with normal texture handle outside MAX_TEXTURES" );
 	}
 
 	MaterialHandle handle;
@@ -1807,8 +1818,6 @@ void RenderEngine::createUniformBuffers()
 
 void RenderEngine::createDescriptorPool()
 {
-	int numOfTextures = 4;
-
 	int numOfInputAttachments = 3;
 
 	int numOfUniformBuffres = 4;
@@ -1819,7 +1828,7 @@ void RenderEngine::createDescriptorPool()
 	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * numOfUniformBuffres+1;
 	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * numOfTextures;
+	poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_TEXTURES) + static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 	poolSizes[2].type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
 	poolSizes[2].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * numOfInputAttachments * 2;
 	poolSizes[3].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -1866,7 +1875,7 @@ void RenderEngine::createGeometryDescriptorSets()
 
 	//adicion que permite tener arrays de tamanio variable en los shaders de texturas
 	std::vector<VkDescriptorSetLayout> layouts2( 1, _textureArrayDescriptorSetLayout );
-	uint32_t counts = 32;
+	uint32_t counts = static_cast<uint32_t>(MAX_TEXTURES);
 	VkDescriptorSetVariableDescriptorCountAllocateInfo set_counts = {};
 	set_counts.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
 	set_counts.descriptorSetCount = 1;
@@ -1911,6 +1920,10 @@ void RenderEngine::createShadowDesciptorSet()
 
 void RenderEngine::updateGeometryDescriptorSets()
 {
+	if (_textureArray.size() > static_cast<size_t>(MAX_TEXTURES)) {
+		throw std::runtime_error( "RenderEngine::updateGeometryDescriptorSets exceeded MAX_TEXTURES" );
+	}
+
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 
 		int size = 1;
@@ -1948,7 +1961,7 @@ void RenderEngine::updateGeometryDescriptorSets()
 			descriptorWrites[1].dstBinding = 0;
 			descriptorWrites[1].dstArrayElement = 0;
 			descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-			descriptorWrites[1].descriptorCount = imagesDesc.size();
+			descriptorWrites[1].descriptorCount = static_cast<uint32_t>(imagesDesc.size());
 			descriptorWrites[1].pImageInfo = imagesDesc.data();
 			descriptorWrites[1].pBufferInfo = VK_NULL_HANDLE;
 			descriptorWrites[1].dstSet = _textureArrayDescriptorSet;
@@ -2057,13 +2070,18 @@ void RenderEngine::pushModelMatrix( VkCommandBuffer commnadBuffer, glm::mat4 mod
 
 void RenderEngine::pushTextureIndex( VkCommandBuffer commnadBuffer, const MaterialDesc& material )
 {
-	if (material.baseColorTexture.isValid() && material.baseColorTexture.id >= _textureArray.size()) {
-		throw std::runtime_error( "RenderEngine::pushTextureIndex called with out-of-range base color texture handle" );
+	if (material.baseColorTexture.isValid()) {
+        if(material.baseColorTexture.id >= static_cast<uint32_t>(MAX_TEXTURES))
+		    throw std::runtime_error( "RenderEngine::pushTextureIndex called with base color texture handle outside MAX_TEXTURES" );
+        if (material.baseColorTexture.isValid() && material.baseColorTexture.id >= _textureArray.size())
+		    throw std::runtime_error( "RenderEngine::pushTextureIndex called with out-of-range base color texture handle" );
 	}
-
-	if (material.normalTexture.isValid() && material.normalTexture.id >= _textureArray.size()) {
-		throw std::runtime_error( "RenderEngine::pushTextureIndex called with out-of-range normal texture handle" );
-	}
+	if (material.normalTexture.isValid()) {
+        if(material.normalTexture.id >= static_cast<uint32_t>(MAX_TEXTURES))
+			throw std::runtime_error( "RenderEngine::pushTextureIndex called with normal texture handle outside MAX_TEXTURES" );
+        if (material.normalTexture.isValid() && material.normalTexture.id >= _textureArray.size())
+		    throw std::runtime_error( "RenderEngine::pushTextureIndex called with out-of-range normal texture handle" );
+    }
 
 	MaterialData gpuMaterial{};
 	gpuMaterial.baseColor = material.baseColor;
