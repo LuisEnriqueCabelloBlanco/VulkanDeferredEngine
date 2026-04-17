@@ -36,9 +36,14 @@ void main() {
    outPosition = (modelMat * vec4(inPosition, 1.0)).rgb;
    fragColor = inColor;
    fragTexCoord = inTexCoord;
-   normal = normalize(modelMat*vec4(inNormal,0)).rgb;
-   vec3 tangent = normalize( vec3(modelMat * vec4(inTangent, 0)));
 
-   vec3 bitangent = normalize(cross(normal,tangent));
-   TBN = mat3(tangent,bitangent,normal);
+    vec3 n = normalize((modelMat * vec4(inNormal, 0.0)).xyz);
+    vec3 t = normalize((modelMat * vec4(inTangent, 0.0)).xyz);
+
+    // Gram-Schmidt: mantenemos la tangente ortogonal a la normal.
+    t = normalize(t - n * dot(t, n));
+    vec3 b = normalize(cross(n, t));
+
+    normal = n;
+    TBN = mat3(t, b, n);
 }

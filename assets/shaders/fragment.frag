@@ -35,10 +35,12 @@ void main() {
 
     outColor = albedo;
 
-    vec3 sampleNormal = normal;
+    vec3 sampleNormal = normalize(normal);
 
     if(mat.normalIdx!=-1){
-        sampleNormal = TBN * texture(texSampler[mat.normalIdx],fragTexCoord).rgb;
+        // Decodificacion de los normal maps [0,1] --> [-1,1].
+        vec3 normalTS = texture(texSampler[mat.normalIdx],fragTexCoord).rgb * 2.0 - 1.0;
+        sampleNormal = normalize(TBN * normalTS);
     }
 
     outNormal = vec4(sampleNormal,mat.roughness);
