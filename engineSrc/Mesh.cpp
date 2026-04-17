@@ -1,6 +1,8 @@
 #include "Mesh.h"
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
+#include <iostream>
+#include <stdexcept>
 
 
 Mesh* Mesh::_lastRenderedMesh = nullptr;
@@ -8,7 +10,7 @@ Mesh* Mesh::_lastRenderedMesh = nullptr;
 Mesh::Mesh( VulkanDevice& device, const std::string& path ) :_device( device ) {
 
 	loadMesh( path );
-	
+
 	_meshAABB = calculateAABB();
 
 	_vertexBuffer = _device.createVkBuffer<Vertex>( _vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT );
@@ -58,7 +60,7 @@ void Mesh::draw( VkCommandBuffer commandBuffer )
 		vkCmdBindIndexBuffer( commandBuffer, _indexBuffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32 );
 	}
 	vkCmdDrawIndexed( commandBuffer, static_cast<uint32_t>(_indices.size()), 1, 0, 0, 0 );
-	
+
 	_lastRenderedMesh = this;
 }
 
@@ -69,9 +71,12 @@ void Mesh::loadMesh( const std::string& path )
 	reader_config.vertex_color = true;
 
 	if (!reader.ParseFromFile( path, reader_config )) {
-		if (!reader.Error().empty()) {
-			std::cerr << "TinyObjReader: " << reader.Error();
-		}
+		const std::string error = reader.Error();
+		throw std::runtime_error( "TinyObjReader no pudo cargar el OBJ: " + path + "\n" + error );
+	}
+
+	if (!reader.Warning().empty()) {
+		std::cerr << "TinyObjReader warning (" << path << "): " << reader.Warning() << "\n";
 	}
 
 	const tinyobj::attrib_t& attrib = reader.GetAttrib();
@@ -88,27 +93,37 @@ void Mesh::loadMesh( const std::string& path )
 
 
 	for (const auto& shape : shapes) {
-		int indexOffset = 0;
+		size_t indexOffset = 0;
 
 		for (const auto& face : shape.mesh.num_face_vertices) {
 
 			size_t fv = size_t( face );
 
-			for (int v = 0; v < fv;v++) {
+			for (size_t v = 0; v < fv;v++) {
 				auto index = shape.mesh.indices[indexOffset+v];
 
 				Vertex vertex{};
+
+				if (index.vertex_index < 0 || (3 * static_cast<size_t>(index.vertex_index) + 2) >= attrib.vertices.size()) {
+					throw std::runtime_error( "OBJ con indice de posicion invalido en: " + path );
+				}
 
 				vertex.pos = {
 					attrib.vertices[3 * index.vertex_index + 0],
 					attrib.vertices[3 * index.vertex_index + 1],
 					attrib.vertices[3 * index.vertex_index + 2]
 				};
-					
-				vertex.texCoord = {
-					attrib.texcoords[2 * index.texcoord_index + 0],
-					1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-				};
+
+				vertex.texCoord = glm::vec2( 0.0f );
+				if (index.texcoord_index >= 0) {
+					const size_t texCoordOffset = static_cast<size_t>(index.texcoord_index) * 2;
+					if (texCoordOffset + 1 < attrib.texcoords.size()) {
+						vertex.texCoord = {
+							attrib.texcoords[texCoordOffset + 0],
+							1.0f - attrib.texcoords[texCoordOffset + 1]
+						};
+					}
+				}
 
 				vertex.color = glm::vec3( 1.0f );
 				if (index.vertex_index >= 0) {
@@ -123,13 +138,19 @@ void Mesh::loadMesh( const std::string& path )
 				}
 
 
-				vertex.normal = {
-					attrib.normals[3 * index.normal_index + 0],
-					attrib.normals[3 * index.normal_index + 1],
-					attrib.normals[3 * index.normal_index + 2],
-				};
+				vertex.normal = glm::vec3( 0.0f, 1.0f, 0.0f );
+				if (index.normal_index >= 0) {
+					const size_t normalOffset = static_cast<size_t>(index.normal_index) * 3;
+					if (normalOffset + 2 < attrib.normals.size()) {
+						vertex.normal = {
+							attrib.normals[normalOffset + 0],
+							attrib.normals[normalOffset + 1],
+							attrib.normals[normalOffset + 2],
+						};
+					}
+				}
 
-			
+
 
 				//si el vetice no esta lo aniadimos a la lista de vertices unicos
 				if (uniqueVertices.count( vertex ) == 0) {
@@ -147,7 +168,7 @@ void Mesh::loadMesh( const std::string& path )
 			glm::vec3 tangent = _vertices[_indices[_indices.size() - 1]].pos - _vertices[_indices[_indices.size() - 2]].pos;
 
 
-			for (int i = 0; i < fv; i++) {
+			for (size_t i = 0; i < fv; i++) {
 				_vertices[_indices[_indices.size() - 1 - i]].tangent = tangent;
 			}
 
