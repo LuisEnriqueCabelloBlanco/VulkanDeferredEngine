@@ -110,11 +110,17 @@ void Mesh::loadMesh( const std::string& path )
 					1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
 				};
 
-				vertex.color = {
-					attrib.colors[3 * index.vertex_index + 0],
-					attrib.colors[3 * index.vertex_index + 1],
-					attrib.colors[3 * index.vertex_index + 2],
-				};
+				vertex.color = glm::vec3( 1.0f );
+				if (index.vertex_index >= 0) {
+					const size_t colorOffset = static_cast<size_t>(index.vertex_index) * 3;
+					if (colorOffset + 2 < attrib.colors.size()) {
+						vertex.color = {
+							attrib.colors[colorOffset + 0],
+							attrib.colors[colorOffset + 1],
+							attrib.colors[colorOffset + 2],
+						};
+					}
+				}
 
 
 				vertex.normal = {
