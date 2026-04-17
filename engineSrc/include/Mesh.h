@@ -27,7 +27,7 @@ public:
 
     void draw(VkCommandBuffer commnadBuffer);
 
-    inline const AABB& getAABB() { return _meshAABB; }
+    inline const AABB& getAABB() const { return _meshAABB; }
     //TODO loadMesh metodo estatico
 
 private:

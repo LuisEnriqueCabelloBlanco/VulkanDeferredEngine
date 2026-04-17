@@ -3,7 +3,17 @@
 //#define TINYOBJLOADER_IMPLEMENTATION
 //#include "tiny_obj_loader.h"
 #include <SDL2/SDL_vulkan.h>
+#include <cassert>
 #include "Mesh.h"
+
+namespace {
+	struct alignas(16) MaterialData {
+		float metallic;
+		float roughtness;
+		int texutreIndex;
+		int normalTextureIndex;
+	};
+}
 
 
 void DestroyDebugUtilsMessengerEXT( VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator ) {
@@ -31,10 +41,9 @@ VkResult CreateDebugUtilsMessengerEXT( VkInstance instance, const VkDebugUtilsMe
 
 void RenderEngine::cleanup()
 {
-
-	for (Texture* texture : _textureArray) {
-		delete texture;
-	}
+	_meshes.clear();
+	_materials.clear();
+	_textureArray.clear();
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 		delete uniformBuffers[i];
@@ -555,11 +564,11 @@ void RenderEngine::createDeferredPipeline()
 	dynamicState.pDynamicStates = dynamicStates.data();
 
 
-	VkDescriptorSetLayout layouts[] = { 
+	VkDescriptorSetLayout layouts[] = {
 		_inputAttachmentsDescriptorSetLayout,
 		_viewProjectionDescriptorSetLayout,
 		_indexedObjectsBufferDescriptroSetLayout ,
-		deferredDescriptorSetLayout 
+		deferredDescriptorSetLayout
 	};
 
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
@@ -859,19 +868,46 @@ void RenderEngine::createCommandBuffers()
 
 }
 
-Mesh* RenderEngine::createMesh( const std::string& path )
+MeshHandle RenderEngine::createMesh( const std::string& path )
 {
-	return new Mesh( _device, path );
+	MeshHandle handle;
+	handle.id = static_cast<uint32_t>(_meshes.size());
+	_meshes.emplace_back( std::make_unique<Mesh>( _device, path ) );
+	return handle;
 }
 
-Mesh* RenderEngine::createMesh( const std::vector<Vertex>& vertices )
+MeshHandle RenderEngine::createMesh( const std::vector<Vertex>& vertices )
 {
-	return new Mesh( _device, vertices );
+	MeshHandle handle;
+	handle.id = static_cast<uint32_t>(_meshes.size());
+	_meshes.emplace_back( std::make_unique<Mesh>( _device, vertices ) );
+	return handle;
 }
 
-Mesh* RenderEngine::createMesh( const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices )
+MeshHandle RenderEngine::createMesh( const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices )
 {
-	return new Mesh( _device, indices, vertices );
+	MeshHandle handle;
+	handle.id = static_cast<uint32_t>(_meshes.size());
+	_meshes.emplace_back( std::make_unique<Mesh>( _device, indices, vertices ) );
+	return handle;
+}
+
+Mesh* RenderEngine::getMesh( MeshHandle handle )
+{
+	if (!handle.isValid() || handle.id >= _meshes.size()) {
+		return nullptr;
+	}
+
+	return _meshes[handle.id].get();
+}
+
+const Mesh* RenderEngine::getMesh( MeshHandle handle ) const
+{
+	if (!handle.isValid() || handle.id >= _meshes.size()) {
+		return nullptr;
+	}
+
+	return _meshes[handle.id].get();
 }
 
 void RenderEngine::createPointLight( glm::vec3 position, glm::vec3 color, float intensity,float range, bool preload )
@@ -880,7 +916,7 @@ void RenderEngine::createPointLight( glm::vec3 position, glm::vec3 color, float 
 
 	l.pos_dir = position;
 	l.color = color;
-	l.type = 1;
+	l.type = LightType::POINT;
 	l.intensity = intensity;
 	l.range = range;
 
@@ -897,7 +933,7 @@ void RenderEngine::createDirectionalLight( glm::vec3 direction, glm::vec3 color,
 
 	l.pos_dir = direction;
 	l.color = color;
-	l.type = 0;
+	l.type = LightType::DIRECTIONAL;
 	l.intensity = intensity;
 
 	_lightBuffer.push_back( l );
@@ -911,16 +947,45 @@ void RenderEngine::createDirectionalLight( glm::vec3 direction, glm::vec3 color,
 	}
 }
 
-int RenderEngine::loadTexture( const std::string& path ) {
+TextureHandle RenderEngine::loadTexture( const std::string& path ) {
+	TextureHandle handle;
+	handle.id = static_cast<uint32_t>(_textureArray.size());
 
-	Texture* tex = new Texture( _device );
+	auto tex = std::make_unique<Texture>( _device );
 	tex->loadTexture( path );
 
-	_textureArray.push_back( tex );
+	_textureArray.emplace_back( std::move( tex ) );
 
 	updateGeometryDescriptorSets();
 
-	return _textureArray.size() - 1;
+	return handle;
+}
+
+MaterialHandle RenderEngine::createMaterial( const MaterialDesc& material )
+{
+	if (!material.baseColorTexture.isValid() || material.baseColorTexture.id >= _textureArray.size()) {
+		throw std::runtime_error( "RenderEngine::createMaterial called with invalid base color texture handle" );
+	}
+
+	if (material.normalTexture.isValid()) {
+		if (material.normalTexture.id >= _textureArray.size()) {
+			throw std::runtime_error( "RenderEngine::createMaterial called with invalid normal texture handle" );
+		}
+	}
+
+	MaterialHandle handle;
+	handle.id = static_cast<uint32_t>(_materials.size());
+	_materials.push_back( material );
+	return handle;
+}
+
+const MaterialDesc* RenderEngine::getMaterial( MaterialHandle handle ) const
+{
+	if (!handle.isValid() || handle.id >= _materials.size()) {
+		return nullptr;
+	}
+
+	return &_materials[handle.id];
 }
 
 void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t imageIndex, std::vector<RenderObject>& objectsArray, const std::vector<int>&cullIndex )
@@ -938,7 +1003,7 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 	if (vkBeginCommandBuffer( commandBuffer, &beginInfo ) != VK_SUCCESS) {
 		throw std::runtime_error( "failed to begin recording command buffer!" );
 	}
-	
+
 
 	//std::vector<AABBModel> stagingCull;
 	//stagingCull.reserve( objectsArray.size() );
@@ -988,7 +1053,7 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 	memBarr.pNext = NULL;
 
 	vkCmdBindPipeline( commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _computePipeline );
-	
+
 	VkDescriptorSet computeSets[] = {_lightsDataBufferDescriptroSet,_computeDescriptorSet[currentFrame] };
 
 	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _computeLayout, 0, 2, computeSets, 0, nullptr);
@@ -1016,7 +1081,7 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 	renderPassInfo.pClearValues = clearValues.data();
 
-	
+
 	//tomamos los datos de paso de renderizado
 	vkCmdBeginRenderPass( commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
 
@@ -1045,19 +1110,27 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 
 	for (int index : cullIndex) {
 		RenderObject& object = objectsArray[index];
+		Mesh* mesh = getMesh( object.mesh );
+		const MaterialDesc* material = getMaterial( object.material );
+		if (mesh == nullptr) {
+			continue;
+		}
+		if (material == nullptr) {
+			continue;
+		}
 
-		pushTextureIndex( commandBuffer, object.mat );
+		pushTextureIndex( commandBuffer, *material );
 		pushModelMatrix( commandBuffer, object.modelMatrix );
 
-		object.mesh->draw( commandBuffer );
+		mesh->draw( commandBuffer );
 	}
 
 	vkCmdNextSubpass( commandBuffer, VK_SUBPASS_CONTENTS_INLINE );
 
-	VkDescriptorSet sets[] = { 
-		_inputAttachemntsDescriptorSet[currentFrame], 
-		_mainLightDescriptorSet, 
-		_lightsDataBufferDescriptroSet, 
+	VkDescriptorSet sets[] = {
+		_inputAttachemntsDescriptorSet[currentFrame],
+		_mainLightDescriptorSet,
+		_lightsDataBufferDescriptroSet,
 		_globalLightingDescriptorSets[currentFrame]
 	};
 
@@ -1297,10 +1370,10 @@ void RenderEngine::updateUniformBuffer( uint32_t currentImage, glm::mat4 model )
 	float ratio = _window.getExtent().width / static_cast<float>(_window.getExtent().height);
 	float scale = 20;
 	lightCameraUBO->proj = glm::ortho( -ratio*scale, ratio*scale, scale, -scale, 0.01f, 100.0f );
-	
+
 	glm::vec3 position = glm::vec3( 5, 10, -10 ) + _mainCamera.getPos();
 	glm::vec3 lightDir( 0.0f, -1.0f, 0.0f );
-	if (_mainLightIndex >= 0 && _mainLightIndex < static_cast<int>(_lightBuffer.size()) && _lightBuffer[_mainLightIndex].type == DIRECTIONAL) {
+	if (_mainLightIndex >= 0 && _mainLightIndex < static_cast<int>(_lightBuffer.size()) && _lightBuffer[_mainLightIndex].type == LightType::DIRECTIONAL) {
 		lightDir = _lightBuffer[_mainLightIndex].pos_dir;
 	}
 	lightCameraUBO->view = glm::lookAt( position, position + lightDir, glm::vec3( 0, 1, 0 ) );
@@ -1462,8 +1535,8 @@ void RenderEngine::createLightBuffer()
 	//memorySize = sizeof( int ) + (sizeof( AABBModel ) * MAX_CULL_OBJECTS);
 	//_AABBModelStorage = _device.createBuffer( memorySize, (VkBufferUsageFlagBits)(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );
 	//_device.mapMemory( _AABBModelStorage->getMemory(), 0, memorySize, &_AABBModelStorageMapped);
-	
-	
+
+
 	//std::vector<uint32_t> index;
 	//for (int i = 0; i < MAX_LIGHTS;i++) {
 	//	index.push_back( i );
@@ -1496,7 +1569,7 @@ void RenderEngine::createCullingBufers()
 
 	memorySize= sizeof( int ) + (sizeof( int ) * MAX_CULL_OBJECTS);
 	_lightCulledObjectIndex = _device.createBuffer( memorySize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT , VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
-	
+
 	//_device.mapMemory( _lightCulledObjectIndex->getMemory(), 0, sizeof( int ),(void**)&_lightObjectCount);
 	_device.mapMemory( _lightCulledObjectIndex->getMemory(), 0, memorySize,(void**)&_lightCulledObjectIndexMapped);
 
@@ -1506,7 +1579,9 @@ void RenderEngine::createCullingBufers()
 }
 
 void RenderEngine::updateLightBuffer() {
-	assert( _lightBuffer.size() < MAX_LIGHTS );
+	if (_lightBuffer.size() >= MAX_LIGHTS) {
+		throw std::runtime_error( "RenderEngine::updateLightBuffer exceeded MAX_LIGHTS" );
+	}
 
 	//std::vector<Light> culledLights = cullLights( _lightBuffer );
 
@@ -1994,14 +2069,28 @@ void RenderEngine::pushModelMatrix( VkCommandBuffer commnadBuffer, glm::mat4 mod
 	vkCmdPushConstants( commnadBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof( glm::mat4 ), &model );
 }
 
-void RenderEngine::pushTextureIndex( VkCommandBuffer commnadBuffer, MaterialData material )
+void RenderEngine::pushTextureIndex( VkCommandBuffer commnadBuffer, const MaterialDesc& material )
 {
-	vkCmdPushConstants( commnadBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof( glm::mat4 ), sizeof( material ), &material );
+	if (!material.baseColorTexture.isValid() || material.baseColorTexture.id >= _textureArray.size()) {
+		throw std::runtime_error( "RenderEngine::pushTextureIndex called with invalid base color texture handle" );
+	}
+
+	if (material.normalTexture.isValid() && material.normalTexture.id >= _textureArray.size()) {
+		throw std::runtime_error( "RenderEngine::pushTextureIndex called with invalid normal texture handle" );
+	}
+
+	MaterialData gpuMaterial{};
+	gpuMaterial.metallic = material.metallic;
+	gpuMaterial.roughtness = material.roughtness;
+	gpuMaterial.texutreIndex = static_cast<int>(material.baseColorTexture.id);
+	gpuMaterial.normalTextureIndex = material.normalTexture.isValid() ? static_cast<int>(material.normalTexture.id) : -1;
+
+	vkCmdPushConstants( commnadBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof( glm::mat4 ), sizeof( gpuMaterial ), &gpuMaterial );
 }
 
 void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::vector<RenderObject>& objectsArray )
 {
-	
+
 	std::vector<int> cullIndex = cullObjects( objectsArray,*lightCameraUBO );
 
 
@@ -2046,9 +2135,13 @@ void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::v
 	vkCmdSetScissor( commandBuffer, 0, 1, &scissor );
 
 	for (auto& index : cullIndex) {
+		Mesh* mesh = getMesh( objectsArray[index].mesh );
+		if (mesh == nullptr) {
+			continue;
+		}
 
 		pushModelMatrix( commandBuffer, objectsArray[index].modelMatrix);
-		objectsArray[index].mesh->draw( commandBuffer );
+		mesh->draw( commandBuffer );
 	}
 
 	vkCmdEndRenderPass( commandBuffer );
@@ -2090,8 +2183,14 @@ const std::vector<int> RenderEngine::cullObjects( const std::vector<RenderObject
 
 	int i = 0;
 	for (const auto& obj : objs) {
+		const Mesh* mesh = getMesh( obj.mesh );
+		if (mesh == nullptr) {
+			i++;
+			continue;
+		}
+
 		glm::mat4 MVP = VP * obj.modelMatrix;
-		if (AABBFrustrumTest( obj.mesh->getAABB(),MVP )) {
+		if (AABBFrustrumTest( mesh->getAABB(),MVP )) {
 			out.emplace_back(i);
 		}
 		i++;
@@ -2112,7 +2211,7 @@ const std::vector<Light> RenderEngine::cullLights( const std::vector<Light>& lig
 
 		glm::vec4 pos = VP*glm::vec4(light.pos_dir,1);
 
-		if ((pos.w <= _mainCamera.getFarPlane()+100 && pos.w >= -100) || light.type ==DIRECTIONAL) {
+		if ((pos.w <= _mainCamera.getFarPlane()+100 && pos.w >= -100) || light.type == LightType::DIRECTIONAL) {
 			out.push_back( light );
 		}
 	}
@@ -2122,8 +2221,13 @@ const std::vector<Light> RenderEngine::cullLights( const std::vector<Light>& lig
 
 void RenderEngine::setMainLight( int index )
 {
-	assert( index >= 0 && index < static_cast<int>(_lightBuffer.size()) );
-	assert( _lightBuffer[index].type == 0 ); //solo las luces direccionales pueden ser luces principales
+	if (index < 0 || index >= static_cast<int>(_lightBuffer.size())) {
+		throw std::runtime_error( "RenderEngine::setMainLight index out of range" );
+	}
+
+	if (_lightBuffer[index].type != LightType::DIRECTIONAL) {
+		throw std::runtime_error( "RenderEngine::setMainLight requires a directional light" );
+	}
 
 	_mainLightIndex = index;
 }
@@ -2278,7 +2382,7 @@ void RenderEngine::init( const std::string& appName )
 	createTextureArrayDescriptorSetLayout();
 	createViewProjectionDescriptorSetLayout();
 	createIndexedObjectsBufferDescriptroSetLayout();
-	
+
 
 	createComputeDescriptorSetLayout();
 	createComputePipeline();
@@ -2323,7 +2427,7 @@ void RenderEngine::init( const std::string& appName )
 	createComputeDescriptorSets();
 	createShadowDesciptorSet();
 	createObjectCullDescriptorSets();
-	
+
 	updateGeometryDescriptorSets();
 	updateLightingDescriptorSets();
 	updateComputeDescritorSet();

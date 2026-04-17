@@ -5,6 +5,7 @@
 #include <vulkan/vulkan.h>
 #include <iostream>
 #include <vector>
+#include <memory>
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include "VulkanWindow.h"
@@ -18,7 +19,7 @@
 
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
-constexpr int MAX_LIGHTS = 100000; 
+constexpr int MAX_LIGHTS = 100000;
 
 constexpr int MAX_CULL_OBJECTS = 100000;
 
@@ -76,21 +77,23 @@ public:
     Camera& getMainCamera() { return _mainCamera; }
 
 
-    Mesh* createMesh( const std::string& path );
-    Mesh* createMesh( const std::vector<Vertex>& vertices );
-    Mesh* createMesh( const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices );
+    MeshHandle createMesh( const std::string& path );
+    MeshHandle createMesh( const std::vector<Vertex>& vertices );
+    MeshHandle createMesh( const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices );
 
     void createPointLight(glm::vec3 position, glm::vec3 color, float intensity, float range, bool preload = false);
     void createDirectionalLight( glm::vec3 direction, glm::vec3 color, float intensity, bool preload = false );
 
 
     /**
-     * @brief devuelve el indice de textura en el array
-     * 
-     * @param path 
-     * @return 
+        * @brief carga una textura y devuelve un handle estable
+     *
+     * @param path
+     * @return
      */
-    int loadTexture( const std::string& path );
+        TextureHandle loadTexture( const std::string& path );
+
+        MaterialHandle createMaterial( const MaterialDesc& material );
 
     void updateGeometryDescriptorSets();
 
@@ -103,6 +106,10 @@ public:
     void setMainLight( int index );
 
 private:
+
+    Mesh* getMesh( MeshHandle handle );
+    const Mesh* getMesh( MeshHandle handle ) const;
+    const MaterialDesc* getMaterial( MaterialHandle handle ) const;
 
     void createRenderPass();
 
@@ -139,7 +146,7 @@ private:
     void createGraphicsPipeline();
 
     void createDeferredPipeline();
-    
+
     void createComputePipeline();
 
     void createObjectCullPipeline();
@@ -220,19 +227,19 @@ private:
 
     void pushModelMatrix( VkCommandBuffer commnadBuffer, glm::mat4 model = glm::mat4( 1 ) );
 
-    void pushTextureIndex( VkCommandBuffer commnadBuffer, MaterialData index );
+    void pushTextureIndex( VkCommandBuffer commnadBuffer, const MaterialDesc& material );
 
     void recordShadowPass( VkCommandBuffer commandBuffer, const std::vector<RenderObject>& objectsArray );
 
     void recordMainRender( VkCommandBuffer commandBuffer );
 
     const std::vector<int> cullObjects( const std::vector<RenderObject>& objs, ViewProjectionData& cameraDesc );
-    
+
     const std::vector<Light> cullLights( const std::vector<Light>& objs );
 
     void computeCullObects( std::vector<RenderObject>& objectsArray );
 
-    
+
 public:
     void generateMipmaps( VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels );
 
@@ -327,7 +334,10 @@ private:
 
     GlobalLighting _lighting;
 
-    std::vector<Texture*> _textureArray;
+    std::vector<std::unique_ptr<Texture>> _textureArray;
+    std::vector<MaterialDesc> _materials;
+
+    std::vector<std::unique_ptr<Mesh>> _meshes;
 
     VkDescriptorPool descriptorPool;
 

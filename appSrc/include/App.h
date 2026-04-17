@@ -63,7 +63,7 @@ private:
     void addLighting();
 
     void freeObjects();
-   
+
 private:
     const uint32_t WIDTH = 800;
     const uint32_t HEIGHT = 600;
@@ -83,8 +83,8 @@ private:
     float timeacum = 0;
 
 
-    Mesh* triangle;
-    Mesh* character;
-    Mesh* esfera;
-    Mesh* planoSincolor;
+    MeshHandle triangle;
+    MeshHandle character;
+    MeshHandle esfera;
+    MeshHandle planoSincolor;
 };
