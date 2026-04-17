@@ -17,7 +17,8 @@ class Mesh {
     friend RenderEngine;
 public:
 
-    Mesh( Mesh& otherMesh );
+    Mesh( const Mesh& ) = delete;
+    Mesh& operator=( const Mesh& ) = delete;
     Mesh( VulkanDevice& device, const std::string& path);
     Mesh( VulkanDevice& device, const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices);
     Mesh( VulkanDevice& device,  const std::vector<Vertex>& vertices);
@@ -26,7 +27,7 @@ public:
 
     void draw(VkCommandBuffer commnadBuffer);
 
-    inline const AABB& getAABB() { return _meshAABB; }
+    inline const AABB& getAABB() const { return _meshAABB; }
     //TODO loadMesh metodo estatico
 
 private:
@@ -40,8 +41,6 @@ private:
     VulkanDevice& _device;
 
     AABB _meshAABB;
-
-    bool _isCopy = false;
 
     std::vector<uint32_t> _indices;
     Buffer* _indexBuffer;

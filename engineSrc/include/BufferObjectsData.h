@@ -3,21 +3,26 @@
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
 #include <array>
+#include <cstdint>
+#include <limits>
 
 
-enum LightType
+enum class LightType : std::int32_t
 {
-    DIRECTIONAL,//Rayos paralelos
-    POINT,//rayos poryectados radialmente desde un punto
-    SPOTLIGHT //rayos proyectados en cono desde un punto
+    DIRECTIONAL = 0,//Rayos paralelos
+    POINT = 1,//rayos poryectados radialmente desde un punto
+    SPOTLIGHT = 2 //rayos proyectados en cono desde un punto
 };
+
+static_assert( sizeof( LightType ) == sizeof( std::int32_t ), "LightType must remain 32-bit for GPU buffer compatibility" );
 
 struct alignas(16) Light {
     glm::vec3 pos_dir;
-    int type;
+    LightType type;
     glm::vec3 color;
     float intensity;
     alignas(16) float range;
@@ -33,19 +38,46 @@ struct alignas(16) GlobalLighting {
     float ambietnVal;
 };
 
-struct alignas(16) MaterialData {
-    float metallic;
-    float roughtness;
-    int texutreIndex;
-    int normalTextureIndex;
+constexpr uint32_t INVALID_TEXTURE_HANDLE = std::numeric_limits<uint32_t>::max();
+constexpr uint32_t INVALID_MATERIAL_HANDLE = std::numeric_limits<uint32_t>::max();
+constexpr uint32_t INVALID_MESH_HANDLE = std::numeric_limits<uint32_t>::max();
+
+struct TextureHandle {
+    uint32_t id = INVALID_TEXTURE_HANDLE;
+
+    inline bool isValid() const {
+        return id != INVALID_TEXTURE_HANDLE;
+    }
 };
 
-class Mesh;
+struct MaterialHandle {
+    uint32_t id = INVALID_MATERIAL_HANDLE;
+
+    inline bool isValid() const {
+        return id != INVALID_MATERIAL_HANDLE;
+    }
+};
+
+struct MaterialDesc {
+    glm::vec4 baseColor = glm::vec4( 1.0f );
+    float metallic = 0.0f;
+    float roughtness = 1.0f;
+    TextureHandle baseColorTexture;
+    TextureHandle normalTexture;
+};
+
+struct MeshHandle {
+    uint32_t id = INVALID_MESH_HANDLE;
+
+    inline bool isValid() const {
+        return id != INVALID_MESH_HANDLE;
+    }
+};
 
 struct RenderObject {
-    Mesh* mesh;
+    MeshHandle mesh;
     glm::mat4 modelMatrix;
-    MaterialData mat;
+    MaterialHandle material;
 };
 
 

@@ -85,7 +85,7 @@ void VulkanWindow::createSwapChain()
 void VulkanWindow::createSurface(VkInstance& instance)
 {
     //creamos la superficie para la ventana
-    
+
     _instance = instance;
 
     if (SDL_Vulkan_CreateSurface( _window, instance, &_surface ) == SDL_bool::SDL_FALSE) {
@@ -102,13 +102,13 @@ void VulkanWindow::cleanUpSwapChain()
     _device->destroySwapchain( _swapchain );
 }
 
-void VulkanWindow::handleWindowEvent( const SDL_WindowEvent& ev )
+void VulkanWindow::handleWindowEvent( const WindowEvent& ev )
 {
-    switch (ev.event)
+    switch (ev.type)
     {
-    case SDL_WINDOWEVENT_RESIZED:
-        _width = ev.data1;
-        _heith = ev.data2;
+    case WindowEventType::Resized:
+        _width = ev.width;
+        _heith = ev.height;
         break;
     default:
         break;

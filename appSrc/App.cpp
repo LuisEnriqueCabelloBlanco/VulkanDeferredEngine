@@ -13,12 +13,12 @@ void App::start()
     auto endTime = std::chrono::high_resolution_clock::now();
     std::cout << "Tiempo en cargar los modelos: "<<
         std::chrono::duration<float, std::chrono::seconds::period>( endTime - startTime ).count() << "\n";
-    
-    
+
+
     startTime = std::chrono::high_resolution_clock::now();
     addLighting();
     endTime = std::chrono::high_resolution_clock::now();
-    std::cout << "Tiempo en cargar las luces: " << 
+    std::cout << "Tiempo en cargar las luces: " <<
         std::chrono::duration<float, std::chrono::seconds::period>( endTime - startTime ).count() << "\n";
 }
 
@@ -62,7 +62,16 @@ void App::mainLoop() {
                 running = false;
             }
             if (ev.type == SDL_WINDOWEVENT) {
-                _engine.handleWindowEvent( ev.window );
+                WindowEvent out;
+                out.type = WindowEventType::Unknown;
+                out.width = ev.window.data1;
+                out.height = ev.window.data2;
+
+                if (ev.window.event == SDL_WINDOWEVENT_RESIZED) {
+                    out.type = WindowEventType::Resized;
+                }
+
+                _engine.handleWindowEvent( out );
             }
         }
 
@@ -75,7 +84,7 @@ void App::mainLoop() {
         _counter++;
 
         _deltaTime = std::chrono::duration<float, std::chrono::seconds::period>( endFrame - frameStart ).count();
-    
+
     }
 }
 
@@ -88,13 +97,13 @@ void App::update()
 
     objects[0].modelMatrix = glm::translate( glm::rotate( glm::mat4( 1 ), glm::radians( -10.f ), glm::vec3( 0, 1, 0 ) ), glm::vec3( sin( time ) * 1.5f, 0, 0 ) );
     objects[1].modelMatrix = glm::translate(glm::rotate( glm::mat4( 1.0f ), time * glm::radians( 180.0f ), glm::vec3( 0.0f, 1.0f, 0.0f ) ),glm::vec3(0,-1,0) );
-   
+
 
     glm::vec3 right = glm::cross( glm::vec3( 0, 1, 0 ), _mainCamera->getDirection()  );
 
 
     glm::vec3 newPos = _mainCamera->getPos() + (right * _moveDir.x + _mainCamera->getDirection() * _moveDir.z)*_deltaTime *10.f;
-    
+
     _mainCamera->setPosition( newPos );
 }
 
@@ -103,12 +112,12 @@ void App::update()
 void App::loadModels()
 {
 
-    int characterTextureHandle = _engine.loadTexture( TEXTURE_PATH );
-    int whiteTextureHandle = _engine.loadTexture( TEXTURE2_PATH );
-    int koreanoTextureHandle = _engine.loadTexture( TEXTURE3_PATH );
-    int normalTexture = _engine.loadTexture( NORMAL_TEXTURE_PATH );
-    int wallColor = _engine.loadTexture( WALL_TEXTURE_PATH );
-    int wallNormal = _engine.loadTexture( WALL_NORMAL_TEXTURE_PATH );
+    TextureHandle characterTextureHandle = _engine.loadTexture( TEXTURE_PATH );
+    TextureHandle whiteTextureHandle = _engine.loadTexture( TEXTURE2_PATH );
+    TextureHandle koreanoTextureHandle = _engine.loadTexture( TEXTURE3_PATH );
+    TextureHandle normalTexture = _engine.loadTexture( NORMAL_TEXTURE_PATH );
+    TextureHandle wallColor = _engine.loadTexture( WALL_TEXTURE_PATH );
+    TextureHandle wallNormal = _engine.loadTexture( WALL_NORMAL_TEXTURE_PATH );
 
     std::vector<Vertex> vertices;
     std::vector<Vertex> vertices2;
@@ -130,7 +139,7 @@ void App::loadModels()
     v1.normal = glm::vec3( 0.f, 0.0f, -1.f );
     v2.normal = glm::vec3( 0.f, 0.0f, -1.f );
     v3.normal = glm::vec3( 0.f, 0.0f, -1.f );
-    
+
     v1.texCoord = glm::vec2(0,0);
     v2.texCoord = glm::vec2(2,0);
     v3.texCoord = glm::vec2(0,2);
@@ -144,34 +153,33 @@ void App::loadModels()
     vertices.push_back( v2 );
     vertices.push_back( v3 );
 
-    MaterialData mat1;
-
+    MaterialDesc mat1;
     mat1.metallic = 0;
     mat1.roughtness = 0.95;
-    mat1.texutreIndex = characterTextureHandle;
-    mat1.normalTextureIndex =normalTexture;
+    mat1.baseColorTexture = characterTextureHandle;
+    mat1.normalTexture = normalTexture;
 
-
-    MaterialData mat2;
-
+    MaterialDesc mat2;
     mat2.metallic = 0.1;
     mat2.roughtness = 0.25;
-    mat2.texutreIndex = koreanoTextureHandle;
-    mat2.normalTextureIndex = wallNormal;
+    mat2.baseColorTexture = koreanoTextureHandle;
+    mat2.normalTexture = wallNormal;
 
-    MaterialData mat3;
-
+    MaterialDesc mat3;
     mat3.metallic = 0.01;
     mat3.roughtness = 0.8;
-    mat3.texutreIndex = wallColor;
-    mat3.normalTextureIndex = wallNormal;
+    mat3.baseColorTexture = wallColor;
+    mat3.normalTexture = wallNormal;
 
-    MaterialData planeMat;
-
+    MaterialDesc planeMat;
     planeMat.metallic = 0;
     planeMat.roughtness = 0.5;
-    planeMat.texutreIndex = whiteTextureHandle;
-    planeMat.normalTextureIndex = -1;
+    planeMat.baseColorTexture = whiteTextureHandle;
+
+    MaterialHandle mat1Handle = _engine.createMaterial( mat1 );
+    MaterialHandle mat2Handle = _engine.createMaterial( mat2 );
+    MaterialHandle mat3Handle = _engine.createMaterial( mat3 );
+    MaterialHandle planeMatHandle = _engine.createMaterial( planeMat );
 
 
     //TODO crear gestor de recursos
@@ -181,28 +189,29 @@ void App::loadModels()
     planoSincolor = _engine.createMesh(MODEL_PATH4);
 
 
-
-    objects.push_back( { triangle, glm::mat4( 1 ),mat3 });
-    objects.push_back( { character, glm::mat4( 1 ),mat1 } );
+    objects.push_back( { triangle, glm::mat4( 1 ), mat3Handle });
+    objects.push_back( { character, glm::mat4( 1 ), mat1Handle } );
     //objects.push_back( { planoSincolor, glm::mat4( 10 ),planeMat } );
 
-    objects.push_back( { esfera, glm::translate(glm::mat4(1),glm::vec3(2.5,0,0)),mat2 });;
-    objects.push_back( { esfera, glm::translate(glm::mat4(1),glm::vec3(-2.5,0,0)),mat2 });
+    objects.push_back( { esfera, glm::translate(glm::mat4(1),glm::vec3(2.5,0,0)), mat2Handle });;
+    objects.push_back( { esfera, glm::translate(glm::mat4(1),glm::vec3(-2.5,0,0)), mat2Handle });
 
     for (int i = 0; i < 100;i++) {
         for (int j = 0; j < 100; j++) {
-            mat3.roughtness = std::min(i * 0.1,1.0);
-            mat3.metallic =std::min( j * 0.1,1.0);
-            objects.push_back( { esfera, glm::translate( glm::mat4( 1 ),glm::vec3( -5 + i * -5,0,j*5 ) ),mat3 } );
+            MaterialDesc dynamicMat = mat3;
+            dynamicMat.roughtness = std::min(i * 0.1,1.0);
+            dynamicMat.metallic =std::min( j * 0.1,1.0);
+            MaterialHandle dynamicMatHandle = _engine.createMaterial( dynamicMat );
+            objects.push_back( { esfera, glm::translate( glm::mat4( 1 ),glm::vec3( -5 + i * -5,0,j*5 ) ), dynamicMatHandle } );
         }
     }
 
     for (int i = 0; i < 10; i++) {
         for (int j = 0; j < 10; j++) {
-            objects.push_back( { planoSincolor, glm::scale( glm::translate( glm::mat4( 1 ), glm::vec3( i * -5, -1, j * 5 ) ) , glm::vec3( 10 ) ),planeMat } );
+            objects.push_back( { planoSincolor, glm::scale( glm::translate( glm::mat4( 1 ), glm::vec3( i * -5, -1, j * 5 ) ) , glm::vec3( 10 ) ), planeMatHandle } );
         }
     }
-    
+
 }
 
 void App::addLighting()
@@ -225,10 +234,6 @@ void App::addLighting()
 
 void App::freeObjects()
 {
-    delete triangle;
-    delete character;
-    delete esfera;
-    delete planoSincolor;
 }
 
 
