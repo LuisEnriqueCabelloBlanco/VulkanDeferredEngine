@@ -17,7 +17,7 @@ Texture::~Texture()
 }
 void Texture::loadTexture(const std::string& path)
  {
-    
+
     int texWidth, texHeight, texChannels;
     unsigned char* pixels = stbi_load(path.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     //unsigned char* pixels = tinyimg_load(path.c_str(), &texWidth, &texHeight, TINYIMG_RGBA);
@@ -43,7 +43,7 @@ void Texture::loadTexture(const std::string& path)
     stbi_image_free(pixels);
 
     createImage(texWidth, texHeight,mipLevels,VK_SAMPLE_COUNT_1_BIT, mFormat,
-        VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT| VK_IMAGE_USAGE_SAMPLED_BIT, 
+        VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT| VK_IMAGE_USAGE_SAMPLED_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     //pusheamos a gpu
@@ -115,7 +115,7 @@ void Texture::createTextureSampler(VkSamplerAddressMode addresMode)
     textureSampler = device.createSampler( samplerInfo );
 }
 
-VkDescriptorImageInfo Texture::getTextureDescriptor( VkImageLayout layout )
+VkDescriptorImageInfo Texture::getTextureDescriptor( VkImageLayout layout ) const
 {
     VkDescriptorImageInfo descriptor;
 

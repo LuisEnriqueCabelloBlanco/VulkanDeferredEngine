@@ -25,14 +25,13 @@ public:
 
     ~Mesh();
 
-    void draw(VkCommandBuffer commnadBuffer);
+    void draw(VkCommandBuffer commnadBuffer) const;
 
     inline const AABB& getAABB() const { return _meshAABB; }
-    //TODO loadMesh metodo estatico
 
 private:
 
-    static Mesh* _lastRenderedMesh;
+    static const Mesh* _lastRenderedMesh;
 
     void loadMesh(const std::string& path);
 

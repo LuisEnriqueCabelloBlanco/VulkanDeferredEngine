@@ -56,7 +56,7 @@ void App::mainLoop() {
             }
 
             if (ev.type == SDL_MOUSEMOTION) {
-                _mainCamera->rotateY( ev.motion.xrel * 0.1 );
+                _mainCamera->rotateY( static_cast<float>( ev.motion.xrel ) * 0.1f );
             }
             if (ev.type == SDL_QUIT) {
                 running = false;
@@ -112,12 +112,12 @@ void App::update()
 void App::loadModels()
 {
 
-    TextureHandle characterTextureHandle = _engine.loadTexture( TEXTURE_PATH );
-    TextureHandle whiteTextureHandle = _engine.loadTexture( TEXTURE2_PATH );
-    TextureHandle koreanoTextureHandle = _engine.loadTexture( TEXTURE3_PATH );
-    TextureHandle normalTexture = _engine.loadTexture( NORMAL_TEXTURE_PATH );
-    TextureHandle wallColor = _engine.loadTexture( WALL_TEXTURE_PATH );
-    TextureHandle wallNormal = _engine.loadTexture( WALL_NORMAL_TEXTURE_PATH );
+    TextureHandle characterTextureHandle = _engine.createTexture( "tex_character_basecolor", TEXTURE_PATH );
+    TextureHandle whiteTextureHandle = _engine.createTexture( "tex_white", TEXTURE2_PATH );
+    TextureHandle koreanoTextureHandle = _engine.createTexture( "tex_koreano", TEXTURE3_PATH );
+    TextureHandle normalTexture = _engine.createTexture( "tex_character_normal", NORMAL_TEXTURE_PATH );
+    TextureHandle wallColor = _engine.createTexture( "tex_wall_basecolor", WALL_TEXTURE_PATH );
+    TextureHandle wallNormal = _engine.createTexture( "tex_wall_normal", WALL_NORMAL_TEXTURE_PATH );
 
     std::vector<Vertex> vertices;
     std::vector<Vertex> vertices2;
@@ -144,9 +144,9 @@ void App::loadModels()
     v2.texCoord = glm::vec2(2,0);
     v3.texCoord = glm::vec2(0,2);
 
-    v1.tangent = glm::vec3(normalize(v1.pos-v2.pos));
-    v2.tangent = glm::vec3(normalize(v1.pos-v2.pos));
-    v3.tangent = glm::vec3(normalize(v1.pos-v2.pos));
+    v1.tangent = glm::vec3( normalize( v1.pos - v2.pos ) );
+    v2.tangent = glm::vec3( normalize( v1.pos - v2.pos ) );
+    v3.tangent = glm::vec3( normalize( v1.pos - v2.pos ) );
 
 
     vertices.push_back( v1 );
@@ -154,61 +154,61 @@ void App::loadModels()
     vertices.push_back( v3 );
 
     MaterialDesc mat1;
-    mat1.metallic = 0;
-    mat1.roughtness = 0.95;
+    mat1.metallic = 0.0f;
+    mat1.roughtness = 0.95f;
     mat1.baseColorTexture = characterTextureHandle;
     mat1.normalTexture = normalTexture;
 
     MaterialDesc mat2;
-    mat2.metallic = 0.1;
-    mat2.roughtness = 0.25;
+    mat2.metallic = 0.1f;
+    mat2.roughtness = 0.25f;
     mat2.baseColorTexture = koreanoTextureHandle;
     mat2.normalTexture = wallNormal;
 
     MaterialDesc mat3;
-    mat3.metallic = 0.01;
-    mat3.roughtness = 0.8;
+    mat3.metallic = 0.01f;
+    mat3.roughtness = 0.8f;
     mat3.baseColorTexture = wallColor;
     mat3.normalTexture = wallNormal;
 
     MaterialDesc planeMat;
-    planeMat.metallic = 0;
-    planeMat.roughtness = 0.5;
+    planeMat.metallic = 0.0f;
+    planeMat.roughtness = 0.5f;
     planeMat.baseColorTexture = whiteTextureHandle;
 
-    MaterialHandle mat1Handle = _engine.createMaterial( mat1 );
-    MaterialHandle mat2Handle = _engine.createMaterial( mat2 );
-    MaterialHandle mat3Handle = _engine.createMaterial( mat3 );
-    MaterialHandle planeMatHandle = _engine.createMaterial( planeMat );
+    MaterialHandle mat1Handle = _engine.createMaterial( "mat_character", mat1 );
+    MaterialHandle mat2Handle = _engine.createMaterial( "mat_koreano", mat2 );
+    MaterialHandle mat3Handle = _engine.createMaterial( "mat_wall", mat3 );
+    MaterialHandle planeMatHandle = _engine.createMaterial( "mat_plane", planeMat );
 
 
     //TODO crear gestor de recursos
-    triangle = _engine.createMesh( vertices );
-    character = _engine.createMesh(MODEL_PATH );
-    esfera = _engine.createMesh( MODEL_PATH3 );
-    planoSincolor = _engine.createMesh(MODEL_PATH4);
+    triangle = _engine.createMesh( "mesh_triangle", vertices );
+    character = _engine.createMesh( "mesh_character", MODEL_PATH );
+    esfera = _engine.createMesh( "mesh_sphere", MODEL_PATH3 );
+    planoSincolor = _engine.createMesh( "mesh_plane_no_color", MODEL_PATH4 );
 
 
     objects.push_back( { triangle, glm::mat4( 1 ), mat3Handle });
     objects.push_back( { character, glm::mat4( 1 ), mat1Handle } );
     //objects.push_back( { planoSincolor, glm::mat4( 10 ),planeMat } );
 
-    objects.push_back( { esfera, glm::translate(glm::mat4(1),glm::vec3(2.5,0,0)), mat2Handle });;
-    objects.push_back( { esfera, glm::translate(glm::mat4(1),glm::vec3(-2.5,0,0)), mat2Handle });
+    objects.push_back( { esfera, glm::translate( glm::mat4( 1.0f ), glm::vec3( 2.5f, 0.0f, 0.0f ) ), mat2Handle } );
+    objects.push_back( { esfera, glm::translate( glm::mat4( 1.0f ), glm::vec3( -2.5f, 0.0f, 0.0f ) ), mat2Handle } );
 
     for (int i = 0; i < 100;i++) {
         for (int j = 0; j < 100; j++) {
             MaterialDesc dynamicMat = mat3;
-            dynamicMat.roughtness = std::min(i * 0.1,1.0);
-            dynamicMat.metallic =std::min( j * 0.1,1.0);
-            MaterialHandle dynamicMatHandle = _engine.createMaterial( dynamicMat );
-            objects.push_back( { esfera, glm::translate( glm::mat4( 1 ),glm::vec3( -5 + i * -5,0,j*5 ) ), dynamicMatHandle } );
+            dynamicMat.roughtness = std::min( static_cast<float>( i ) * 0.1f, 1.0f );
+            dynamicMat.metallic = std::min( static_cast<float>( j ) * 0.1f, 1.0f );
+            MaterialHandle dynamicMatHandle = _engine.createMaterial( "mat_grid_" + std::to_string( i ) + "_" + std::to_string( j ), dynamicMat );
+            objects.push_back( { esfera, glm::translate( glm::mat4( 1.0f ), glm::vec3( -5.0f + static_cast<float>( i ) * -5.0f, 0.0f, static_cast<float>( j ) * 5.0f ) ), dynamicMatHandle } );
         }
     }
 
     for (int i = 0; i < 10; i++) {
         for (int j = 0; j < 10; j++) {
-            objects.push_back( { planoSincolor, glm::scale( glm::translate( glm::mat4( 1 ), glm::vec3( i * -5, -1, j * 5 ) ) , glm::vec3( 10 ) ), planeMatHandle } );
+            objects.push_back( { planoSincolor, glm::scale( glm::translate( glm::mat4( 1.0f ), glm::vec3( static_cast<float>( i ) * -5.0f, -1.0f, static_cast<float>( j ) * 5.0f ) ), glm::vec3( 10.0f ) ), planeMatHandle } );
         }
     }
 

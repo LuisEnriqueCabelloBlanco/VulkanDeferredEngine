@@ -13,17 +13,19 @@
 #include "Texture.h"
 #include "BufferObjectsData.h"
 #include "Mesh.h"
+#include "ResourceLimits.h"
+#include "ResourceManager.h"
 #include "WindowEvent.h"
 
 #include "Camera.h"
 
-constexpr int MAX_FRAMES_IN_FLIGHT = 2;
+constexpr int MAX_FRAMES_IN_FLIGHT = ResourceLimits::MAX_FRAMES_IN_FLIGHT;
 
-constexpr int MAX_LIGHTS = 100000;
+constexpr int MAX_LIGHTS = ResourceLimits::MAX_LIGHTS;
 
-constexpr int MAX_CULL_OBJECTS = 100000;
+constexpr int MAX_CULL_OBJECTS = ResourceLimits::MAX_CULL_OBJECTS;
 
-constexpr int MAX_TEXTURES = 32;
+constexpr int MAX_TEXTURES = ResourceLimits::MAX_TEXTURES;
 
 const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
@@ -37,14 +39,8 @@ const bool enableValidationLayers = true;
 
 class RenderEngine
 {
+
 public:
-    RenderEngine();
-
-    static void ErrorCallback( int, const char* err_str )
-    {
-        std::cout << "GLFW Error: " << err_str << std::endl;
-    }
-
     /*
     * Inicializacion de todos los elementos necesarios para renderizar una imagen en vulkan
     *
@@ -66,60 +62,130 @@ public:
     * 15.Creamos los buffres de commandos (1 por frame al vuelo)
     * 16.Creamos las estructuras de sincronizacion
     */
+
     void init(const std::string& appName);
-
     void cleanup();
+    void wait();
+    RenderEngine();
 
+    // Frame API
     void drawFrame( std::vector<RenderObject>& objectsArray );
 
-    void wait();
-
+    // Camera and events
     Camera& getMainCamera() { return _mainCamera; }
-
-
-    MeshHandle createMesh( const std::string& path );
-    MeshHandle createMesh( const std::vector<Vertex>& vertices );
-    MeshHandle createMesh( const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices );
-
-    void createPointLight(glm::vec3 position, glm::vec3 color, float intensity, float range, bool preload = false);
-    void createDirectionalLight( glm::vec3 direction, glm::vec3 color, float intensity, bool preload = false );
-
-
-    /**
-        * @brief carga una textura y devuelve un handle estable
-     *
-     * @param path
-     * @return
-     */
-        TextureHandle loadTexture( const std::string& path );
-
-        MaterialHandle createMaterial( const MaterialDesc& material );
-
-    void updateGeometryDescriptorSets();
-
-    void updateLightingDescriptorSets();
-
-    void updateLightBuffer();
-
     void handleWindowEvent( const WindowEvent& event );
 
+    // Lighting API
+    void createPointLight(glm::vec3 position, glm::vec3 color, float intensity, float range, bool preload = false);
+    void createDirectionalLight( glm::vec3 direction, glm::vec3 color, float intensity, bool preload = false );
     void setMainLight( int index );
+    void updateLightBuffer();
+
+    // Resource API
+    MeshHandle createMesh( const std::string& name, const std::string& path );
+    MeshHandle createMesh( const std::string& name, const std::vector<Vertex>& vertices );
+    MeshHandle createMesh( const std::string& name, const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices );
+    TextureHandle createTexture( const std::string& name, const std::string& path );
+    MaterialHandle createMaterial( const std::string& name, const MaterialDesc& material );
+
+    MeshHandle tryGetMeshHandle( const std::string& name ) const;
+    TextureHandle tryGetTextureHandle( const std::string& name ) const;
+    MaterialHandle tryGetMaterialHandle( const std::string& name ) const;
+
+    const Mesh* getMeshResource( MeshHandle handle ) const;
+    const Texture* getTextureResource( TextureHandle handle ) const;
+    const MaterialDesc* getMaterialResource( MaterialHandle handle ) const;
+
+    void releaseMesh( MeshHandle handle );
+    void releaseTexture( TextureHandle handle );
+    void releaseMaterial( MaterialHandle handle );
+
+    // Explicit descriptor updates
+    void updateGeometryDescriptorSets();
+    void updateLightingDescriptorSets();
+
+    // Utility
+    void generateMipmaps( VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels );
+
+    static void ErrorCallback( int, const char* err_str )
+    {
+        std::cout << "GLFW Error: " << err_str << std::endl;
+    }
 
 private:
 
-    Mesh* getMesh( MeshHandle handle );
-    const Mesh* getMesh( MeshHandle handle ) const;
-    const MaterialDesc* getMaterial( MaterialHandle handle ) const;
-
-    void createRenderPass();
-
-    void createShadowPass();
-
+    // Vulkan bootstrap
     void createInstance(const std::string& appName);
-
     bool checkValidationLayerSupport();
-
     std::vector<const char*> getRequiredExtensions();
+    void populateDebugMessengerCreateInfo( VkDebugUtilsMessengerCreateInfoEXT& createInfo );
+    void setupDebugMessenger();
+
+    // Render pass and pipeline creation
+    void createRenderPass();
+    void createShadowPass();
+    void createGraphicsPipeline();
+    void createDeferredPipeline();
+    void createComputePipeline();
+    void createObjectCullPipeline();
+    void createShadowPipeline();
+
+    // Framebuffer and command infrastructure
+    void createFramebuffers();
+    void createShadowFrameBuffer();
+    void createCommandPool();
+    void createCommandBuffers();
+    void createComputeCommandPool();
+    void createComputeCommandBuffer();
+    void createSyncObjects();
+    void recreateSwapChain();
+    void cleanupSwapChain();
+
+    // GPU resources and descriptor layouts
+    void createColorResources();
+    void createNormalResources();
+    void createDepthResources();
+    void createUniformBuffers();
+    void createLightBuffer();
+    void createCullingBuffers();
+    void createDescriptorPool();
+
+    void createDescriptorSetLayout();
+    void createComputeDescriptorSetLayout();
+    void createShadowDescriptorSetLayout();
+    void createInputAttachmentDescriptorSetLayout();
+    void createTextureArrayDescriptorSetLayout();
+    void createViewProjectionDescriptorSetLayout();
+    void createIndexedObjectsBufferDescriptorSetLayout();
+
+    void createGeometryDescriptorSets();
+    void createDeferredDescriptorSets();
+    void createComputeDescriptorSets();
+    void createObjectCullDescriptorSets();
+    void createShadowDescriptorSet();
+
+    // Runtime updates
+    void updateUniformBuffer( uint32_t currentImage, glm::mat4 model );
+    void updateComputeDescriptorSet();
+    void updateShadowDescriptorSet();
+    void updateCullDescriptorSet();
+
+    // Recording and culling
+    void recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t imageIndex, std::vector<RenderObject>& objectsArray , const std::vector<int>& cullIndex );
+    void recordShadowPass( VkCommandBuffer commandBuffer, const std::vector<RenderObject>& objectsArray );
+    void recordMainRender( VkCommandBuffer commandBuffer );
+    void pushModelMatrix( VkCommandBuffer commandBuffer, glm::mat4 model = glm::mat4( 1 ) );
+    void pushTextureIndex( VkCommandBuffer commandBuffer, const MaterialDesc& material );
+
+    const std::vector<int> cullObjects( const std::vector<RenderObject>& objs, ViewProjectionData& cameraDesc );
+    const std::vector<Light> cullLights( const std::vector<Light>& objs );
+    void computeCullObjects( std::vector<RenderObject>& objectsArray );
+
+    // Misc
+    void loadModels();
+    VkFormat findDepthFormat();
+    bool hasStencilComponent( VkFormat format );
+    bool AABBFrustrumTest( const AABB& aabb,const glm::mat4& MVP);
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
         VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -139,113 +205,6 @@ private:
 
         return VK_FALSE;
     }
-
-    void populateDebugMessengerCreateInfo( VkDebugUtilsMessengerCreateInfoEXT& createInfo );
-    void setupDebugMessenger();
-
-    void createGraphicsPipeline();
-
-    void createDeferredPipeline();
-
-    void createComputePipeline();
-
-    void createObjectCullPipeline();
-
-    void createShadowPipeline();
-
-    void createFramebuffers();
-
-    void createShadowFrameBuffer();
-
-    void createCommandPool();
-
-    void createCommandBuffers();
-
-    void createComputeCommandPool();
-
-    void createComputeCommandBuffer();
-
-    void recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t imageIndex, std::vector<RenderObject>& objectsArray , const std::vector<int>& cullIndex );
-
-    void loadModels();
-
-    void createSyncObjects();
-
-    void recreateSwapChain();
-
-    void cleanupSwapChain();
-
-    void createColorResources();
-
-    void createNormalResources();
-
-    void updateUniformBuffer( uint32_t currentImage, glm::mat4 model );
-
-    void updateComputeDescritorSet();
-
-    void updateShadowDescriptorSet();
-
-    void updateCullDescriptorSet();
-
-    void createLightBuffer();
-
-    void createCullingBufers();
-
-    void createDescriptorSetLayout();
-
-    void createComputeDescriptorSetLayout();
-
-    void createShadowDescriptorSetLayout();
-
-    void createInputAttachmentDescriptorSetLayout();
-
-    void createTextureArrayDescriptorSetLayout();
-
-    void createViewProjectionDescriptorSetLayout();
-
-    void createIndexedObjectsBufferDescriptroSetLayout();
-
-    VkFormat findDepthFormat();
-
-    bool hasStencilComponent( VkFormat format );
-
-    void createUniformBuffers();
-
-    void createDescriptorPool();
-
-    void createDepthResources();
-
-    void createGeometryDescriptorSets();
-
-    void createDeferredDescriptorSets();
-
-    void createComputeDescriptorSets();
-
-    void createObjectCullDescriptorSets();
-
-    void createShadowDesciptorSet();
-
-    void pushModelMatrix( VkCommandBuffer commnadBuffer, glm::mat4 model = glm::mat4( 1 ) );
-
-    void pushTextureIndex( VkCommandBuffer commnadBuffer, const MaterialDesc& material );
-
-    void recordShadowPass( VkCommandBuffer commandBuffer, const std::vector<RenderObject>& objectsArray );
-
-    void recordMainRender( VkCommandBuffer commandBuffer );
-
-    const std::vector<int> cullObjects( const std::vector<RenderObject>& objs, ViewProjectionData& cameraDesc );
-
-    const std::vector<Light> cullLights( const std::vector<Light>& objs );
-
-    void computeCullObects( std::vector<RenderObject>& objectsArray );
-
-
-public:
-    void generateMipmaps( VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels );
-
-private:
-
-    bool AABBFrustrumTest( const AABB& aabb,const glm::mat4& MVP);
 
     const uint32_t WIDTH = 800;
     const uint32_t HEIGHT = 600;
@@ -317,6 +276,7 @@ private:
     Camera _mainCamera;
 
     VulkanDevice _device;
+    ResourceManager _resources;
     VulkanWindow _window;
 
     Texture* msaaTexture;
@@ -332,11 +292,6 @@ private:
     ViewProjectionData* lightCameraUBO;
 
     GlobalLighting _lighting;
-
-    std::vector<std::unique_ptr<Texture>> _textureArray;
-    std::vector<MaterialDesc> _materials;
-
-    std::vector<std::unique_ptr<Mesh>> _meshes;
 
     VkDescriptorPool descriptorPool;
 

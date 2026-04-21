@@ -6,7 +6,7 @@
 #include <stdexcept>
 
 
-Mesh* Mesh::_lastRenderedMesh = nullptr;
+const Mesh* Mesh::_lastRenderedMesh = nullptr;
 
 Mesh::Mesh( VulkanDevice& device, const std::string& path ) :_device( device ) {
 
@@ -52,7 +52,7 @@ Mesh::~Mesh()
 	delete _indexBuffer;
 }
 
-void Mesh::draw( VkCommandBuffer commandBuffer )
+void Mesh::draw( VkCommandBuffer commandBuffer ) const
 {
 	if (_lastRenderedMesh != this) {
 		VkBuffer vertexBuffers[] = { _vertexBuffer->getBuffer() };

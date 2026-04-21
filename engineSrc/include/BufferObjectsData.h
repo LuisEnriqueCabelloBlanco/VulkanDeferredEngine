@@ -41,20 +41,23 @@ struct alignas(16) GlobalLighting {
 constexpr uint32_t INVALID_TEXTURE_HANDLE = std::numeric_limits<uint32_t>::max();
 constexpr uint32_t INVALID_MATERIAL_HANDLE = std::numeric_limits<uint32_t>::max();
 constexpr uint32_t INVALID_MESH_HANDLE = std::numeric_limits<uint32_t>::max();
+constexpr uint32_t INVALID_HANDLE_GENERATION = 0;
 
 struct TextureHandle {
     uint32_t id = INVALID_TEXTURE_HANDLE;
+    uint32_t generation = INVALID_HANDLE_GENERATION;
 
     inline bool isValid() const {
-        return id != INVALID_TEXTURE_HANDLE;
+        return id != INVALID_TEXTURE_HANDLE && generation != INVALID_HANDLE_GENERATION;
     }
 };
 
 struct MaterialHandle {
     uint32_t id = INVALID_MATERIAL_HANDLE;
+    uint32_t generation = INVALID_HANDLE_GENERATION;
 
     inline bool isValid() const {
-        return id != INVALID_MATERIAL_HANDLE;
+        return id != INVALID_MATERIAL_HANDLE && generation != INVALID_HANDLE_GENERATION;
     }
 };
 
@@ -68,9 +71,10 @@ struct MaterialDesc {
 
 struct MeshHandle {
     uint32_t id = INVALID_MESH_HANDLE;
+    uint32_t generation = INVALID_HANDLE_GENERATION;
 
     inline bool isValid() const {
-        return id != INVALID_MESH_HANDLE;
+        return id != INVALID_MESH_HANDLE && generation != INVALID_HANDLE_GENERATION;
     }
 };
 

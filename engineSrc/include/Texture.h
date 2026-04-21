@@ -13,7 +13,7 @@ public:
 	void createTextureSampler( VkSamplerAddressMode addresMode = VK_SAMPLER_ADDRESS_MODE_REPEAT );
 
 
-	VkDescriptorImageInfo getTextureDescriptor(VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	VkDescriptorImageInfo getTextureDescriptor(VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) const;
 
 
 	uint32_t mipLevels;

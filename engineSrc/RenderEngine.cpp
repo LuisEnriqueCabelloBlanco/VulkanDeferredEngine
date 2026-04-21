@@ -24,6 +24,10 @@ void DestroyDebugUtilsMessengerEXT( VkInstance instance, VkDebugUtilsMessengerEX
 
 }
 
+// ============================
+// Lifecycle
+// ============================
+
 void RenderEngine::wait() {
 	_device.wait();
 }
@@ -41,9 +45,7 @@ VkResult CreateDebugUtilsMessengerEXT( VkInstance instance, const VkDebugUtilsMe
 
 void RenderEngine::cleanup()
 {
-	_meshes.clear();
-	_materials.clear();
-	_textureArray.clear();
+	_resources.clear();
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 		delete uniformBuffers[i];
@@ -122,6 +124,87 @@ void RenderEngine::cleanup()
 	vkDestroyInstance( instance, nullptr );
 
 }
+
+RenderEngine::RenderEngine() : _resources( _device )
+{
+}
+
+void RenderEngine::init( const std::string& appName )
+{
+
+	_window.init( "appName", WIDTH, HEIGHT, instance );
+	createInstance( appName );
+	setupDebugMessenger();
+	_window.createSurface( instance );
+	_device.init( instance, _window );
+
+	graphicsQueue = _device.getGraphicsQueue();
+	presentQueue = _device.getPresentQueue();
+	computeQueue = _device.getComputeQueue();
+	_window.setDevice( &_device );
+	_window.createSwapChain();
+
+	createInputAttachmentDescriptorSetLayout();
+	createTextureArrayDescriptorSetLayout();
+	createViewProjectionDescriptorSetLayout();
+	createIndexedObjectsBufferDescriptorSetLayout();
+
+
+	createComputeDescriptorSetLayout();
+	createComputePipeline();
+
+	createObjectCullPipeline();
+
+	createShadowPass();
+	createShadowDescriptorSetLayout();
+	createShadowPipeline();
+
+	createRenderPass();
+	createDescriptorSetLayout();
+	createGraphicsPipeline();
+	createDeferredPipeline();
+
+	createColorResources();
+	createDepthResources();
+	createNormalResources();
+
+	createFramebuffers();
+	createShadowFrameBuffer();
+
+	createCommandPool();
+	createCommandBuffers();
+	createSyncObjects();
+
+
+	createDescriptorPool();
+
+	//cracion de recursos
+
+	createUniformBuffers();
+	createLightBuffer();
+	createCullingBuffers();
+
+	_mainCamera = Camera( glm::vec3( 0, 0, -2.5f ), glm::vec3( 0, 0, 1.f ), glm::vec3( 0.0f, 1.0f, 0.0f ),
+						  90.f, _window.getExtent().width / (float)_window.getExtent().height, 0.1f, 40.f );
+
+
+	createGeometryDescriptorSets();
+	createDeferredDescriptorSets();
+	createComputeDescriptorSets();
+	createShadowDescriptorSet();
+	createObjectCullDescriptorSets();
+
+	updateGeometryDescriptorSets();
+	updateLightingDescriptorSets();
+	updateComputeDescriptorSet();
+	updateShadowDescriptorSet();
+	updateCullDescriptorSet();
+
+}
+
+// ============================
+// Vulkan bootstrap
+// ============================
 
 void RenderEngine::createInstance( const std::string& appName ) {
 
@@ -233,6 +316,10 @@ void RenderEngine::setupDebugMessenger() {
 		throw std::runtime_error( "failed to set up debug messenger!" );
 	}
 }
+
+// ============================
+// Pipeline creation
+// ============================
 
 void RenderEngine::createGraphicsPipeline()
 {
@@ -854,46 +941,54 @@ void RenderEngine::createCommandBuffers()
 
 }
 
-MeshHandle RenderEngine::createMesh( const std::string& path )
+// ============================
+// Resource and light API
+// ============================
+
+MeshHandle RenderEngine::createMesh( const std::string& name, const std::string& path )
 {
-	MeshHandle handle;
-	handle.id = static_cast<uint32_t>(_meshes.size());
-	_meshes.emplace_back( std::make_unique<Mesh>( _device, path ) );
-	return handle;
+	return _resources.createMesh( name, path );
 }
 
-MeshHandle RenderEngine::createMesh( const std::vector<Vertex>& vertices )
+MeshHandle RenderEngine::createMesh( const std::string& name, const std::vector<Vertex>& vertices )
 {
-	MeshHandle handle;
-	handle.id = static_cast<uint32_t>(_meshes.size());
-	_meshes.emplace_back( std::make_unique<Mesh>( _device, vertices ) );
-	return handle;
+	return _resources.createMesh( name, vertices );
 }
 
-MeshHandle RenderEngine::createMesh( const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices )
+MeshHandle RenderEngine::createMesh( const std::string& name, const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices )
 {
-	MeshHandle handle;
-	handle.id = static_cast<uint32_t>(_meshes.size());
-	_meshes.emplace_back( std::make_unique<Mesh>( _device, indices, vertices ) );
-	return handle;
+	return _resources.createMesh( name, indices, vertices );
 }
 
-Mesh* RenderEngine::getMesh( MeshHandle handle )
+const Mesh* RenderEngine::getMeshResource( MeshHandle handle ) const
 {
-	if (!handle.isValid() || handle.id >= _meshes.size()) {
-		return nullptr;
-	}
-
-	return _meshes[handle.id].get();
+	return _resources.tryGetMesh( handle );
 }
 
-const Mesh* RenderEngine::getMesh( MeshHandle handle ) const
+const Texture* RenderEngine::getTextureResource( TextureHandle handle ) const
 {
-	if (!handle.isValid() || handle.id >= _meshes.size()) {
-		return nullptr;
-	}
+	return _resources.tryGetTexture( handle );
+}
 
-	return _meshes[handle.id].get();
+const MaterialDesc* RenderEngine::getMaterialResource( MaterialHandle handle ) const
+{
+	return _resources.tryGetMaterial( handle );
+}
+
+void RenderEngine::releaseMesh( MeshHandle handle )
+{
+	_resources.releaseMesh( handle );
+}
+
+void RenderEngine::releaseTexture( TextureHandle handle )
+{
+	_resources.releaseTexture( handle );
+	updateGeometryDescriptorSets();
+}
+
+void RenderEngine::releaseMaterial( MaterialHandle handle )
+{
+	_resources.releaseMaterial( handle );
 }
 
 void RenderEngine::createPointLight( glm::vec3 position, glm::vec3 color, float intensity,float range, bool preload )
@@ -933,57 +1028,37 @@ void RenderEngine::createDirectionalLight( glm::vec3 direction, glm::vec3 color,
 	}
 }
 
-TextureHandle RenderEngine::loadTexture( const std::string& path ) {
-	if (path.empty()) {
-		throw std::runtime_error( "RenderEngine::loadTexture called with empty path" );
-	}
-
-	if (_textureArray.size() >= static_cast<size_t>(MAX_TEXTURES)) {
-		throw std::runtime_error( "RenderEngine::loadTexture exceeded MAX_TEXTURES. Increase MAX_TEXTURES and descriptor pool/layout capacity before loading more textures." );
-	}
-
-	TextureHandle handle;
-	handle.id = static_cast<uint32_t>(_textureArray.size());
-
-	auto tex = std::make_unique<Texture>( _device );
-	tex->loadTexture( path );
-
-	_textureArray.emplace_back( std::move( tex ) );
+TextureHandle RenderEngine::createTexture( const std::string& name, const std::string& path ) {
+	TextureHandle handle = _resources.createTexture( name, path );
 
 	updateGeometryDescriptorSets();
 
 	return handle;
 }
 
-MaterialHandle RenderEngine::createMaterial( const MaterialDesc& material )
+MaterialHandle RenderEngine::createMaterial( const std::string& name, const MaterialDesc& material )
 {
-	if (material.baseColorTexture.isValid()) {
-        if(material.baseColorTexture.id >= _textureArray.size())
-		    throw std::runtime_error( "RenderEngine::createMaterial called with out-of-range base color texture handle" );
-        if (material.baseColorTexture.id >= static_cast<uint32_t>(MAX_TEXTURES))
-		    throw std::runtime_error( "RenderEngine::createMaterial called with base color texture handle outside MAX_TEXTURES" );
-	}
-	if (material.normalTexture.isValid()) {
-		if (material.normalTexture.id >= _textureArray.size())
-			throw std::runtime_error( "RenderEngine::createMaterial called with out-of-range normal texture handle" );
-		if (material.normalTexture.id >= static_cast<uint32_t>(MAX_TEXTURES))
-			throw std::runtime_error( "RenderEngine::createMaterial called with normal texture handle outside MAX_TEXTURES" );
-	}
-
-	MaterialHandle handle;
-	handle.id = static_cast<uint32_t>(_materials.size());
-	_materials.push_back( material );
-	return handle;
+	return _resources.createMaterial( name, material );
 }
 
-const MaterialDesc* RenderEngine::getMaterial( MaterialHandle handle ) const
+MeshHandle RenderEngine::tryGetMeshHandle( const std::string& name ) const
 {
-	if (!handle.isValid() || handle.id >= _materials.size()) {
-		return nullptr;
-	}
-
-	return &_materials[handle.id];
+	return _resources.tryGetMeshHandle( name );
 }
+
+TextureHandle RenderEngine::tryGetTextureHandle( const std::string& name ) const
+{
+	return _resources.tryGetTextureHandle( name );
+}
+
+MaterialHandle RenderEngine::tryGetMaterialHandle( const std::string& name ) const
+{
+	return _resources.tryGetMaterialHandle( name );
+}
+
+// ============================
+// Frame recording and presentation
+// ============================
 
 void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t imageIndex, std::vector<RenderObject>& objectsArray, const std::vector<int>&cullIndex )
 {
@@ -1107,8 +1182,8 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 
 	for (int index : cullIndex) {
 		RenderObject& object = objectsArray[index];
-		Mesh* mesh = getMesh( object.mesh );
-		const MaterialDesc* material = getMaterial( object.material );
+		const Mesh* mesh = getMeshResource( object.mesh );
+		const MaterialDesc* material = getMaterialResource( object.material );
 		if (mesh == nullptr) {
 			continue;
 		}
@@ -1377,7 +1452,7 @@ void RenderEngine::updateUniformBuffer( uint32_t currentImage, glm::mat4 model )
 
 }
 
-void RenderEngine::updateComputeDescritorSet()
+void RenderEngine::updateComputeDescriptorSet()
 {
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 
@@ -1518,7 +1593,7 @@ void RenderEngine::createLightBuffer()
 {
 	_lighting.eyePos = glm::vec3( 0, 0, -2.5f );
 
-	_lighting.ambietnVal = 0.01;
+	_lighting.ambietnVal = 0.01f;
 
 	VkDeviceSize memorySize = sizeof( int ) + (sizeof( Light ) * MAX_LIGHTS) + sizeof( uint8_t ) * 16;
 	_lightBufferSorage = _device.createBuffer( memorySize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
@@ -1558,7 +1633,7 @@ void RenderEngine::createLightBuffer()
 
 }
 
-void RenderEngine::createCullingBufers()
+void RenderEngine::createCullingBuffers()
 {
 	VkDeviceSize memorySize = sizeof( int ) + (sizeof( AABBModel ) * MAX_CULL_OBJECTS) + sizeof( uint8_t ) * 16;
 	_AABBModelStorage = _device.createBuffer( memorySize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
@@ -1582,7 +1657,7 @@ void RenderEngine::updateLightBuffer() {
 
 	//std::vector<Light> culledLights = cullLights( _lightBuffer );
 
-	int size = _lightBuffer.size();
+	const int size = static_cast<int>( _lightBuffer.size() );
 
 	memcpy( _lightBufferStorageMapped, &size, sizeof( int ) );
 
@@ -1745,7 +1820,7 @@ void RenderEngine::createViewProjectionDescriptorSetLayout()
 	_viewProjectionDescriptorSetLayout = _device.createDescriptorSetLayout( layoutInfo );
 }
 
-void RenderEngine::createIndexedObjectsBufferDescriptroSetLayout()
+void RenderEngine::createIndexedObjectsBufferDescriptorSetLayout()
 {
 	VkDescriptorSetLayoutBinding indexBuffer{};
 	indexBuffer.binding = 0;
@@ -1913,26 +1988,22 @@ void RenderEngine::createObjectCullDescriptorSets()
 	_lightCullDescriptorSet = _device.createDescriptorSets( layouts2, descriptorPool )[0];
 }
 
-void RenderEngine::createShadowDesciptorSet()
+void RenderEngine::createShadowDescriptorSet()
 {
 
 }
 
 void RenderEngine::updateGeometryDescriptorSets()
 {
-	if (_textureArray.size() > static_cast<size_t>(MAX_TEXTURES)) {
+	const std::vector<ResourceManager::TextureBindingEntry> textureEntries = _resources.getLiveTextureEntries();
+
+	if (textureEntries.size() > static_cast<size_t>(MAX_TEXTURES)) {
 		throw std::runtime_error( "RenderEngine::updateGeometryDescriptorSets exceeded MAX_TEXTURES" );
 	}
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 
-		int size = 1;
-
-		if (_textureArray.size() > 0) {
-			size++;
-		}
-
-		std::vector<VkWriteDescriptorSet> descriptorWrites( size );
+		std::vector<VkWriteDescriptorSet> descriptorWrites( 1 + textureEntries.size() );
 
 		VkDescriptorBufferInfo bufferInfo{};
 		bufferInfo.buffer = uniformBuffers[i]->getBuffer();
@@ -1947,24 +2018,21 @@ void RenderEngine::updateGeometryDescriptorSets()
 		descriptorWrites[0].pBufferInfo = &bufferInfo;
 		descriptorWrites[0].dstSet = _cameraDescriptorSet[i];
 
-
-
 		std::vector<VkDescriptorImageInfo> imagesDesc;
+		imagesDesc.reserve( textureEntries.size() );
 
-		if (_textureArray.size() > 0) {
+		for (size_t textureWriteIndex = 0; textureWriteIndex < textureEntries.size(); ++textureWriteIndex) {
+			imagesDesc.push_back( textureEntries[textureWriteIndex].texture->getTextureDescriptor() );
 
-			for (auto& tex : _textureArray) {
-				imagesDesc.push_back( tex->getTextureDescriptor() );
-			}
-
-			descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrites[1].dstBinding = 0;
-			descriptorWrites[1].dstArrayElement = 0;
-			descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-			descriptorWrites[1].descriptorCount = static_cast<uint32_t>(imagesDesc.size());
-			descriptorWrites[1].pImageInfo = imagesDesc.data();
-			descriptorWrites[1].pBufferInfo = VK_NULL_HANDLE;
-			descriptorWrites[1].dstSet = _textureArrayDescriptorSet;
+			VkWriteDescriptorSet& write = descriptorWrites[textureWriteIndex + 1];
+			write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			write.dstBinding = 0;
+			write.dstArrayElement = textureEntries[textureWriteIndex].index;
+			write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			write.descriptorCount = 1;
+			write.pImageInfo = &imagesDesc[textureWriteIndex];
+			write.pBufferInfo = VK_NULL_HANDLE;
+			write.dstSet = _textureArrayDescriptorSet;
 		}
 
 		_device.updateDescriptorSet( descriptorWrites );
@@ -2071,17 +2139,17 @@ void RenderEngine::pushModelMatrix( VkCommandBuffer commnadBuffer, glm::mat4 mod
 void RenderEngine::pushTextureIndex( VkCommandBuffer commnadBuffer, const MaterialDesc& material )
 {
 	if (material.baseColorTexture.isValid()) {
-        if(material.baseColorTexture.id >= static_cast<uint32_t>(MAX_TEXTURES))
-		    throw std::runtime_error( "RenderEngine::pushTextureIndex called with base color texture handle outside MAX_TEXTURES" );
-        if (material.baseColorTexture.isValid() && material.baseColorTexture.id >= _textureArray.size())
-		    throw std::runtime_error( "RenderEngine::pushTextureIndex called with out-of-range base color texture handle" );
+		if (material.baseColorTexture.id >= static_cast<uint32_t>(MAX_TEXTURES))
+			throw std::runtime_error( "RenderEngine::pushTextureIndex called with base color texture handle outside MAX_TEXTURES" );
+		if (_resources.tryGetTexture( material.baseColorTexture ) == nullptr)
+			throw std::runtime_error( "RenderEngine::pushTextureIndex called with invalid or stale base color texture handle" );
 	}
 	if (material.normalTexture.isValid()) {
-        if(material.normalTexture.id >= static_cast<uint32_t>(MAX_TEXTURES))
+		if (material.normalTexture.id >= static_cast<uint32_t>(MAX_TEXTURES))
 			throw std::runtime_error( "RenderEngine::pushTextureIndex called with normal texture handle outside MAX_TEXTURES" );
-        if (material.normalTexture.isValid() && material.normalTexture.id >= _textureArray.size())
-		    throw std::runtime_error( "RenderEngine::pushTextureIndex called with out-of-range normal texture handle" );
-    }
+		if (_resources.tryGetTexture( material.normalTexture ) == nullptr)
+			throw std::runtime_error( "RenderEngine::pushTextureIndex called with invalid or stale normal texture handle" );
+	}
 
 	MaterialData gpuMaterial{};
 	gpuMaterial.baseColor = material.baseColor;
@@ -2128,8 +2196,8 @@ void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::v
 	VkViewport viewport{};
 	viewport.x = 0.0f;
 	viewport.y = 0.0f;
-	viewport.width = shadowMap->texWidth;
-	viewport.height = shadowMap->texHeight;
+	viewport.width = static_cast<float>( shadowMap->texWidth );
+	viewport.height = static_cast<float>( shadowMap->texHeight );
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 	vkCmdSetViewport( commandBuffer, 0, 1, &viewport );
@@ -2140,7 +2208,7 @@ void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::v
 	vkCmdSetScissor( commandBuffer, 0, 1, &scissor );
 
 	for (auto& index : cullIndex) {
-		Mesh* mesh = getMesh( objectsArray[index].mesh );
+		const Mesh* mesh = getMeshResource( objectsArray[index].mesh );
 		if (mesh == nullptr) {
 			continue;
 		}
@@ -2188,7 +2256,7 @@ const std::vector<int> RenderEngine::cullObjects( const std::vector<RenderObject
 
 	int i = 0;
 	for (const auto& obj : objs) {
-		const Mesh* mesh = getMesh( obj.mesh );
+		const Mesh* mesh = getMeshResource( obj.mesh );
 		if (mesh == nullptr) {
 			i++;
 			continue;
@@ -2272,85 +2340,6 @@ bool RenderEngine::AABBFrustrumTest( const AABB& aabb, const glm::mat4& MVP )
 
 	return inside;
 }
-
-
-RenderEngine::RenderEngine()
-{
-}
-
-void RenderEngine::init( const std::string& appName )
-{
-
-	_window.init( "appName", WIDTH, HEIGHT, instance );
-	createInstance( appName );
-	setupDebugMessenger();
-	_window.createSurface( instance );
-	_device.init( instance, _window );
-
-	graphicsQueue = _device.getGraphicsQueue();
-	presentQueue = _device.getPresentQueue();
-	computeQueue = _device.getComputeQueue();
-	_window.setDevice( &_device );
-	_window.createSwapChain();
-
-	createInputAttachmentDescriptorSetLayout();
-	createTextureArrayDescriptorSetLayout();
-	createViewProjectionDescriptorSetLayout();
-	createIndexedObjectsBufferDescriptroSetLayout();
-
-
-	createComputeDescriptorSetLayout();
-	createComputePipeline();
-
-	createObjectCullPipeline();
-
-	createShadowPass();
-	createShadowDescriptorSetLayout();
-	createShadowPipeline();
-
-	createRenderPass();
-	createDescriptorSetLayout();
-	createGraphicsPipeline();
-	createDeferredPipeline();
-
-	createColorResources();
-	createDepthResources();
-	createNormalResources();
-
-	createFramebuffers();
-	createShadowFrameBuffer();
-
-	createCommandPool();
-	createCommandBuffers();
-	createSyncObjects();
-
-
-	createDescriptorPool();
-
-	//cracion de recursos
-
-	createUniformBuffers();
-	createLightBuffer();
-	createCullingBufers();
-
-	_mainCamera = Camera( glm::vec3( 0, 0, -2.5f ), glm::vec3( 0, 0, 1.f ), glm::vec3( 0.0f, 1.0f, 0.0f ),
-						  90.f, _window.getExtent().width / (float)_window.getExtent().height, 0.1f, 40.f );
-
-
-	createGeometryDescriptorSets();
-	createDeferredDescriptorSets();
-	createComputeDescriptorSets();
-	createShadowDesciptorSet();
-	createObjectCullDescriptorSets();
-
-	updateGeometryDescriptorSets();
-	updateLightingDescriptorSets();
-	updateComputeDescritorSet();
-	updateShadowDescriptorSet();
-	updateCullDescriptorSet();
-
-}
-
 void RenderEngine::createRenderPass()
 {
 	VkAttachmentDescription presentAttachment{};
