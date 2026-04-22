@@ -68,8 +68,6 @@ private:
     const uint32_t WIDTH = 800;
     const uint32_t HEIGHT = 600;
 
-    std::vector<RenderObject> objects;
-
     glm::vec3 _moveDir;
 
     RenderEngine _engine;
@@ -82,9 +80,8 @@ private:
 
     float timeacum = 0;
 
-
-    MeshHandle triangle;
-    MeshHandle character;
-    MeshHandle esfera;
-    MeshHandle planoSincolor;
+    EntityId _triangleEntityId = INVALID_ENTITY_ID;
+    EntityId _characterEntityId = INVALID_ENTITY_ID;
+    EntityId _sphereLeftEntityId = INVALID_ENTITY_ID;
+    EntityId _sphereRightEntityId = INVALID_ENTITY_ID;
 };

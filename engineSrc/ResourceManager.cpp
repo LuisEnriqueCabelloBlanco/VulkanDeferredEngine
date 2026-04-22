@@ -5,18 +5,24 @@ ResourceManager::ResourceManager( VulkanDevice& device )
 }
 
 void ResourceManager::clear() {
-    // Elimina toda la state interna sin destruir el device; se usa en cleanup del motor.
+    // Liberamos todos los recursos en orden de dependencias: materiales primero (rompen refs a texturas),
+    // texturas después, meshes al final.
+    releaseAllMaterials();
+    releaseAllTextures();
+    releaseAllMeshes();
+
+    // Luego limpiamos todos los maps y free-lists.
     _meshSlots.clear();
     _freeMeshSlots.clear();
     _meshNameToIndex.clear();
 
-    _textureSlots.clear();
-    _freeTextureSlots.clear();
-    _textureNameToIndex.clear();
-
     _materialSlots.clear();
     _freeMaterialSlots.clear();
     _materialNameToIndex.clear();
+
+    _textureSlots.clear();
+    _freeTextureSlots.clear();
+    _textureNameToIndex.clear();
 }
 
 MeshHandle ResourceManager::createMesh( const std::string& name, const std::string& path ) {
@@ -111,6 +117,22 @@ void ResourceManager::releaseMesh( MeshHandle handle ) {
     _freeMeshSlots.push_back( handle.id );
 }
 
+void ResourceManager::releaseAllMeshes() {
+    for (uint32_t index = 0; index < _meshSlots.size(); ++index) {
+        MeshSlot& slot = _meshSlots[index];
+        if (!slot.occupied) {
+            continue;
+        }
+
+        _meshNameToIndex.erase( slot.name );
+        slot.resource.reset();
+        slot.occupied = false;
+        slot.name.clear();
+        bumpGeneration( slot.generation );
+        _freeMeshSlots.push_back( index );
+    }
+}
+
 TextureHandle ResourceManager::createTexture( const std::string& name, const std::string& path ) {
     validateResourceName( name, "ResourceManager::createTexture" );
     if (path.empty()) {
@@ -145,7 +167,7 @@ TextureHandle ResourceManager::createTexture( const std::string& name, const std
 void ResourceManager::releaseTexture( TextureHandle handle ) {
     TextureSlot& slot = requireTextureSlot( handle, "ResourceManager::releaseTexture" );
 
-    // Evita dejar materiales vivos con un handle que ya no apunta a una textura valida.
+    /// Valida que no hay materiales que dependan de esta textura
     if (isTextureUsedByAnyMaterial( handle )) {
         throw ResourceException(
             ResourceErrorCode::DependencyInUse,
@@ -161,9 +183,34 @@ void ResourceManager::releaseTexture( TextureHandle handle ) {
     _freeTextureSlots.push_back( handle.id );
 }
 
+void ResourceManager::releaseAllTextures() {
+    for (uint32_t index = 0; index < _textureSlots.size(); ++index) {
+        TextureSlot& slot = _textureSlots[index];
+        if (!slot.occupied) {
+            continue;
+        }
+
+        // Valida que no hay materiales que dependan de esta textura
+        TextureHandle handle = makeTextureHandle( index, slot.generation );
+        if (isTextureUsedByAnyMaterial( handle )) {
+            throw ResourceException(
+                ResourceErrorCode::DependencyInUse,
+                "ResourceManager::releaseAllTextures detected a live material still referencing a texture; "
+                "call releaseAllMaterials() before releaseAllTextures()"
+            );
+        }
+
+        _textureNameToIndex.erase( slot.name );
+        slot.resource.reset();
+        slot.occupied = false;
+        slot.name.clear();
+        bumpGeneration( slot.generation );
+        _freeTextureSlots.push_back( index );
+    }
+}
+
 MaterialHandle ResourceManager::createMaterial( const std::string& name, const MaterialDesc& material ) {
     validateResourceName( name, "ResourceManager::createMaterial" );
-    validateMaterialTextures( material );
 
     // Materiales tambien se nombran de forma explicita para mantener el contrato simple.
     if (_materialNameToIndex.find( name ) != _materialNameToIndex.end()) {
@@ -173,12 +220,30 @@ MaterialHandle ResourceManager::createMaterial( const std::string& name, const M
     const uint32_t index = allocateMaterialSlot();
     MaterialSlot& slot = _materialSlots[index];
 
-    slot.resource = material;
-    slot.name = name;
-    slot.occupied = true;
-    _materialNameToIndex[name] = index;
+    try {
+        // Validacion puede fallar si las texturas no existen o handles son invalidos.
+        validateMaterialTextures( material );
+
+        slot.resource = material;
+        slot.name = name;
+        slot.occupied = true;
+        _materialNameToIndex[name] = index;
+    }
+    catch (const std::exception& e) {
+        // Rollback: slot se vuelve a un estado limpio si la validacion falla.
+        resetMaterialSlot( index );
+        throw ResourceException( ResourceErrorCode::LoadFailed, std::string( "ResourceManager::createMaterial failed for '" ) + name + "': " + e.what() );
+    }
 
     return makeMaterialHandle( index, slot.generation );
+}
+
+void ResourceManager::resetMaterialSlot( uint32_t index ) {
+    MaterialSlot& slot = _materialSlots[index];
+    slot.occupied = false;
+    slot.name.clear();
+    slot.resource = MaterialDesc{};
+    _freeMaterialSlots.push_back( index );
 }
 
 void ResourceManager::releaseMaterial( MaterialHandle handle ) {
@@ -190,6 +255,22 @@ void ResourceManager::releaseMaterial( MaterialHandle handle ) {
     slot.resource = MaterialDesc{};
     bumpGeneration( slot.generation );
     _freeMaterialSlots.push_back( handle.id );
+}
+
+void ResourceManager::releaseAllMaterials() {
+    for (uint32_t index = 0; index < _materialSlots.size(); ++index) {
+        MaterialSlot& slot = _materialSlots[index];
+        if (!slot.occupied) {
+            continue;
+        }
+
+        _materialNameToIndex.erase( slot.name );
+        slot.occupied = false;
+        slot.name.clear();
+        slot.resource = MaterialDesc{};
+        bumpGeneration( slot.generation );
+        _freeMaterialSlots.push_back( index );
+    }
 }
 
 MeshHandle ResourceManager::tryGetMeshHandle( const std::string& name ) const {

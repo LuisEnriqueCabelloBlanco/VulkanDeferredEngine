@@ -71,14 +71,17 @@ public:
     MeshHandle createMesh( const std::string& name, const std::vector<Vertex>& vertices );
     MeshHandle createMesh( const std::string& name, const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices );
     void releaseMesh( MeshHandle handle );
+    void releaseAllMeshes();
 
     // Texture lifecycle
     TextureHandle createTexture( const std::string& name, const std::string& path );
     void releaseTexture( TextureHandle handle );
+    void releaseAllTextures();
 
     // Material lifecycle
     MaterialHandle createMaterial( const std::string& name, const MaterialDesc& material );
     void releaseMaterial( MaterialHandle handle );
+    void releaseAllMaterials();
 
     // Handle lookup by name
     MeshHandle tryGetMeshHandle( const std::string& name ) const;
@@ -131,6 +134,7 @@ private:
     // Reset seguro de slots cuando una creacion falla o cuando el recurso se libera.
     void resetMeshSlot( uint32_t index );
     void resetTextureSlot( uint32_t index );
+    void resetMaterialSlot( uint32_t index );
 
     // Resolucion de acceso por handle con validacion de generation.
     const MeshSlot* tryGetMeshSlot( MeshHandle handle ) const;

@@ -15,6 +15,7 @@
 #include "Mesh.h"
 #include "ResourceLimits.h"
 #include "ResourceManager.h"
+#include "Scene.h"
 #include "WindowEvent.h"
 
 #include "Camera.h"
@@ -69,7 +70,11 @@ public:
     RenderEngine();
 
     // Frame API
-    void drawFrame( std::vector<RenderObject>& objectsArray );
+    void drawFrame();
+
+    // Scene API
+    Scene& getScene() { return _scene; }
+    const Scene& getScene() const { return _scene; }
 
     // Camera and events
     Camera& getMainCamera() { return _mainCamera; }
@@ -99,6 +104,9 @@ public:
     void releaseMesh( MeshHandle handle );
     void releaseTexture( TextureHandle handle );
     void releaseMaterial( MaterialHandle handle );
+    void releaseAllMeshes();
+    void releaseAllTextures();
+    void releaseAllMaterials();
 
     // Explicit descriptor updates
     void updateGeometryDescriptorSets();
@@ -171,7 +179,7 @@ private:
     void updateCullDescriptorSet();
 
     // Recording and culling
-    void recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t imageIndex, std::vector<RenderObject>& objectsArray , const std::vector<int>& cullIndex );
+    void recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t imageIndex, const std::vector<RenderObject>& objectsArray , const std::vector<int>& cullIndex );
     void recordShadowPass( VkCommandBuffer commandBuffer, const std::vector<RenderObject>& objectsArray );
     void recordMainRender( VkCommandBuffer commandBuffer );
     void pushModelMatrix( VkCommandBuffer commandBuffer, glm::mat4 model = glm::mat4( 1 ) );
@@ -274,6 +282,7 @@ private:
     int* _cameraCulledObjectIndexMapped;
 
     Camera _mainCamera;
+    Scene _scene;
 
     VulkanDevice _device;
     ResourceManager _resources;

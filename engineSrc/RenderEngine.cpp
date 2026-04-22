@@ -45,6 +45,9 @@ VkResult CreateDebugUtilsMessengerEXT( VkInstance instance, const VkDebugUtilsMe
 
 void RenderEngine::cleanup()
 {
+	_resources.releaseAllMaterials();
+	_resources.releaseAllTextures();
+	_resources.releaseAllMeshes();
 	_resources.clear();
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
@@ -991,6 +994,22 @@ void RenderEngine::releaseMaterial( MaterialHandle handle )
 	_resources.releaseMaterial( handle );
 }
 
+void RenderEngine::releaseAllMeshes()
+{
+	_resources.releaseAllMeshes();
+}
+
+void RenderEngine::releaseAllTextures()
+{
+	_resources.releaseAllTextures();
+	updateGeometryDescriptorSets();
+}
+
+void RenderEngine::releaseAllMaterials()
+{
+	_resources.releaseAllMaterials();
+}
+
 void RenderEngine::createPointLight( glm::vec3 position, glm::vec3 color, float intensity,float range, bool preload )
 {
 	Light l;
@@ -1060,7 +1079,7 @@ MaterialHandle RenderEngine::tryGetMaterialHandle( const std::string& name ) con
 // Frame recording and presentation
 // ============================
 
-void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t imageIndex, std::vector<RenderObject>& objectsArray, const std::vector<int>&cullIndex )
+void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t imageIndex, const std::vector<RenderObject>& objectsArray, const std::vector<int>&cullIndex )
 {
 	static auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -1181,14 +1200,16 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 
 
 	for (int index : cullIndex) {
-		RenderObject& object = objectsArray[index];
+		const RenderObject& object = objectsArray[index];
 		const Mesh* mesh = getMeshResource( object.mesh );
-		const MaterialDesc* material = getMaterialResource( object.material );
 		if (mesh == nullptr) {
 			continue;
 		}
+
+		const MaterialDesc defaultMaterial{};
+		const MaterialDesc* material = getMaterialResource( object.material );
 		if (material == nullptr) {
-			continue;
+			material = &defaultMaterial;
 		}
 
 		pushTextureIndex( commandBuffer, *material );
@@ -1232,8 +1253,10 @@ Record a command buffer which draws the scene onto that image
 Submit the recorded command buffer
 Present the swap chain image
 */
-void RenderEngine::drawFrame( std::vector<RenderObject>& objectsArray )
+void RenderEngine::drawFrame()
 {
+	const std::vector<RenderObject>& objectsArray = _scene.buildRenderQueue();
+
 	//vkWaitForFences(_device._device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 	_device.waitForFences( inFlightFences[currentFrame] );
 	uint32_t imageIndex;

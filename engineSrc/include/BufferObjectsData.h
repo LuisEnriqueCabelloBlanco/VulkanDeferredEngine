@@ -79,9 +79,9 @@ struct MeshHandle {
 };
 
 struct RenderObject {
-    MeshHandle mesh;
-    glm::mat4 modelMatrix;
-    MaterialHandle material;
+    MeshHandle mesh{};
+    glm::mat4 modelMatrix{ 1.0f };
+    MaterialHandle material{};
 };
 
 

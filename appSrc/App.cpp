@@ -2,6 +2,7 @@
 #include <fstream>
 #include <chrono>
 #include<algorithm>
+#include <glm/gtc/matrix_transform.hpp>
 
 
 void App::start()
@@ -77,7 +78,7 @@ void App::mainLoop() {
 
         update();
 
-        _engine.drawFrame( objects );
+        _engine.drawFrame();
 
         auto endFrame = std::chrono::high_resolution_clock::now();
 
@@ -95,8 +96,21 @@ void App::update()
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>( currentTime - startTime ).count();
 
-    objects[0].modelMatrix = glm::translate( glm::rotate( glm::mat4( 1 ), glm::radians( -10.f ), glm::vec3( 0, 1, 0 ) ), glm::vec3( sin( time ) * 1.5f, 0, 0 ) );
-    objects[1].modelMatrix = glm::translate(glm::rotate( glm::mat4( 1.0f ), time * glm::radians( 180.0f ), glm::vec3( 0.0f, 1.0f, 0.0f ) ),glm::vec3(0,-1,0) );
+    Scene& scene = _engine.getScene();
+
+    if (Entity* triangle = scene.getEntity( _triangleEntityId )) {
+        triangle->setTransform(
+            glm::vec3( sin( time ) * 1.5f, 0.0f, 0.0f ),
+            glm::vec3( 0.0f, glm::radians( -10.0f ), 0.0f )
+        );
+    }
+
+    if (Entity* character = scene.getEntity( _characterEntityId )) {
+        character->setTransform(
+            glm::vec3( 0.0f, -1.0f, 0.0f ),
+            glm::vec3( 0.0f, time * glm::radians( 180.0f ), 0.0f )
+        );
+    }
 
 
     glm::vec3 right = glm::cross( glm::vec3( 0, 1, 0 ), _mainCamera->getDirection()  );
@@ -111,6 +125,7 @@ void App::update()
 
 void App::loadModels()
 {
+    Scene& scene = _engine.getScene();
 
     TextureHandle characterTextureHandle = _engine.createTexture( "tex_character_basecolor", TEXTURE_PATH );
     TextureHandle whiteTextureHandle = _engine.createTexture( "tex_white", TEXTURE2_PATH );
@@ -182,19 +197,15 @@ void App::loadModels()
     MaterialHandle planeMatHandle = _engine.createMaterial( "mat_plane", planeMat );
 
 
-    //TODO crear gestor de recursos
-    triangle = _engine.createMesh( "mesh_triangle", vertices );
-    character = _engine.createMesh( "mesh_character", MODEL_PATH );
-    esfera = _engine.createMesh( "mesh_sphere", MODEL_PATH3 );
-    planoSincolor = _engine.createMesh( "mesh_plane_no_color", MODEL_PATH4 );
+    MeshHandle triangle = _engine.createMesh( "mesh_triangle", vertices );
+    MeshHandle character = _engine.createMesh( "mesh_character", MODEL_PATH );
+    MeshHandle esfera = _engine.createMesh( "mesh_sphere", MODEL_PATH3 );
+    MeshHandle planoSincolor = _engine.createMesh( "mesh_plane_no_color", MODEL_PATH4 );
 
-
-    objects.push_back( { triangle, glm::mat4( 1 ), mat3Handle });
-    objects.push_back( { character, glm::mat4( 1 ), mat1Handle } );
-    //objects.push_back( { planoSincolor, glm::mat4( 10 ),planeMat } );
-
-    objects.push_back( { esfera, glm::translate( glm::mat4( 1.0f ), glm::vec3( 2.5f, 0.0f, 0.0f ) ), mat2Handle } );
-    objects.push_back( { esfera, glm::translate( glm::mat4( 1.0f ), glm::vec3( -2.5f, 0.0f, 0.0f ) ), mat2Handle } );
+    _triangleEntityId = scene.createEntity( triangle, mat3Handle, Entity::Transform( glm::vec3( 0.0f ), glm::vec3( 0.0f ), glm::vec3( 1.0f ) ) );
+    _characterEntityId = scene.createEntity( character, mat1Handle, Entity::Transform( glm::vec3( 0.0f ), glm::vec3( 0.0f ), glm::vec3( 1.0f ) ) );
+    _sphereLeftEntityId = scene.createEntity( esfera, mat2Handle, Entity::Transform( glm::vec3( 2.5f, 0.0f, 0.0f ), glm::vec3( 0.0f ), glm::vec3( 1.0f ) ) );
+    _sphereRightEntityId = scene.createEntity( esfera, mat2Handle, Entity::Transform( glm::vec3( -2.5f, 0.0f, 0.0f ), glm::vec3( 0.0f ), glm::vec3( 1.0f ) ) );
 
     for (int i = 0; i < 100;i++) {
         for (int j = 0; j < 100; j++) {
@@ -202,13 +213,26 @@ void App::loadModels()
             dynamicMat.roughtness = std::min( static_cast<float>( i ) * 0.1f, 1.0f );
             dynamicMat.metallic = std::min( static_cast<float>( j ) * 0.1f, 1.0f );
             MaterialHandle dynamicMatHandle = _engine.createMaterial( "mat_grid_" + std::to_string( i ) + "_" + std::to_string( j ), dynamicMat );
-            objects.push_back( { esfera, glm::translate( glm::mat4( 1.0f ), glm::vec3( -5.0f + static_cast<float>( i ) * -5.0f, 0.0f, static_cast<float>( j ) * 5.0f ) ), dynamicMatHandle } );
+
+            scene.createEntity(
+                esfera,
+                dynamicMatHandle,
+                Entity::Transform( glm::vec3( -5.0f + static_cast<float>( i ) * -5.0f, 0.0f, static_cast<float>( j ) * 5.0f ), glm::vec3( 0.0f ), glm::vec3( 1.0f ) )
+            );
         }
     }
 
     for (int i = 0; i < 10; i++) {
         for (int j = 0; j < 10; j++) {
-            objects.push_back( { planoSincolor, glm::scale( glm::translate( glm::mat4( 1.0f ), glm::vec3( static_cast<float>( i ) * -5.0f, -1.0f, static_cast<float>( j ) * 5.0f ) ), glm::vec3( 10.0f ) ), planeMatHandle } );
+            scene.createEntity(
+                planoSincolor,
+                planeMatHandle,
+                Entity::Transform(
+                    glm::vec3( static_cast<float>( i ) * -5.0f, -1.0f, static_cast<float>( j ) * 5.0f ),
+                    glm::vec3( 0.0f ),
+                    glm::vec3( 10.0f )
+                )
+            );
         }
     }
 
@@ -234,6 +258,10 @@ void App::addLighting()
 
 void App::freeObjects()
 {
+    _engine.getScene().clear();
+    _engine.releaseAllMaterials();
+    _engine.releaseAllTextures();
+    _engine.releaseAllMeshes();
 }
 
 
