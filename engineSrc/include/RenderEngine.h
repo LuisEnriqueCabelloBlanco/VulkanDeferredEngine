@@ -184,10 +184,6 @@ private:
             std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
         }
 
-        if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
-            throw std::exception( pCallbackData->pMessage );
-        }
-
         return VK_FALSE;
     }
 

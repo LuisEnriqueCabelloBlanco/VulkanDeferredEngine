@@ -1165,6 +1165,14 @@ Present the swap chain image
 */
 void RenderEngine::drawFrame()
 {
+	if (_framebufferResized) {
+		recreateSwapChain();
+		updateGeometryDescriptorSets();
+		updateLightingDescriptorSets();
+		_framebufferResized = false;
+		return;
+	}
+
 	const std::vector<RenderObject>& objectsArray = _scene.buildRenderQueue();
 
 	//vkWaitForFences(_device._device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
@@ -1184,13 +1192,7 @@ void RenderEngine::drawFrame()
 		throw std::runtime_error( "failed to acquire swap chain image!" );
 	}
 
-	if (_framebufferResized) {
-		recreateSwapChain();
-		updateGeometryDescriptorSets();
-		updateLightingDescriptorSets();
-		_framebufferResized = false;
-		return;
-	}
+	// From this point, a successful acquire must always be consumed by submit/present.
 	//vkResetFences(_device._device, 1, &inFlightFences[currentFrame]);
 	ViewProjectionData camDesc;
 	camDesc.proj = _mainCamera.getProjMatrix();
