@@ -13,9 +13,9 @@
 #include "Texture.h"
 #include "BufferObjectsData.h"
 #include "Mesh.h"
+#include "Scene.h"
 #include "ResourceLimits.h"
 #include "ResourceManager.h"
-#include "Scene.h"
 #include "WindowEvent.h"
 
 #include "Camera.h"
@@ -40,7 +40,6 @@ const bool enableValidationLayers = true;
 
 class RenderEngine
 {
-
 public:
     /*
     * Inicializacion de todos los elementos necesarios para renderizar una imagen en vulkan
@@ -73,8 +72,7 @@ public:
     void drawFrame();
 
     // Scene API
-    Scene& getScene() { return _scene; }
-    const Scene& getScene() const { return _scene; }
+    Scene& getSceneInternal() { return _scene; }
 
     // Camera and events
     Camera& getMainCamera() { return _mainCamera; }

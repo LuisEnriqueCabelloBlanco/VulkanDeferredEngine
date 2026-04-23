@@ -4,6 +4,49 @@
 #include<algorithm>
 #include <glm/gtc/matrix_transform.hpp>
 
+void App::safeCleanup( bool& initialized ) noexcept {
+    if (!initialized) {
+        return;
+    }
+
+    try {
+        _engine.wait();
+        freeObjects();
+        _engine.cleanup();
+    }
+    catch (...) {
+    }
+
+    initialized = false;
+}
+
+bool App::run() {
+    bool initialized = false;
+
+    try {
+        _engine.init( "AppExample" );
+        initialized = true;
+
+        mainLoop();
+
+        safeCleanup( initialized );
+        return true;
+    }
+    catch (const SceneException& e) {
+        std::cerr << "Scene error [" << static_cast<int>( e.code() ) << "]: " << e.what() << "\n";
+        safeCleanup( initialized );
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Engine runtime error: " << e.what() << "\n";
+        safeCleanup( initialized );
+    }
+    catch (...) {
+        std::cerr << "Unknown fatal error\n";
+        safeCleanup( initialized );
+    }
+
+    return false;
+}
 
 void App::start()
 {
@@ -96,17 +139,15 @@ void App::update()
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>( currentTime - startTime ).count();
 
-    Scene& scene = _engine.getScene();
-
-    if (Entity* triangle = scene.getEntity( _triangleEntityId )) {
-        triangle->setTransform(
+    if (_triangleEntity.isValid()) {
+        _triangleEntity.setTransform(
             glm::vec3( sin( time ) * 1.5f, 0.0f, 0.0f ),
             glm::vec3( 0.0f, glm::radians( -10.0f ), 0.0f )
         );
     }
 
-    if (Entity* character = scene.getEntity( _characterEntityId )) {
-        character->setTransform(
+    if (_characterEntity.isValid()) {
+        _characterEntity.setTransform(
             glm::vec3( 0.0f, -1.0f, 0.0f ),
             glm::vec3( 0.0f, time * glm::radians( 180.0f ), 0.0f )
         );
@@ -202,10 +243,45 @@ void App::loadModels()
     MeshHandle esfera = _engine.createMesh( "mesh_sphere", MODEL_PATH3 );
     MeshHandle planoSincolor = _engine.createMesh( "mesh_plane_no_color", MODEL_PATH4 );
 
-    _triangleEntityId = scene.createEntity( triangle, mat3Handle, Entity::Transform( glm::vec3( 0.0f ), glm::vec3( 0.0f ), glm::vec3( 1.0f ) ) );
-    _characterEntityId = scene.createEntity( character, mat1Handle, Entity::Transform( glm::vec3( 0.0f ), glm::vec3( 0.0f ), glm::vec3( 1.0f ) ) );
-    _sphereLeftEntityId = scene.createEntity( esfera, mat2Handle, Entity::Transform( glm::vec3( 2.5f, 0.0f, 0.0f ), glm::vec3( 0.0f ), glm::vec3( 1.0f ) ) );
-    _sphereRightEntityId = scene.createEntity( esfera, mat2Handle, Entity::Transform( glm::vec3( -2.5f, 0.0f, 0.0f ), glm::vec3( 0.0f ), glm::vec3( 1.0f ) ) );
+    _triangleEntity = scene.createEntity(
+        triangle,
+        mat3Handle,
+        Transform{
+            glm::vec3( 0.0f ),
+            glm::vec3( 0.0f ),
+            glm::vec3( 1.0f )
+        }
+    );
+
+    _characterEntity = scene.createEntity(
+        character,
+        mat1Handle,
+        Transform{
+            glm::vec3( 0.0f ),
+            glm::vec3( 0.0f ),
+            glm::vec3( 1.0f )
+        }
+    );
+
+    _sphereLeftEntity = scene.createEntity(
+        esfera,
+        mat2Handle,
+        Transform{
+            glm::vec3( 2.5f, 0.0f, 0.0f ),
+            glm::vec3( 0.0f ),
+            glm::vec3( 1.0f )
+        }
+    );
+
+    _sphereRightEntity = scene.createEntity(
+        esfera,
+        mat2Handle,
+        Transform{
+            glm::vec3( -2.5f, 0.0f, 0.0f ),
+            glm::vec3( 0.0f ),
+            glm::vec3( 1.0f )
+        }
+    );
 
     for (int i = 0; i < 100;i++) {
         for (int j = 0; j < 100; j++) {
@@ -217,7 +293,11 @@ void App::loadModels()
             scene.createEntity(
                 esfera,
                 dynamicMatHandle,
-                Entity::Transform( glm::vec3( -5.0f + static_cast<float>( i ) * -5.0f, 0.0f, static_cast<float>( j ) * 5.0f ), glm::vec3( 0.0f ), glm::vec3( 1.0f ) )
+                Transform{
+                    glm::vec3( -5.0f + static_cast<float>( i ) * -5.0f, 0.0f, static_cast<float>( j ) * 5.0f ),
+                    glm::vec3( 0.0f ),
+                    glm::vec3( 1.0f )
+                }
             );
         }
     }
@@ -227,11 +307,11 @@ void App::loadModels()
             scene.createEntity(
                 planoSincolor,
                 planeMatHandle,
-                Entity::Transform(
+                Transform{
                     glm::vec3( static_cast<float>( i ) * -5.0f, -1.0f, static_cast<float>( j ) * 5.0f ),
                     glm::vec3( 0.0f ),
                     glm::vec3( 10.0f )
-                )
+                }
             );
         }
     }

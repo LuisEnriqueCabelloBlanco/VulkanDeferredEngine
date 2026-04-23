@@ -37,13 +37,7 @@ public:
 
     App();
 
-    void run() {
-        _engine.init("AppExample");
-        mainLoop();
-        _engine.wait();
-        freeObjects();
-        _engine.cleanup();
-    }
+    bool run();
 
     static void ErrorCallback(int, const char* err_str)
     {
@@ -64,13 +58,15 @@ private:
 
     void freeObjects();
 
+    void safeCleanup( bool& initialized ) noexcept;
+
 private:
     const uint32_t WIDTH = 800;
     const uint32_t HEIGHT = 600;
 
     glm::vec3 _moveDir;
 
-    RenderEngine _engine;
+    EngineAPI _engine;
 
     Camera* _mainCamera;
 
@@ -80,8 +76,8 @@ private:
 
     float timeacum = 0;
 
-    EntityId _triangleEntityId = INVALID_ENTITY_ID;
-    EntityId _characterEntityId = INVALID_ENTITY_ID;
-    EntityId _sphereLeftEntityId = INVALID_ENTITY_ID;
-    EntityId _sphereRightEntityId = INVALID_ENTITY_ID;
+    RenderEntityHandle _triangleEntity;
+    RenderEntityHandle _characterEntity;
+    RenderEntityHandle _sphereLeftEntity;
+    RenderEntityHandle _sphereRightEntity;
 };
