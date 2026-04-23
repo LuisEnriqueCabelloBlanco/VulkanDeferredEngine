@@ -1,13 +1,14 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-#include "BufferObjectsData.h"
+#include "ResourceHandles.h"
 #include "Mesh.h"
 #include "ResourceLimits.h"
 #include "Texture.h"
@@ -93,9 +94,25 @@ public:
     const Texture* tryGetTexture( TextureHandle handle ) const;
     const MaterialDesc* tryGetMaterial( MaterialHandle handle ) const;
 
+private:
+    // --- Acceso interno al renderer ---------------------------------------
+
+    friend class RenderEngine;
+
+    // Avisa al RenderEngine cuando cambian las texturas vivas para que
+    // reconstruya el array de descriptors de forma transparente para la app.
+    void setTextureBindingsChangedCallback( std::function<void()> callback );
+    
+    void notifyTextureBindingsChanged() const;
+
+    // Devuelve el conjunto de texturas vivas con su indice real de slot.
+    // Usado por RenderEngine para actualizar sus descriptor sets.
     std::vector<TextureBindingEntry> getLiveTextureEntries() const;
 
-private:
+    
+
+    // --- Implementacion interna ------------------------------------------
+
     // Representacion interna de cada tipo de recurso: slot + generation + nombre + puntero/valor.
     struct MeshSlot {
         uint32_t generation = 1;
@@ -150,7 +167,6 @@ private:
     void validateMaterialTextures( const MaterialDesc& material ) const;
     bool isTextureUsedByAnyMaterial( TextureHandle textureHandle ) const;
 
-private:
     VulkanDevice& _device;
 
     std::vector<MeshSlot> _meshSlots;
@@ -164,4 +180,6 @@ private:
     std::vector<MaterialSlot> _materialSlots;
     std::vector<uint32_t> _freeMaterialSlots;
     std::unordered_map<std::string, uint32_t> _materialNameToIndex;
+
+    std::function<void()> _textureBindingsChangedCallback;
 };

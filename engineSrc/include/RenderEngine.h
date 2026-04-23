@@ -73,6 +73,7 @@ public:
 
     // Scene API
     Scene& getSceneInternal() { return _scene; }
+    ResourceManager& getResourceManagerInternal() { return _resources; }
 
     // Camera and events
     Camera& getMainCamera() { return _mainCamera; }
@@ -83,28 +84,6 @@ public:
     void createDirectionalLight( glm::vec3 direction, glm::vec3 color, float intensity, bool preload = false );
     void setMainLight( int index );
     void updateLightBuffer();
-
-    // Resource API
-    MeshHandle createMesh( const std::string& name, const std::string& path );
-    MeshHandle createMesh( const std::string& name, const std::vector<Vertex>& vertices );
-    MeshHandle createMesh( const std::string& name, const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices );
-    TextureHandle createTexture( const std::string& name, const std::string& path );
-    MaterialHandle createMaterial( const std::string& name, const MaterialDesc& material );
-
-    MeshHandle tryGetMeshHandle( const std::string& name ) const;
-    TextureHandle tryGetTextureHandle( const std::string& name ) const;
-    MaterialHandle tryGetMaterialHandle( const std::string& name ) const;
-
-    const Mesh* getMeshResource( MeshHandle handle ) const;
-    const Texture* getTextureResource( TextureHandle handle ) const;
-    const MaterialDesc* getMaterialResource( MaterialHandle handle ) const;
-
-    void releaseMesh( MeshHandle handle );
-    void releaseTexture( TextureHandle handle );
-    void releaseMaterial( MaterialHandle handle );
-    void releaseAllMeshes();
-    void releaseAllTextures();
-    void releaseAllMaterials();
 
     // Explicit descriptor updates
     void updateGeometryDescriptorSets();

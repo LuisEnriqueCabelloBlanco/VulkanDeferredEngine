@@ -77,6 +77,9 @@
     <ClInclude Include="..\..\engineSrc\include\ResourceManager.h">
       <Filter>Archivos de encabezado</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\engineSrc\include\ResourceHandles.h">
+      <Filter>Archivos de encabezado</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\engineSrc\include\RenderEngine.h">
       <Filter>Archivos de encabezado</Filter>
     </ClInclude>

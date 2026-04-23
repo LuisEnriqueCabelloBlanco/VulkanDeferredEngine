@@ -130,6 +130,10 @@ void RenderEngine::cleanup()
 
 RenderEngine::RenderEngine() : _resources( _device )
 {
+	_resources.setTextureBindingsChangedCallback( [this]() {
+		_device.wait();
+		updateGeometryDescriptorSets();
+	} );
 }
 
 void RenderEngine::init( const std::string& appName )
@@ -944,72 +948,6 @@ void RenderEngine::createCommandBuffers()
 
 }
 
-// ============================
-// Resource and light API
-// ============================
-
-MeshHandle RenderEngine::createMesh( const std::string& name, const std::string& path )
-{
-	return _resources.createMesh( name, path );
-}
-
-MeshHandle RenderEngine::createMesh( const std::string& name, const std::vector<Vertex>& vertices )
-{
-	return _resources.createMesh( name, vertices );
-}
-
-MeshHandle RenderEngine::createMesh( const std::string& name, const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices )
-{
-	return _resources.createMesh( name, indices, vertices );
-}
-
-const Mesh* RenderEngine::getMeshResource( MeshHandle handle ) const
-{
-	return _resources.tryGetMesh( handle );
-}
-
-const Texture* RenderEngine::getTextureResource( TextureHandle handle ) const
-{
-	return _resources.tryGetTexture( handle );
-}
-
-const MaterialDesc* RenderEngine::getMaterialResource( MaterialHandle handle ) const
-{
-	return _resources.tryGetMaterial( handle );
-}
-
-void RenderEngine::releaseMesh( MeshHandle handle )
-{
-	_resources.releaseMesh( handle );
-}
-
-void RenderEngine::releaseTexture( TextureHandle handle )
-{
-	_resources.releaseTexture( handle );
-	updateGeometryDescriptorSets();
-}
-
-void RenderEngine::releaseMaterial( MaterialHandle handle )
-{
-	_resources.releaseMaterial( handle );
-}
-
-void RenderEngine::releaseAllMeshes()
-{
-	_resources.releaseAllMeshes();
-}
-
-void RenderEngine::releaseAllTextures()
-{
-	_resources.releaseAllTextures();
-	updateGeometryDescriptorSets();
-}
-
-void RenderEngine::releaseAllMaterials()
-{
-	_resources.releaseAllMaterials();
-}
-
 void RenderEngine::createPointLight( glm::vec3 position, glm::vec3 color, float intensity,float range, bool preload )
 {
 	Light l;
@@ -1045,34 +983,6 @@ void RenderEngine::createDirectionalLight( glm::vec3 direction, glm::vec3 color,
 	if (!preload) {
 		updateLightBuffer();
 	}
-}
-
-TextureHandle RenderEngine::createTexture( const std::string& name, const std::string& path ) {
-	TextureHandle handle = _resources.createTexture( name, path );
-
-	updateGeometryDescriptorSets();
-
-	return handle;
-}
-
-MaterialHandle RenderEngine::createMaterial( const std::string& name, const MaterialDesc& material )
-{
-	return _resources.createMaterial( name, material );
-}
-
-MeshHandle RenderEngine::tryGetMeshHandle( const std::string& name ) const
-{
-	return _resources.tryGetMeshHandle( name );
-}
-
-TextureHandle RenderEngine::tryGetTextureHandle( const std::string& name ) const
-{
-	return _resources.tryGetTextureHandle( name );
-}
-
-MaterialHandle RenderEngine::tryGetMaterialHandle( const std::string& name ) const
-{
-	return _resources.tryGetMaterialHandle( name );
 }
 
 // ============================
@@ -1201,13 +1111,13 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 
 	for (int index : cullIndex) {
 		const RenderObject& object = objectsArray[index];
-		const Mesh* mesh = getMeshResource( object.mesh );
+		const Mesh* mesh = _resources.tryGetMesh( object.mesh );
 		if (mesh == nullptr) {
 			continue;
 		}
 
 		const MaterialDesc defaultMaterial{};
-		const MaterialDesc* material = getMaterialResource( object.material );
+		const MaterialDesc* material = _resources.tryGetMaterial( object.material );
 		if (material == nullptr) {
 			material = &defaultMaterial;
 		}
@@ -1272,6 +1182,14 @@ void RenderEngine::drawFrame()
 	}
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
 		throw std::runtime_error( "failed to acquire swap chain image!" );
+	}
+
+	if (_framebufferResized) {
+		recreateSwapChain();
+		updateGeometryDescriptorSets();
+		updateLightingDescriptorSets();
+		_framebufferResized = false;
+		return;
 	}
 	//vkResetFences(_device._device, 1, &inFlightFences[currentFrame]);
 	ViewProjectionData camDesc;
@@ -1384,6 +1302,7 @@ void RenderEngine::recreateSwapChain()
 
 
 	_window.createSwapChain();
+	_mainCamera.setAspectRatio( _window.getExtent().width / static_cast<float>( _window.getExtent().height ) );
 	createColorResources();
 	createDepthResources();
 	createNormalResources();
@@ -1690,6 +1609,9 @@ void RenderEngine::updateLightBuffer() {
 }
 void RenderEngine::handleWindowEvent( const WindowEvent& event )
 {
+	if (event.type == WindowEventType::Resized) {
+		_framebufferResized = true;
+	}
 	_window.handleWindowEvent( event );
 }
 
@@ -2231,7 +2153,7 @@ void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::v
 	vkCmdSetScissor( commandBuffer, 0, 1, &scissor );
 
 	for (auto& index : cullIndex) {
-		const Mesh* mesh = getMeshResource( objectsArray[index].mesh );
+		const Mesh* mesh = _resources.tryGetMesh( objectsArray[index].mesh );
 		if (mesh == nullptr) {
 			continue;
 		}
@@ -2279,7 +2201,7 @@ const std::vector<int> RenderEngine::cullObjects( const std::vector<RenderObject
 
 	int i = 0;
 	for (const auto& obj : objs) {
-		const Mesh* mesh = getMeshResource( obj.mesh );
+		const Mesh* mesh = _resources.tryGetMesh( obj.mesh );
 		if (mesh == nullptr) {
 			i++;
 			continue;

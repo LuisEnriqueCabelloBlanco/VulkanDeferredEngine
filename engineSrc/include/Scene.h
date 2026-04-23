@@ -34,7 +34,7 @@ private:
 
 // ---------------------------------------------------------------------------
 
-static constexpr uint32_t MAX_ENTITIES = 4096;
+static constexpr uint32_t MAX_ENTITIES = 16384;
 
 class RenderEntityHandle;
 
@@ -82,7 +82,7 @@ public:
                                      MaterialHandle material,
                                      const Transform& transform );
 
-    // Destruye la entidad referenciada por el handle e invalida su generacion.
+    // Destruye la entidad referenciada por el handle.
     // Tras esta llamada, handle.isValid() devuelve false.
     // Lanza SceneException(InvalidHandle) si el handle no fue inicializado
     // o la escena es inválida.

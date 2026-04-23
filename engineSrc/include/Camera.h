@@ -19,6 +19,10 @@ public:
 		_position = pos;
 	}
 
+	inline void setAspectRatio( float aspectRatio ) {
+		_aspectRatio = aspectRatio;
+	}
+
 	inline glm::vec3 getDirection() { return _direction; }
 
 	void rotateY( float degrees );

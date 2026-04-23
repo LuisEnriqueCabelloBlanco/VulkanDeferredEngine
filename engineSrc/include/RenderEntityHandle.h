@@ -3,8 +3,8 @@
 #include <cstdint>
 #include <string>
 
-#include "BufferObjectsData.h"
 #include "Scene.h"
+#include "ResourceHandles.h"
 #include "Transform.h"
 
 // ---------------------------------------------------------------------------

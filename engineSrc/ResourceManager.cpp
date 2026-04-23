@@ -1,7 +1,13 @@
 #include "ResourceManager.h"
 
+#include <utility>
+
 ResourceManager::ResourceManager( VulkanDevice& device )
     : _device( device ) {
+}
+
+void ResourceManager::setTextureBindingsChangedCallback( std::function<void()> callback ) {
+    _textureBindingsChangedCallback = std::move( callback );
 }
 
 void ResourceManager::clear() {
@@ -161,6 +167,8 @@ TextureHandle ResourceManager::createTexture( const std::string& name, const std
     slot.name = name;
     _textureNameToIndex[name] = index;
 
+    notifyTextureBindingsChanged();
+
     return makeTextureHandle( index, slot.generation );
 }
 
@@ -181,6 +189,8 @@ void ResourceManager::releaseTexture( TextureHandle handle ) {
     slot.name.clear();
     bumpGeneration( slot.generation );
     _freeTextureSlots.push_back( handle.id );
+
+    notifyTextureBindingsChanged();
 }
 
 void ResourceManager::releaseAllTextures() {
@@ -207,6 +217,8 @@ void ResourceManager::releaseAllTextures() {
         bumpGeneration( slot.generation );
         _freeTextureSlots.push_back( index );
     }
+
+    notifyTextureBindingsChanged();
 }
 
 MaterialHandle ResourceManager::createMaterial( const std::string& name, const MaterialDesc& material ) {
@@ -362,6 +374,12 @@ std::vector<ResourceManager::TextureBindingEntry> ResourceManager::getLiveTextur
     }
 
     return out;
+}
+
+void ResourceManager::notifyTextureBindingsChanged() const {
+    if (_textureBindingsChangedCallback) {
+        _textureBindingsChangedCallback();
+    }
 }
 
 void ResourceManager::bumpGeneration( uint32_t& generation ) {

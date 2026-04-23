@@ -167,13 +167,14 @@ void App::update()
 void App::loadModels()
 {
     Scene& scene = _engine.getScene();
+    ResourceManager& resources = _engine.getResourceManager();
 
-    TextureHandle characterTextureHandle = _engine.createTexture( "tex_character_basecolor", TEXTURE_PATH );
-    TextureHandle whiteTextureHandle = _engine.createTexture( "tex_white", TEXTURE2_PATH );
-    TextureHandle koreanoTextureHandle = _engine.createTexture( "tex_koreano", TEXTURE3_PATH );
-    TextureHandle normalTexture = _engine.createTexture( "tex_character_normal", NORMAL_TEXTURE_PATH );
-    TextureHandle wallColor = _engine.createTexture( "tex_wall_basecolor", WALL_TEXTURE_PATH );
-    TextureHandle wallNormal = _engine.createTexture( "tex_wall_normal", WALL_NORMAL_TEXTURE_PATH );
+    TextureHandle characterTextureHandle = resources.createTexture( "tex_character_basecolor", TEXTURE_PATH );
+    TextureHandle whiteTextureHandle = resources.createTexture( "tex_white", TEXTURE2_PATH );
+    TextureHandle koreanoTextureHandle = resources.createTexture( "tex_koreano", TEXTURE3_PATH );
+    TextureHandle normalTexture = resources.createTexture( "tex_character_normal", NORMAL_TEXTURE_PATH );
+    TextureHandle wallColor = resources.createTexture( "tex_wall_basecolor", WALL_TEXTURE_PATH );
+    TextureHandle wallNormal = resources.createTexture( "tex_wall_normal", WALL_NORMAL_TEXTURE_PATH );
 
     std::vector<Vertex> vertices;
     std::vector<Vertex> vertices2;
@@ -232,16 +233,16 @@ void App::loadModels()
     planeMat.roughtness = 0.5f;
     planeMat.baseColorTexture = whiteTextureHandle;
 
-    MaterialHandle mat1Handle = _engine.createMaterial( "mat_character", mat1 );
-    MaterialHandle mat2Handle = _engine.createMaterial( "mat_koreano", mat2 );
-    MaterialHandle mat3Handle = _engine.createMaterial( "mat_wall", mat3 );
-    MaterialHandle planeMatHandle = _engine.createMaterial( "mat_plane", planeMat );
+    MaterialHandle mat1Handle = resources.createMaterial( "mat_character", mat1 );
+    MaterialHandle mat2Handle = resources.createMaterial( "mat_koreano", mat2 );
+    MaterialHandle mat3Handle = resources.createMaterial( "mat_wall", mat3 );
+    MaterialHandle planeMatHandle = resources.createMaterial( "mat_plane", planeMat );
 
 
-    MeshHandle triangle = _engine.createMesh( "mesh_triangle", vertices );
-    MeshHandle character = _engine.createMesh( "mesh_character", MODEL_PATH );
-    MeshHandle esfera = _engine.createMesh( "mesh_sphere", MODEL_PATH3 );
-    MeshHandle planoSincolor = _engine.createMesh( "mesh_plane_no_color", MODEL_PATH4 );
+    MeshHandle triangle = resources.createMesh( "mesh_triangle", vertices );
+    MeshHandle character = resources.createMesh( "mesh_character", MODEL_PATH );
+    MeshHandle esfera = resources.createMesh( "mesh_sphere", MODEL_PATH3 );
+    MeshHandle planoSincolor = resources.createMesh( "mesh_plane_no_color", MODEL_PATH4 );
 
     _triangleEntity = scene.createEntity(
         triangle,
@@ -288,7 +289,7 @@ void App::loadModels()
             MaterialDesc dynamicMat = mat3;
             dynamicMat.roughtness = std::min( static_cast<float>( i ) * 0.1f, 1.0f );
             dynamicMat.metallic = std::min( static_cast<float>( j ) * 0.1f, 1.0f );
-            MaterialHandle dynamicMatHandle = _engine.createMaterial( "mat_grid_" + std::to_string( i ) + "_" + std::to_string( j ), dynamicMat );
+            MaterialHandle dynamicMatHandle = resources.createMaterial( "mat_grid_" + std::to_string( i ) + "_" + std::to_string( j ), dynamicMat );
 
             scene.createEntity(
                 esfera,
@@ -338,10 +339,11 @@ void App::addLighting()
 
 void App::freeObjects()
 {
+    ResourceManager& resources = _engine.getResourceManager();
     _engine.getScene().clear();
-    _engine.releaseAllMaterials();
-    _engine.releaseAllTextures();
-    _engine.releaseAllMeshes();
+    resources.releaseAllMaterials();
+    resources.releaseAllTextures();
+    resources.releaseAllMeshes();
 }
 
 

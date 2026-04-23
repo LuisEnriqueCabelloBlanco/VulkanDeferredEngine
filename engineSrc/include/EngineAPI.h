@@ -7,6 +7,7 @@
 #include "BufferObjectsData.h"
 #include "Camera.h"
 #include "Mesh.h"
+#include "ResourceManager.h"
 #include "RenderEngine.h"
 #include "RenderEntityHandle.h"
 #include "Scene.h"
@@ -15,7 +16,7 @@
 class EngineAPI {
 public:
     EngineAPI()
-        : _engine(), _scene( nullptr ), _initialized( false ) {
+        : _engine(), _scene( nullptr ), _resources( nullptr ), _initialized( false ) {
     }
 
     void init( const std::string& appName ) {
@@ -24,6 +25,7 @@ public:
         }
         _engine.init( appName );
         _scene = &_engine.getSceneInternal();
+        _resources = &_engine.getResourceManagerInternal();
         _initialized = true;
     }
 
@@ -31,6 +33,7 @@ public:
         requireInitialized( "EngineAPI::cleanup" );
         _engine.cleanup();
         _scene = nullptr;
+        _resources = nullptr;
         _initialized = false;
     }
 
@@ -59,44 +62,14 @@ public:
         return *_scene;
     }
 
-    MeshHandle createMesh( const std::string& name, const std::string& path ) {
-        requireInitialized( "EngineAPI::createMesh(path)" );
-        return _engine.createMesh( name, path );
+    ResourceManager& getResourceManager() {
+        requireInitialized( "EngineAPI::getResourceManager" );
+        return *_resources;
     }
 
-    MeshHandle createMesh( const std::string& name, const std::vector<Vertex>& vertices ) {
-        requireInitialized( "EngineAPI::createMesh(vertices)" );
-        return _engine.createMesh( name, vertices );
-    }
-
-    MeshHandle createMesh( const std::string& name, const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices ) {
-        requireInitialized( "EngineAPI::createMesh(indices,vertices)" );
-        return _engine.createMesh( name, indices, vertices );
-    }
-
-    TextureHandle createTexture( const std::string& name, const std::string& path ) {
-        requireInitialized( "EngineAPI::createTexture" );
-        return _engine.createTexture( name, path );
-    }
-
-    MaterialHandle createMaterial( const std::string& name, const MaterialDesc& material ) {
-        requireInitialized( "EngineAPI::createMaterial" );
-        return _engine.createMaterial( name, material );
-    }
-
-    void releaseAllMeshes() {
-        requireInitialized( "EngineAPI::releaseAllMeshes" );
-        _engine.releaseAllMeshes();
-    }
-
-    void releaseAllTextures() {
-        requireInitialized( "EngineAPI::releaseAllTextures" );
-        _engine.releaseAllTextures();
-    }
-
-    void releaseAllMaterials() {
-        requireInitialized( "EngineAPI::releaseAllMaterials" );
-        _engine.releaseAllMaterials();
+    const ResourceManager& getResourceManager() const {
+        requireInitialized( "EngineAPI::getResourceManager const" );
+        return *_resources;
     }
 
     void createPointLight( glm::vec3 position, glm::vec3 color, float intensity, float range, bool preload = false ) {
@@ -129,5 +102,6 @@ private:
 private:
     RenderEngine  _engine;
     Scene*        _scene;
+    ResourceManager* _resources;
     bool          _initialized;
 };
