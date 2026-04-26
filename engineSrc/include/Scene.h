@@ -17,7 +17,7 @@
 enum class SceneErrorCode {
     InvalidHandle,   // El handle no fue emitido por este Scene o nunca fue valido.
     StaleHandle,     // El handle era valido pero la entidad fue destruida posteriormente.
-    LimitExceeded,   // Se ha superado el numero maximo de entidades permitidas.
+    LimitExceeded,   // Se ha superado el numero maximo de entidades/luces permitidas.
 };
 
 class SceneException : public std::runtime_error {
@@ -35,30 +35,27 @@ private:
 // ---------------------------------------------------------------------------
 
 static constexpr uint32_t MAX_ENTITIES = 16384;
+static constexpr uint32_t MAX_LIGHTS   = 4096;
 
 class RenderEntityHandle;
+class LightEntityHandle;
 
 // ---------------------------------------------------------------------------
 // Scene
 // ---------------------------------------------------------------------------
 
 /*
-Scene es el contenedor de entidades de la escena y la unica interfaz publica
-de la capa de escena para la aplicacion.
+Scene es el contenedor de entidades y luces de la escena, y la unica
+interfaz publica de la capa de escena para la aplicacion.
 
-Internamente usa una slot table con free-list y contadores de generacion:
-  - Acceso O(1) por indice.
-  - Deteccion segura de handles stale despues de destroyEntity().
-  - Reutilizacion de slots sin crecer indefinidamente el vector.
+Internamente usa slot tables independientes para entidades renderizables y
+para luces, ambas con free-list y contadores de generacion.
 
-La aplicacion crea y destruye entidades a traves de RenderEntityHandle,
-emitidos exclusivamente por Scene::createEntity().
+La aplicacion crea y destruye entidades a traves de RenderEntityHandle y
+luces a traves de LightEntityHandle, emitidos exclusivamente por Scene.
 
-EntitySlot es un detalle de implementacion privado: la aplicacion nunca
-puede obtener una referencia a el directamente.
-
-buildRenderQueue() esta reservado para RenderEngine (friend).
-requireSlot / requireSlotConst estan reservados para RenderEntityHandle (friend).
+buildRenderQueue() y buildLightQueue() estan reservados para RenderEngine.
+requireSlot / requireLightSlot estan reservados para los handles (friend).
 */
 class Scene {
 public:
@@ -70,42 +67,54 @@ public:
     Scene( Scene&& ) = delete;
     Scene& operator=( Scene&& ) = delete;
 
-    // --- Ciclo de vida de entidades -----------------------------------------
+    // --- Ciclo de vida de entidades renderizables ---------------------------
 
     // Crea una entidad vacia y devuelve su handle.
-    // Lanza SceneException(LimitExceeded) si se supera MAX_ENTITIES.
     RenderEntityHandle createEntity();
 
     // Crea una entidad con mesh, material y transform ya asignados.
-    // Lanza SceneException(LimitExceeded) si se supera MAX_ENTITIES.
     RenderEntityHandle createEntity( MeshHandle mesh,
                                      MaterialHandle material,
                                      const Transform& transform );
 
-    // Destruye la entidad referenciada por el handle.
-    // Tras esta llamada, handle.isValid() devuelve false.
-    // Lanza SceneException(InvalidHandle) si el handle no fue inicializado
-    // o la escena es inválida.
-    // Lanza SceneException(StaleHandle) si la entidad correspondiente al
-    // handle ya habia sido destruida.
+    // Destruye la entidad referenciada por el handle e invalida su generacion.
+    // Lanza SceneException(InvalidHandle) si el handle nunca fue valido.
+    // Lanza SceneException(StaleHandle)   si la entidad ya fue destruida antes.
     void destroyEntity( RenderEntityHandle& handle );
 
-    // Destruye todas las entidades de forma logica y ordenada.
-    // Los handles existentes pasan a estado stale (no invalid).
+    // --- Ciclo de vida de luces ---------------------------------------------
+
+    // Crea una luz y devuelve su handle.
+    // posOrDir: posicion en espacio mundo para Point/Spotlight,
+    //           direccion normalizada para Directional.
+    // range: solo relevante para Point y Spotlight; ignorado en Directional.
+    LightEntityHandle createLight( LightType         type,
+                                   const glm::vec3&  posOrDir,
+                                   const glm::vec3&  color,
+                                   float             intensity,
+                                   float             range = 0.0f );
+
+    // Destruye la luz referenciada por el handle e invalida su generacion.
+    // Lanza SceneException(InvalidHandle) si el handle nunca fue valido.
+    // Lanza SceneException(StaleHandle)   si la luz ya fue destruida antes.
+    void destroyLight( LightEntityHandle& handle );
+
+    // --- Operaciones globales -----------------------------------------------
+
+    // Destruye todas las entidades y luces y reinicia la escena.
     void clear();
 
     // --- Consultas generales ------------------------------------------------
 
-    // No lanza excepciones: devuelve false para handles invalidos o stale.
     bool        hasEntity( const RenderEntityHandle& handle ) const;
     std::size_t entityCount() const;
 
+    bool        hasLight( const LightEntityHandle& handle ) const;
+    std::size_t lightCount() const;
+
 private:
+    // --- Slots de entidades renderizables (privados) ------------------------
 
-    // --- Acceso interno a slots (usado por RenderEntityHandle) --------------
-
-    friend class RenderEntityHandle;
-    
     struct EntitySlot {
         uint32_t     generation  = 1;
         bool         occupied    = false;
@@ -114,31 +123,53 @@ private:
         RenderObject renderObject;
     };
 
-    // Devuelve el slot mutable o lanza SceneException si el handle es invalido o stale.
-    EntitySlot& requireSlot( uint32_t index, uint32_t generation, const char* callSite );
+    // --- Slots de luces (privados) ------------------------------------------
 
-    // Version const para consultas.
+    struct LightSlot {
+        uint32_t    generation = 1;
+        bool        occupied   = false;
+        bool        active     = true;
+        LightObject light;
+    };
+
+    // --- Acceso interno a slots de entidades (RenderEntityHandle) -----------
+
+    friend class RenderEntityHandle;
+
+    EntitySlot&       requireSlot     ( uint32_t index, uint32_t generation, const char* callSite );
     const EntitySlot& requireSlotConst( uint32_t index, uint32_t generation, const char* callSite ) const;
 
+    // --- Acceso interno a slots de luces (LightEntityHandle) ----------------
 
-    // --- Render queue (exclusivo para RenderEngine) -------------------------
+    friend class LightEntityHandle;
+
+    LightSlot&       requireLightSlot     ( uint32_t index, uint32_t generation, const char* callSite );
+    const LightSlot& requireLightSlotConst( uint32_t index, uint32_t generation, const char* callSite ) const;
+
+    // --- Render queue y light queue (RenderEngine) --------------------------
 
     friend class RenderEngine;
 
-    // Llamado por RenderEngine cada frame. Devuelve referencia a cache interna.
     const std::vector<RenderObject>& buildRenderQueue() const;
+    const std::vector<LightObject>&  buildLightQueue()  const;
 
-    
     // --- Implementacion interna ---------------------------------------------
 
     bool hasEntity( uint32_t index, uint32_t generation ) const;
+    bool hasLight ( uint32_t index, uint32_t generation ) const;
 
-    EntitySlot*       tryGetSlot( uint32_t index, uint32_t generation );
-    const EntitySlot* tryGetSlot( uint32_t index, uint32_t generation ) const;
+    EntitySlot*       tryGetSlot     ( uint32_t index, uint32_t generation );
+    const EntitySlot* tryGetSlot     ( uint32_t index, uint32_t generation ) const;
+    LightSlot*        tryGetLightSlot( uint32_t index, uint32_t generation );
+    const LightSlot*  tryGetLightSlot( uint32_t index, uint32_t generation ) const;
 
-    bool     isSlotIndexInRange( uint32_t index ) const;
-    uint32_t getSlotGeneration( uint32_t index )  const;
+    bool     isSlotIndexInRange ( uint32_t index ) const;
+    bool     isLightIndexInRange( uint32_t index ) const;
+    uint32_t getSlotGeneration      ( uint32_t index ) const;
+    uint32_t getLightSlotGeneration ( uint32_t index ) const;
+
     uint32_t allocateSlot();
+    uint32_t allocateLightSlot();
 
     static void bumpGeneration( uint32_t& generation );
 
@@ -146,4 +177,8 @@ private:
     std::vector<EntitySlot>           _slots;
     std::vector<uint32_t>             _freeSlots;
     mutable std::vector<RenderObject> _renderQueueCache;
+
+    std::vector<LightSlot>           _lightSlots;
+    std::vector<uint32_t>            _freeLightSlots;
+    mutable std::vector<LightObject> _lightQueueCache;
 };

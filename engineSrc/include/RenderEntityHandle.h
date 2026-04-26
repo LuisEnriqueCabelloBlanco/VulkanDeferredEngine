@@ -4,6 +4,7 @@
 #include <string>
 
 #include "Scene.h"
+#include "MaterialHandle.h"
 #include "ResourceHandles.h"
 #include "Transform.h"
 
@@ -46,24 +47,8 @@ public:
     RenderEntityHandle( const RenderEntityHandle& ) = delete;
     RenderEntityHandle& operator=( const RenderEntityHandle& ) = delete;
 
-    RenderEntityHandle( RenderEntityHandle&& other ) noexcept
-        : _index( other._index )
-        , _generation( other._generation )
-        , _scene( other._scene )
-        , _transform( std::move( other._transform ) ) {
-        other.invalidate();
-    }
-
-    RenderEntityHandle& operator=( RenderEntityHandle&& other ) noexcept {
-        if (this != &other) {
-            _index      = other._index;
-            _generation = other._generation;
-            _scene      = other._scene;
-            _transform  = std::move( other._transform );
-            other.invalidate();
-        }
-        return *this;
-    }
+    RenderEntityHandle( RenderEntityHandle&& other ) noexcept;
+    RenderEntityHandle& operator=( RenderEntityHandle&& other ) noexcept;
 
     ~RenderEntityHandle() = default;
 
@@ -132,11 +117,6 @@ public:
     bool isActive()  const;
     bool isVisible() const;
 
-    // --- Acceso a los ids internos (uso por Scene y RenderEngine) -----------
-
-    uint32_t getIndex()      const { return _index; }
-    uint32_t getGeneration() const { return _generation; }
-
 private:
     friend class Scene;
 
@@ -144,11 +124,7 @@ private:
         : _index( index ), _generation( generation ), _scene( scene ) {
     }
 
-    void invalidate() {
-        _index      = 0;
-        _generation = 0;
-        _scene      = nullptr;
-    }
+    void invalidate();
 
     // Escribe la model matrix actual del transform en el slot de la Scene.
     void flushModelMatrix();
@@ -159,199 +135,3 @@ private:
     Scene*    _scene      = nullptr;
     Transform _transform;
 };
-
-// ---------------------------------------------------------------------------
-// Helper interno de validacion del handle
-// ---------------------------------------------------------------------------
-
-inline Scene& requireHandleScene( Scene* scene, uint32_t generation, const char* callSite ) {
-    if (scene == nullptr || generation == 0) {
-        throw SceneException(
-            SceneErrorCode::InvalidHandle,
-            std::string( callSite ) + ": handle is not initialized"
-        );
-    }
-    return *scene;
-}
-
-inline const Scene& requireHandleSceneConst( const Scene* scene, uint32_t generation, const char* callSite ) {
-    if (scene == nullptr || generation == 0) {
-        throw SceneException(
-            SceneErrorCode::InvalidHandle,
-            std::string( callSite ) + ": handle is not initialized"
-        );
-    }
-    return *scene;
-}
-
-// ---------------------------------------------------------------------------
-// Implementacion inline
-// (vive en el header porque depende de la definicion completa de Scene)
-// ---------------------------------------------------------------------------
-
-inline bool RenderEntityHandle::isValid() const {
-    if (_scene == nullptr || _generation == 0) {
-        return false;
-    }
-    return _scene->hasEntity( *this );
-}
-
-inline void RenderEntityHandle::flushModelMatrix() {
-    requireHandleScene( _scene, _generation, "RenderEntityHandle::flushModelMatrix" )
-        .requireSlot( _index, _generation, "RenderEntityHandle::flushModelMatrix" )
-        .renderObject.modelMatrix = _transform.getModelMatrix();
-}
-
-// --- Transform: setters -----------------------------------------------------
-
-inline void RenderEntityHandle::setPosition( const glm::vec3& position ) {
-    _transform.setPosition( position );
-    flushModelMatrix();
-}
-
-inline void RenderEntityHandle::setRotation( const glm::vec3& rotationRadians ) {
-    _transform.setRotation( rotationRadians );
-    flushModelMatrix();
-}
-
-inline void RenderEntityHandle::setScale( const glm::vec3& scale ) {
-    _transform.setScale( scale );
-    flushModelMatrix();
-}
-
-inline void RenderEntityHandle::setScale( float uniformScale ) {
-    _transform.setScale( uniformScale );
-    flushModelMatrix();
-}
-
-inline void RenderEntityHandle::setTransform( const Transform& transform ) {
-    _transform = transform;
-    flushModelMatrix();
-}
-
-inline void RenderEntityHandle::setTransform( const glm::vec3& position,
-                                              const glm::vec3& rotationRadians,
-                                              const glm::vec3& scale ) {
-    _transform.setPosition( position );
-    _transform.setRotation( rotationRadians );
-    _transform.setScale( scale );
-    flushModelMatrix();
-}
-
-// --- Transform: mutaciones relativas ----------------------------------------
-
-inline void RenderEntityHandle::translate( const glm::vec3& delta ) {
-    _transform.translate( delta );
-    flushModelMatrix();
-}
-
-inline void RenderEntityHandle::rotate( const glm::vec3& deltaRadians ) {
-    _transform.rotate( deltaRadians );
-    flushModelMatrix();
-}
-
-inline void RenderEntityHandle::rotateX( float radians ) {
-    _transform.rotateX( radians );
-    flushModelMatrix();
-}
-
-inline void RenderEntityHandle::rotateY( float radians ) {
-    _transform.rotateY( radians );
-    flushModelMatrix();
-}
-
-inline void RenderEntityHandle::rotateZ( float radians ) {
-    _transform.rotateZ( radians );
-    flushModelMatrix();
-}
-
-inline void RenderEntityHandle::scale( const glm::vec3& factor ) {
-    _transform.scale( factor );
-    flushModelMatrix();
-}
-
-inline void RenderEntityHandle::scale( float uniformFactor ) {
-    _transform.scale( uniformFactor );
-    flushModelMatrix();
-}
-
-inline void RenderEntityHandle::resetTransform() {
-    _transform.reset();
-    flushModelMatrix();
-}
-
-// --- Mesh y material --------------------------------------------------------
-
-inline void RenderEntityHandle::setMesh( MeshHandle mesh ) {
-    requireHandleScene( _scene, _generation, "RenderEntityHandle::setMesh" )
-        .requireSlot( _index, _generation, "RenderEntityHandle::setMesh" )
-        .renderObject.mesh = mesh;
-}
-
-inline void RenderEntityHandle::setMaterial( MaterialHandle material ) {
-    requireHandleScene( _scene, _generation, "RenderEntityHandle::setMaterial" )
-        .requireSlot( _index, _generation, "RenderEntityHandle::setMaterial" )
-        .renderObject.material = material;
-}
-
-inline void RenderEntityHandle::clearMesh() {
-    requireHandleScene( _scene, _generation, "RenderEntityHandle::clearMesh" )
-        .requireSlot( _index, _generation, "RenderEntityHandle::clearMesh" )
-        .renderObject.mesh = MeshHandle{};
-}
-
-inline void RenderEntityHandle::clearMaterial() {
-    requireHandleScene( _scene, _generation, "RenderEntityHandle::clearMaterial" )
-        .requireSlot( _index, _generation, "RenderEntityHandle::clearMaterial" )
-        .renderObject.material = MaterialHandle{};
-}
-
-inline MeshHandle RenderEntityHandle::getMesh() const {
-    return requireHandleSceneConst( _scene, _generation, "RenderEntityHandle::getMesh" )
-        .requireSlotConst( _index, _generation, "RenderEntityHandle::getMesh" )
-        .renderObject.mesh;
-}
-
-inline MaterialHandle RenderEntityHandle::getMaterial() const {
-    return requireHandleSceneConst( _scene, _generation, "RenderEntityHandle::getMaterial" )
-        .requireSlotConst( _index, _generation, "RenderEntityHandle::getMaterial" )
-        .renderObject.material;
-}
-
-inline bool RenderEntityHandle::hasMesh() const {
-    return requireHandleSceneConst( _scene, _generation, "RenderEntityHandle::hasMesh" )
-        .requireSlotConst( _index, _generation, "RenderEntityHandle::hasMesh" )
-        .renderObject.mesh.isValid();
-}
-
-inline bool RenderEntityHandle::hasMaterial() const {
-    return requireHandleSceneConst( _scene, _generation, "RenderEntityHandle::hasMaterial" )
-        .requireSlotConst( _index, _generation, "RenderEntityHandle::hasMaterial" )
-        .renderObject.material.isValid();
-}
-
-// --- Flags de estado --------------------------------------------------------
-
-inline void RenderEntityHandle::setActive( bool active ) {
-    requireHandleScene( _scene, _generation, "RenderEntityHandle::setActive" )
-        .requireSlot( _index, _generation, "RenderEntityHandle::setActive" )
-        .active = active;
-}
-
-inline void RenderEntityHandle::setVisible( bool visible ) {
-    requireHandleScene( _scene, _generation, "RenderEntityHandle::setVisible" )
-        .requireSlot( _index, _generation, "RenderEntityHandle::setVisible" )
-        .visible = visible;
-}
-
-inline bool RenderEntityHandle::isActive() const {
-    return requireHandleSceneConst( _scene, _generation, "RenderEntityHandle::isActive" )
-        .requireSlotConst( _index, _generation, "RenderEntityHandle::isActive" )
-        .active;
-}
-
-inline bool RenderEntityHandle::isVisible() const {
-    return requireHandleSceneConst( _scene, _generation, "RenderEntityHandle::isVisible" )
-        .requireSlotConst( _index, _generation, "RenderEntityHandle::isVisible" )
-        .visible;
-}

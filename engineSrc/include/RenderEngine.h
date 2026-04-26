@@ -22,8 +22,6 @@
 
 constexpr int MAX_FRAMES_IN_FLIGHT = ResourceLimits::MAX_FRAMES_IN_FLIGHT;
 
-constexpr int MAX_LIGHTS = ResourceLimits::MAX_LIGHTS;
-
 constexpr int MAX_CULL_OBJECTS = ResourceLimits::MAX_CULL_OBJECTS;
 
 constexpr int MAX_TEXTURES = ResourceLimits::MAX_TEXTURES;
@@ -160,10 +158,10 @@ private:
     void recordShadowPass( VkCommandBuffer commandBuffer, const std::vector<RenderObject>& objectsArray );
     void recordMainRender( VkCommandBuffer commandBuffer );
     void pushModelMatrix( VkCommandBuffer commandBuffer, glm::mat4 model = glm::mat4( 1 ) );
-    void pushTextureIndex( VkCommandBuffer commandBuffer, const MaterialDesc& material );
+    void pushTextureIndex( VkCommandBuffer commandBuffer, const MaterialData& material );
 
     const std::vector<int> cullObjects( const std::vector<RenderObject>& objs, ViewProjectionData& cameraDesc );
-    const std::vector<Light> cullLights( const std::vector<Light>& objs );
+    const std::vector<LightObject> cullLights( const std::vector<LightObject>& objs );
     void computeCullObjects( std::vector<RenderObject>& objectsArray );
 
     // Misc
@@ -240,7 +238,7 @@ private:
     void* _lightBufferMapped;
 
     Buffer* _lightBufferSorage;
-    std::vector<Light> _lightBuffer;
+    std::vector<LightObject> _lightBuffer;
     void* _lightBufferStorageMapped;
 
     Buffer* _lightIndexStorage;

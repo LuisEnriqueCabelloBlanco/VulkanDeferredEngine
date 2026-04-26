@@ -5,17 +5,6 @@
 #include <SDL2/SDL_vulkan.h>
 #include "Mesh.h"
 
-namespace {
-	struct alignas(16) MaterialData {
-		glm::vec4 baseColor;
-		float metallic;
-		float roughtness;
-		int textureIndex;
-		int normalTextureIndex;
-	};
-}
-
-
 void DestroyDebugUtilsMessengerEXT( VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator ) {
 	auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr( instance, "vkDestroyDebugUtilsMessengerEXT" );
 	if (func != nullptr) {
@@ -322,6 +311,9 @@ void RenderEngine::setupDebugMessenger() {
 	if (CreateDebugUtilsMessengerEXT( instance, &createInfo, nullptr, &debugMessenger ) != VK_SUCCESS) {
 		throw std::runtime_error( "failed to set up debug messenger!" );
 	}
+}
+
+namespace {
 }
 
 // ============================
@@ -950,11 +942,11 @@ void RenderEngine::createCommandBuffers()
 
 void RenderEngine::createPointLight( glm::vec3 position, glm::vec3 color, float intensity,float range, bool preload )
 {
-	Light l;
+	LightObject l;
 
-	l.pos_dir = position;
+	l.posOrDir = position;
 	l.color = color;
-	l.type = LightType::POINT;
+	l.type = LightType::Point;
 	l.intensity = intensity;
 	l.range = range;
 
@@ -967,11 +959,11 @@ void RenderEngine::createPointLight( glm::vec3 position, glm::vec3 color, float 
 
 void RenderEngine::createDirectionalLight( glm::vec3 direction, glm::vec3 color, float intensity, bool preload )
 {
-	Light l;
+	LightObject l;
 
-	l.pos_dir = direction;
+	l.posOrDir = direction;
 	l.color = color;
-	l.type = LightType::DIRECTIONAL;
+	l.type = LightType::Directional;
 	l.intensity = intensity;
 
 	_lightBuffer.push_back( l );
@@ -1116,8 +1108,8 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 			continue;
 		}
 
-		const MaterialDesc defaultMaterial{};
-		const MaterialDesc* material = _resources.tryGetMaterial( object.material );
+		const MaterialData defaultMaterial{};
+		const MaterialData* material = _resources.tryGetMaterial( object.material );
 		if (material == nullptr) {
 			material = &defaultMaterial;
 		}
@@ -1389,8 +1381,8 @@ void RenderEngine::updateUniformBuffer( uint32_t currentImage, glm::mat4 model )
 
 	glm::vec3 position = glm::vec3( 5, 10, -10 ) + _mainCamera.getPos();
 	glm::vec3 lightDir( 0.0f, -1.0f, 0.0f );
-	if (_mainLightIndex >= 0 && _mainLightIndex < static_cast<int>(_lightBuffer.size()) && _lightBuffer[_mainLightIndex].type == LightType::DIRECTIONAL) {
-		lightDir = _lightBuffer[_mainLightIndex].pos_dir;
+	if (_mainLightIndex >= 0 && _mainLightIndex < static_cast<int>(_lightBuffer.size()) && _lightBuffer[_mainLightIndex].type == LightType::Directional) {
+		lightDir = _lightBuffer[_mainLightIndex].posOrDir;
 	}
 	lightCameraUBO->view = glm::lookAt( position, position + lightDir, glm::vec3( 0, 1, 0 ) );
 
@@ -1420,7 +1412,7 @@ void RenderEngine::updateComputeDescriptorSet()
 		VkDescriptorBufferInfo storageBufferInfo2;
 		storageBufferInfo2.buffer = _lightBufferSorage->getBuffer();
 		storageBufferInfo2.offset = 0;
-		storageBufferInfo2.range = sizeof( int ) + (sizeof( Light ) * MAX_LIGHTS) + sizeof( uint8_t ) * 16;
+		storageBufferInfo2.range = sizeof( int ) + (sizeof(LightObject) * MAX_LIGHTS) + sizeof( uint8_t ) * 16;
 
 		descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		descriptorWrites[1].dstBinding = 1;
@@ -1537,9 +1529,9 @@ void RenderEngine::createLightBuffer()
 {
 	_lighting.eyePos = glm::vec3( 0, 0, -2.5f );
 
-	_lighting.ambietnVal = 0.01f;
+	_lighting.ambientVal = 0.01f;
 
-	VkDeviceSize memorySize = sizeof( int ) + (sizeof( Light ) * MAX_LIGHTS) + sizeof( uint8_t ) * 16;
+	VkDeviceSize memorySize = sizeof( int ) + (sizeof( LightObject ) * MAX_LIGHTS) + sizeof( uint8_t ) * 16;
 	_lightBufferSorage = _device.createBuffer( memorySize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
 	_device.mapMemory( _lightBufferSorage->getMemory(), 0, memorySize, &_lightBufferStorageMapped );
 
@@ -1607,7 +1599,7 @@ void RenderEngine::updateLightBuffer() {
 
 	//+16 por alineamietno en memoria en la gpu
 	void* arrayStart = (uint8_t*)_lightBufferStorageMapped + 16;
-	memcpy( arrayStart, _lightBuffer.data(), sizeof( Light ) * _lightBuffer.size() );
+	memcpy( arrayStart, _lightBuffer.data(), sizeof(LightObject) * _lightBuffer.size() );
 }
 void RenderEngine::handleWindowEvent( const WindowEvent& event )
 {
@@ -2083,29 +2075,9 @@ void RenderEngine::pushModelMatrix( VkCommandBuffer commnadBuffer, glm::mat4 mod
 	vkCmdPushConstants( commnadBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof( glm::mat4 ), &model );
 }
 
-void RenderEngine::pushTextureIndex( VkCommandBuffer commnadBuffer, const MaterialDesc& material )
+void RenderEngine::pushTextureIndex( VkCommandBuffer commnadBuffer, const MaterialData& material )
 {
-	if (material.baseColorTexture.isValid()) {
-		if (material.baseColorTexture.id >= static_cast<uint32_t>(MAX_TEXTURES))
-			throw std::runtime_error( "RenderEngine::pushTextureIndex called with base color texture handle outside MAX_TEXTURES" );
-		if (_resources.tryGetTexture( material.baseColorTexture ) == nullptr)
-			throw std::runtime_error( "RenderEngine::pushTextureIndex called with invalid or stale base color texture handle" );
-	}
-	if (material.normalTexture.isValid()) {
-		if (material.normalTexture.id >= static_cast<uint32_t>(MAX_TEXTURES))
-			throw std::runtime_error( "RenderEngine::pushTextureIndex called with normal texture handle outside MAX_TEXTURES" );
-		if (_resources.tryGetTexture( material.normalTexture ) == nullptr)
-			throw std::runtime_error( "RenderEngine::pushTextureIndex called with invalid or stale normal texture handle" );
-	}
-
-	MaterialData gpuMaterial{};
-	gpuMaterial.baseColor = material.baseColor;
-	gpuMaterial.metallic = material.metallic;
-	gpuMaterial.roughtness = material.roughtness;
-	gpuMaterial.textureIndex = material.baseColorTexture.isValid() ? static_cast<int>(material.baseColorTexture.id) : -1;
-	gpuMaterial.normalTextureIndex = material.normalTexture.isValid() ? static_cast<int>(material.normalTexture.id) : -1;
-
-	vkCmdPushConstants( commnadBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof( glm::mat4 ), sizeof( gpuMaterial ), &gpuMaterial );
+	vkCmdPushConstants( commnadBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof( glm::mat4 ), sizeof( material ), &material );
 }
 
 void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::vector<RenderObject>& objectsArray )
@@ -2221,17 +2193,17 @@ const std::vector<int> RenderEngine::cullObjects( const std::vector<RenderObject
 	return out;
 }
 
-const std::vector<Light> RenderEngine::cullLights( const std::vector<Light>& lights )
+const std::vector<LightObject> RenderEngine::cullLights( const std::vector<LightObject>& lights )
 {
-	std::vector<Light> out;
+	std::vector<LightObject> out;
 	glm::mat4 VP = _mainCamera.getProjMatrix() * _mainCamera.getViewMatrix();
 
 
 	for (auto& light : lights) {
 
-		glm::vec4 pos = VP*glm::vec4(light.pos_dir,1);
+		glm::vec4 pos = VP*glm::vec4(light.posOrDir,1);
 
-		if ((pos.w <= _mainCamera.getFarPlane()+100 && pos.w >= -100) || light.type == LightType::DIRECTIONAL) {
+		if ((pos.w <= _mainCamera.getFarPlane()+100 && pos.w >= -100) || light.type == LightType::Directional) {
 			out.push_back( light );
 		}
 	}
@@ -2245,7 +2217,7 @@ void RenderEngine::setMainLight( int index )
 		throw std::runtime_error( "RenderEngine::setMainLight index out of range" );
 	}
 
-	if (_lightBuffer[index].type != LightType::DIRECTIONAL) {
+	if (_lightBuffer[index].type != LightType::Directional) {
 		throw std::runtime_error( "RenderEngine::setMainLight requires a directional light" );
 	}
 

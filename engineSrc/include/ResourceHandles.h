@@ -3,44 +3,39 @@
 #include <cstdint>
 #include <limits>
 
-#include <glm/glm.hpp>
+// ---------------------------------------------------------------------------
+// Constantes de invalidez
+// ---------------------------------------------------------------------------
 
-constexpr uint32_t INVALID_TEXTURE_HANDLE = std::numeric_limits<uint32_t>::max();
-constexpr uint32_t INVALID_MATERIAL_HANDLE = std::numeric_limits<uint32_t>::max();
-constexpr uint32_t INVALID_MESH_HANDLE = std::numeric_limits<uint32_t>::max();
+constexpr uint32_t INVALID_HANDLE_INDEX      = std::numeric_limits<uint32_t>::max();
 constexpr uint32_t INVALID_HANDLE_GENERATION = 0;
 
+// ---------------------------------------------------------------------------
+// Handles de recursos
+//
+// Cada handle encapsula el par (index, generation) que identifica un slot en
+// el ResourceManager. La generacion 0 esta reservada como sentinel de handle
+// nunca inicializado.
+//
+// Los handles son valores planos (copiables). El ResourceManager es el unico
+// que puede crearlos y el unico que puede invalidarlos al liberar el recurso.
+// ---------------------------------------------------------------------------
+
 struct TextureHandle {
-    uint32_t id = INVALID_TEXTURE_HANDLE;
+    uint32_t index      = INVALID_HANDLE_INDEX;
     uint32_t generation = INVALID_HANDLE_GENERATION;
 
-    inline bool isValid() const {
-        return id != INVALID_TEXTURE_HANDLE && generation != INVALID_HANDLE_GENERATION;
-    }
-};
-
-struct MaterialHandle {
-    uint32_t id = INVALID_MATERIAL_HANDLE;
-    uint32_t generation = INVALID_HANDLE_GENERATION;
-
-    inline bool isValid() const {
-        return id != INVALID_MATERIAL_HANDLE && generation != INVALID_HANDLE_GENERATION;
+    bool isValid() const {
+        return index != INVALID_HANDLE_INDEX && generation != INVALID_HANDLE_GENERATION;
     }
 };
 
 struct MeshHandle {
-    uint32_t id = INVALID_MESH_HANDLE;
+    uint32_t index      = INVALID_HANDLE_INDEX;
     uint32_t generation = INVALID_HANDLE_GENERATION;
 
-    inline bool isValid() const {
-        return id != INVALID_MESH_HANDLE && generation != INVALID_HANDLE_GENERATION;
+    bool isValid() const {
+        return index != INVALID_HANDLE_INDEX && generation != INVALID_HANDLE_GENERATION;
     }
 };
 
-struct MaterialDesc {
-    glm::vec4 baseColor = glm::vec4( 1.0f );
-    float metallic = 0.0f;
-    float roughtness = 1.0f;
-    TextureHandle baseColorTexture;
-    TextureHandle normalTexture;
-};

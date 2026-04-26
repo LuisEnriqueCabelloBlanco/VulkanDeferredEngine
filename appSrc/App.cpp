@@ -210,27 +210,27 @@ void App::loadModels()
     vertices.push_back( v2 );
     vertices.push_back( v3 );
 
-    MaterialDesc mat1;
+    MaterialCreateInfo mat1;
     mat1.metallic = 0.0f;
-    mat1.roughtness = 0.95f;
+    mat1.roughness = 0.95f;
     mat1.baseColorTexture = characterTextureHandle;
     mat1.normalTexture = normalTexture;
 
-    MaterialDesc mat2;
+    MaterialCreateInfo mat2;
     mat2.metallic = 0.1f;
-    mat2.roughtness = 0.25f;
+    mat2.roughness = 0.25f;
     mat2.baseColorTexture = koreanoTextureHandle;
     mat2.normalTexture = wallNormal;
 
-    MaterialDesc mat3;
+    MaterialCreateInfo mat3;
     mat3.metallic = 0.01f;
-    mat3.roughtness = 0.8f;
+    mat3.roughness = 0.8f;
     mat3.baseColorTexture = wallColor;
     mat3.normalTexture = wallNormal;
 
-    MaterialDesc planeMat;
+    MaterialCreateInfo planeMat;
     planeMat.metallic = 0.0f;
-    planeMat.roughtness = 0.5f;
+    planeMat.roughness = 0.5f;
     planeMat.baseColorTexture = whiteTextureHandle;
 
     MaterialHandle mat1Handle = resources.createMaterial( "mat_character", mat1 );
@@ -286,8 +286,8 @@ void App::loadModels()
 
     for (int i = 0; i < 100;i++) {
         for (int j = 0; j < 100; j++) {
-            MaterialDesc dynamicMat = mat3;
-            dynamicMat.roughtness = std::min( static_cast<float>( i ) * 0.1f, 1.0f );
+            MaterialCreateInfo dynamicMat = mat3;
+            dynamicMat.roughness = std::min( static_cast<float>( i ) * 0.1f, 1.0f );
             dynamicMat.metallic = std::min( static_cast<float>( j ) * 0.1f, 1.0f );
             MaterialHandle dynamicMatHandle = resources.createMaterial( "mat_grid_" + std::to_string( i ) + "_" + std::to_string( j ), dynamicMat );
 

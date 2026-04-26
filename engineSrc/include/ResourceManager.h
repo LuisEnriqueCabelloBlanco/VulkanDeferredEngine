@@ -8,11 +8,15 @@
 #include <unordered_map>
 #include <vector>
 
+#include "BufferObjectsData.h"
 #include "ResourceHandles.h"
 #include "Mesh.h"
 #include "ResourceLimits.h"
 #include "Texture.h"
 #include "VulkanDevice.h"
+
+class MaterialHandle;
+struct MaterialCreateInfo;
 
 enum class ResourceErrorCode {
     InvalidName,
@@ -80,7 +84,7 @@ public:
     void releaseAllTextures();
 
     // Material lifecycle
-    MaterialHandle createMaterial( const std::string& name, const MaterialDesc& material );
+    MaterialHandle createMaterial( const std::string& name, const MaterialCreateInfo& material );
     void releaseMaterial( MaterialHandle handle );
     void releaseAllMaterials();
 
@@ -92,12 +96,13 @@ public:
     // Resource lookup by handle
     const Mesh* tryGetMesh( MeshHandle handle ) const;
     const Texture* tryGetTexture( TextureHandle handle ) const;
-    const MaterialDesc* tryGetMaterial( MaterialHandle handle ) const;
+    const MaterialData* tryGetMaterial( MaterialHandle handle ) const;
 
 private:
     // --- Acceso interno al renderer ---------------------------------------
 
     friend class RenderEngine;
+    friend class MaterialHandle;
 
     // Avisa al RenderEngine cuando cambian las texturas vivas para que
     // reconstruya el array de descriptors de forma transparente para la app.
@@ -132,7 +137,9 @@ private:
         uint32_t generation = 1;
         bool occupied = false;
         std::string name;
-        MaterialDesc resource;
+        MaterialData data{};
+        TextureHandle baseColorTexture{};
+        TextureHandle normalTexture{};
     };
 
     // Utilidades comunes: validacion, construccion de handles y reserva de slots.
@@ -142,7 +149,7 @@ private:
 
     static MeshHandle makeMeshHandle( uint32_t index, uint32_t generation );
     static TextureHandle makeTextureHandle( uint32_t index, uint32_t generation );
-    static MaterialHandle makeMaterialHandle( uint32_t index, uint32_t generation );
+    MaterialHandle makeMaterialHandle( uint32_t index, uint32_t generation ) const;
 
     uint32_t allocateMeshSlot();
     uint32_t allocateTextureSlot();
@@ -162,9 +169,10 @@ private:
     MeshSlot& requireMeshSlot( MeshHandle handle, const char* callSite );
     TextureSlot& requireTextureSlot( TextureHandle handle, const char* callSite );
     MaterialSlot& requireMaterialSlot( MaterialHandle handle, const char* callSite );
+    const MaterialSlot& requireMaterialSlotConst( MaterialHandle handle, const char* callSite ) const;
 
     // Validacion de contratos cruzados: materiales solo pueden apuntar a texturas vivas.
-    void validateMaterialTextures( const MaterialDesc& material ) const;
+    void validateMaterialTextureHandle( TextureHandle textureHandle, const char* callSite ) const;
     bool isTextureUsedByAnyMaterial( TextureHandle textureHandle ) const;
 
     VulkanDevice& _device;
