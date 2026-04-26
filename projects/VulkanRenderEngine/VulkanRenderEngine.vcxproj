@@ -22,7 +22,6 @@
     <ClCompile Include="..\..\engineSrc\Buffer.cpp" />
     <ClCompile Include="..\..\engineSrc\Camera.cpp" />
     <ClCompile Include="..\..\engineSrc\LightEntityHandle.cpp" />
-    <ClCompile Include="..\..\engineSrc\MaterialHandle.cpp" />
     <ClCompile Include="..\..\engineSrc\Mesh.cpp" />
     <ClCompile Include="..\..\engineSrc\RenderEntityHandle.cpp" />
     <ClCompile Include="..\..\engineSrc\ResourceManager.cpp" />
@@ -41,7 +40,6 @@
     <ClInclude Include="..\..\engineSrc\include\Camera.h" />
     <ClInclude Include="..\..\engineSrc\include\EngineAPI.h" />
     <ClInclude Include="..\..\engineSrc\include\LightEntityHandle.h" />
-    <ClInclude Include="..\..\engineSrc\include\MaterialHandle.h" />
     <ClInclude Include="..\..\engineSrc\include\Mesh.h" />
     <ClInclude Include="..\..\engineSrc\include\RenderEntityHandle.h" />
     <ClInclude Include="..\..\engineSrc\include\ResourceLimits.h" />

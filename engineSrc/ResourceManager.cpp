@@ -1,5 +1,4 @@
 #include "ResourceManager.h"
-#include "MaterialHandle.h"
 
 #include <utility>
 
@@ -114,14 +113,8 @@ MeshHandle ResourceManager::createMesh( const std::string& name, const std::vect
 
 void ResourceManager::releaseMesh( MeshHandle handle ) {
     // Valida generation e index antes de tocar el slot real.
-    MeshSlot& slot = requireMeshSlot( handle, "ResourceManager::releaseMesh" );
-
-    _meshNameToIndex.erase( slot.name );
-    slot.resource.reset();
-    slot.occupied = false;
-    slot.name.clear();
-    bumpGeneration( slot.generation );
-    _freeMeshSlots.push_back( handle.index );
+    requireMeshSlot( handle, "ResourceManager::releaseMesh" );
+    releaseMeshSlotByIndex( handle._index, true );
 }
 
 void ResourceManager::releaseAllMeshes() {
@@ -131,12 +124,7 @@ void ResourceManager::releaseAllMeshes() {
             continue;
         }
 
-        _meshNameToIndex.erase( slot.name );
-        slot.resource.reset();
-        slot.occupied = false;
-        slot.name.clear();
-        bumpGeneration( slot.generation );
-        _freeMeshSlots.push_back( index );
+        releaseMeshSlotByIndex( index, true );
     }
 }
 
@@ -174,22 +162,18 @@ TextureHandle ResourceManager::createTexture( const std::string& name, const std
 }
 
 void ResourceManager::releaseTexture( TextureHandle handle ) {
-    TextureSlot& slot = requireTextureSlot( handle, "ResourceManager::releaseTexture" );
+    requireTextureSlot( handle, "ResourceManager::releaseTexture" );
 
     /// Valida que no hay materiales que dependan de esta textura
     if (isTextureUsedByAnyMaterial( handle )) {
         throw ResourceException(
             ResourceErrorCode::DependencyInUse,
-            "ResourceManager::releaseTexture rejected: texture is referenced by at least one live material"
+            "ResourceManager::releaseTexture rejected: texture is referenced by at least one live material; "
+            "release dependent materials first (releaseMaterial/releaseAllMaterials)"
         );
     }
 
-    _textureNameToIndex.erase( slot.name );
-    slot.resource.reset();
-    slot.occupied = false;
-    slot.name.clear();
-    bumpGeneration( slot.generation );
-    _freeTextureSlots.push_back( handle.index );
+    releaseTextureSlotByIndex( handle._index, true );
 
     notifyTextureBindingsChanged();
 }
@@ -211,12 +195,7 @@ void ResourceManager::releaseAllTextures() {
             );
         }
 
-        _textureNameToIndex.erase( slot.name );
-        slot.resource.reset();
-        slot.occupied = false;
-        slot.name.clear();
-        bumpGeneration( slot.generation );
-        _freeTextureSlots.push_back( index );
+        releaseTextureSlotByIndex( index, true );
     }
 
     notifyTextureBindingsChanged();
@@ -240,10 +219,8 @@ MaterialHandle ResourceManager::createMaterial( const std::string& name, const M
         slot.data.baseColor = material.baseColor;
         slot.data.metallic = material.metallic;
         slot.data.roughness = material.roughness;
-        slot.baseColorTexture = material.baseColorTexture;
-        slot.normalTexture = material.normalTexture;
-        slot.data.textureIndex = material.baseColorTexture.isValid() ? static_cast<int>( material.baseColorTexture.index ) : -1;
-        slot.data.normalTextureIndex = material.normalTexture.isValid() ? static_cast<int>( material.normalTexture.index ) : -1;
+        slot.data.textureIndex = material.baseColorTexture.isValid() ? static_cast<int>( material.baseColorTexture._index ) : -1;
+        slot.data.normalTextureIndex = material.normalTexture.isValid() ? static_cast<int>( material.normalTexture._index ) : -1;
         slot.name = name;
         slot.occupied = true;
         _materialNameToIndex[name] = index;
@@ -258,30 +235,12 @@ MaterialHandle ResourceManager::createMaterial( const std::string& name, const M
 }
 
 void ResourceManager::resetMaterialSlot( uint32_t index ) {
-    MaterialSlot& slot = _materialSlots[index];
-    slot.occupied = false;
-    slot.name.clear();
-    slot.data = MaterialData{};
-    slot.baseColorTexture = TextureHandle{};
-    slot.normalTexture = TextureHandle{};
-    slot.data.textureIndex = -1;
-    slot.data.normalTextureIndex = -1;
-    _freeMaterialSlots.push_back( index );
+    releaseMaterialSlotByIndex( index, false );
 }
 
 void ResourceManager::releaseMaterial( MaterialHandle handle ) {
-    MaterialSlot& slot = requireMaterialSlot( handle, "ResourceManager::releaseMaterial" );
-
-    _materialNameToIndex.erase( slot.name );
-    slot.occupied = false;
-    slot.name.clear();
-    slot.data = MaterialData{};
-    slot.baseColorTexture = TextureHandle{};
-    slot.normalTexture = TextureHandle{};
-    slot.data.textureIndex = -1;
-    slot.data.normalTextureIndex = -1;
-    bumpGeneration( slot.generation );
-    _freeMaterialSlots.push_back( handle._index );
+    requireMaterialSlot( handle, "ResourceManager::releaseMaterial" );
+    releaseMaterialSlotByIndex( handle._index, true );
 }
 
 void ResourceManager::releaseAllMaterials() {
@@ -291,16 +250,7 @@ void ResourceManager::releaseAllMaterials() {
             continue;
         }
 
-        _materialNameToIndex.erase( slot.name );
-        slot.occupied = false;
-        slot.name.clear();
-        slot.data = MaterialData{};
-        slot.baseColorTexture = TextureHandle{};
-        slot.normalTexture = TextureHandle{};
-        slot.data.textureIndex = -1;
-        slot.data.normalTextureIndex = -1;
-        bumpGeneration( slot.generation );
-        _freeMaterialSlots.push_back( index );
+        releaseMaterialSlotByIndex( index, true );
     }
 }
 
@@ -419,15 +369,15 @@ std::string ResourceManager::makeDuplicateNameMessage( const char* callSite, con
 }
 
 MeshHandle ResourceManager::makeMeshHandle( uint32_t index, uint32_t generation ) const {
-    return MeshHandle{ index, generation };
+    return MeshHandle( index, generation );
 }
 
 TextureHandle ResourceManager::makeTextureHandle( uint32_t index, uint32_t generation ) const {
-    return TextureHandle{ index, generation };
+    return TextureHandle( index, generation );
 }
 
 MaterialHandle ResourceManager::makeMaterialHandle( uint32_t index, uint32_t generation ) const {
-    return MaterialHandle( index, generation, const_cast<ResourceManager*>( this ) );
+    return MaterialHandle( index, generation );
 }
 
 uint32_t ResourceManager::allocateMeshSlot() {
@@ -479,30 +429,56 @@ uint32_t ResourceManager::allocateMaterialSlot() {
 }
 
 void ResourceManager::resetMeshSlot( uint32_t index ) {
-    // Deja el slot en estado libre tras un fallo de construccion.
-    MeshSlot& slot = _meshSlots[index];
-    slot.resource.reset();
-    slot.occupied = false;
-    slot.name.clear();
-    _freeMeshSlots.push_back( index );
+    releaseMeshSlotByIndex( index, false );
 }
 
 void ResourceManager::resetTextureSlot( uint32_t index ) {
-    // Idem para texturas: el slot vuelve al pool sin generar un handle visible.
-    TextureSlot& slot = _textureSlots[index];
+    releaseTextureSlotByIndex( index, false );
+}
+
+void ResourceManager::releaseMeshSlotByIndex( uint32_t index, bool bumpGen ) {
+    MeshSlot& slot = _meshSlots[index];
+    _meshNameToIndex.erase( slot.name );
     slot.resource.reset();
     slot.occupied = false;
     slot.name.clear();
+    if (bumpGen) {
+        bumpGeneration( slot.generation );
+    }
+    _freeMeshSlots.push_back( index );
+}
+
+void ResourceManager::releaseTextureSlotByIndex( uint32_t index, bool bumpGen ) {
+    TextureSlot& slot = _textureSlots[index];
+    _textureNameToIndex.erase( slot.name );
+    slot.resource.reset();
+    slot.occupied = false;
+    slot.name.clear();
+    if (bumpGen) {
+        bumpGeneration( slot.generation );
+    }
     _freeTextureSlots.push_back( index );
 }
 
+void ResourceManager::releaseMaterialSlotByIndex( uint32_t index, bool bumpGen ) {
+    MaterialSlot& slot = _materialSlots[index];
+    _materialNameToIndex.erase( slot.name );
+    slot.occupied = false;
+    slot.name.clear();
+    slot.data = MaterialData{};
+    if (bumpGen) {
+        bumpGeneration( slot.generation );
+    }
+    _freeMaterialSlots.push_back( index );
+}
+
 const ResourceManager::MeshSlot* ResourceManager::tryGetMeshSlot( MeshHandle handle ) const {
-    if (!handle.isValid() || handle.index >= _meshSlots.size()) {
+    if (!handle.isValid() || handle._index >= _meshSlots.size()) {
         return nullptr;
     }
 
-    const MeshSlot& slot = _meshSlots[handle.index];
-    if (!slot.occupied || slot.generation != handle.generation) {
+    const MeshSlot& slot = _meshSlots[handle._index];
+    if (!slot.occupied || slot.generation != handle._generation) {
         return nullptr;
     }
 
@@ -510,12 +486,12 @@ const ResourceManager::MeshSlot* ResourceManager::tryGetMeshSlot( MeshHandle han
 }
 
 const ResourceManager::TextureSlot* ResourceManager::tryGetTextureSlot( TextureHandle handle ) const {
-    if (!handle.isValid() || handle.index >= _textureSlots.size()) {
+    if (!handle.isValid() || handle._index >= _textureSlots.size()) {
         return nullptr;
     }
 
-    const TextureSlot& slot = _textureSlots[handle.index];
-    if (!slot.occupied || slot.generation != handle.generation) {
+    const TextureSlot& slot = _textureSlots[handle._index];
+    if (!slot.occupied || slot.generation != handle._generation) {
         return nullptr;
     }
 
@@ -523,8 +499,7 @@ const ResourceManager::TextureSlot* ResourceManager::tryGetTextureSlot( TextureH
 }
 
 const ResourceManager::MaterialSlot* ResourceManager::tryGetMaterialSlot( MaterialHandle handle ) const {
-    if (handle._manager != this || handle._generation == INVALID_HANDLE_GENERATION ||
-        handle._index == INVALID_HANDLE_INDEX || handle._index >= _materialSlots.size()) {
+    if (!handle.isValid() || handle._index >= _materialSlots.size()) {
         return nullptr;
     }
 
@@ -537,12 +512,12 @@ const ResourceManager::MaterialSlot* ResourceManager::tryGetMaterialSlot( Materi
 }
 
 ResourceManager::MeshSlot& ResourceManager::requireMeshSlot( MeshHandle handle, const char* callSite ) {
-    if (!handle.isValid() || handle.index >= _meshSlots.size()) {
+    if (!handle.isValid() || handle._index >= _meshSlots.size()) {
         throw ResourceException( ResourceErrorCode::InvalidHandle, std::string( callSite ) + " received invalid mesh handle" );
     }
 
-    MeshSlot& slot = _meshSlots[handle.index];
-    if (!slot.occupied || slot.generation != handle.generation) {
+    MeshSlot& slot = _meshSlots[handle._index];
+    if (!slot.occupied || slot.generation != handle._generation) {
         throw ResourceException( ResourceErrorCode::StaleHandle, std::string( callSite ) + " received stale mesh handle" );
     }
 
@@ -550,12 +525,12 @@ ResourceManager::MeshSlot& ResourceManager::requireMeshSlot( MeshHandle handle, 
 }
 
 ResourceManager::TextureSlot& ResourceManager::requireTextureSlot( TextureHandle handle, const char* callSite ) {
-    if (!handle.isValid() || handle.index >= _textureSlots.size()) {
+    if (!handle.isValid() || handle._index >= _textureSlots.size()) {
         throw ResourceException( ResourceErrorCode::InvalidHandle, std::string( callSite ) + " received invalid texture handle" );
     }
 
-    TextureSlot& slot = _textureSlots[handle.index];
-    if (!slot.occupied || slot.generation != handle.generation) {
+    TextureSlot& slot = _textureSlots[handle._index];
+    if (!slot.occupied || slot.generation != handle._generation) {
         throw ResourceException( ResourceErrorCode::StaleHandle, std::string( callSite ) + " received stale texture handle" );
     }
 
@@ -563,26 +538,11 @@ ResourceManager::TextureSlot& ResourceManager::requireTextureSlot( TextureHandle
 }
 
 ResourceManager::MaterialSlot& ResourceManager::requireMaterialSlot( MaterialHandle handle, const char* callSite ) {
-    if (handle._manager != this || handle._generation == INVALID_HANDLE_GENERATION ||
-        handle._index == INVALID_HANDLE_INDEX || handle._index >= _materialSlots.size()) {
+    if (!handle.isValid() || handle._index >= _materialSlots.size()) {
         throw ResourceException( ResourceErrorCode::InvalidHandle, std::string( callSite ) + " received invalid material handle" );
     }
 
     MaterialSlot& slot = _materialSlots[handle._index];
-    if (!slot.occupied || slot.generation != handle._generation) {
-        throw ResourceException( ResourceErrorCode::StaleHandle, std::string( callSite ) + " received stale material handle" );
-    }
-
-    return slot;
-}
-
-const ResourceManager::MaterialSlot& ResourceManager::requireMaterialSlotConst( MaterialHandle handle, const char* callSite ) const {
-    if (handle._manager != this || handle._generation == INVALID_HANDLE_GENERATION ||
-        handle._index == INVALID_HANDLE_INDEX || handle._index >= _materialSlots.size()) {
-        throw ResourceException( ResourceErrorCode::InvalidHandle, std::string( callSite ) + " received invalid material handle" );
-    }
-
-    const MaterialSlot& slot = _materialSlots[handle._index];
     if (!slot.occupied || slot.generation != handle._generation) {
         throw ResourceException( ResourceErrorCode::StaleHandle, std::string( callSite ) + " received stale material handle" );
     }
@@ -595,7 +555,7 @@ void ResourceManager::validateMaterialTextureHandle( TextureHandle textureHandle
         return;
     }
 
-    if (textureHandle.index >= static_cast<uint32_t>(ResourceLimits::MAX_TEXTURES)) {
+    if (textureHandle._index >= static_cast<uint32_t>(ResourceLimits::MAX_TEXTURES)) {
         throw ResourceException(
             ResourceErrorCode::LimitExceeded,
             std::string( callSite ) + " received a texture handle outside MAX_TEXTURES"
@@ -616,13 +576,8 @@ bool ResourceManager::isTextureUsedByAnyMaterial( TextureHandle textureHandle ) 
             continue;
         }
 
-        const bool usedByBaseColor = materialSlot.baseColorTexture.isValid() &&
-            materialSlot.baseColorTexture.index == textureHandle.index &&
-            materialSlot.baseColorTexture.generation == textureHandle.generation;
-
-        const bool usedByNormal = materialSlot.normalTexture.isValid() &&
-            materialSlot.normalTexture.index == textureHandle.index &&
-            materialSlot.normalTexture.generation == textureHandle.generation;
+        const bool usedByBaseColor = materialSlot.data.textureIndex == static_cast<int>(textureHandle._index);
+        const bool usedByNormal = materialSlot.data.normalTextureIndex == static_cast<int>(textureHandle._index);
 
         if (usedByBaseColor || usedByNormal) {
             return true;

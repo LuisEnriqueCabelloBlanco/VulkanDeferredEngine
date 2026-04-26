@@ -4,7 +4,6 @@
 #include <string>
 
 #include "Scene.h"
-#include "MaterialHandle.h"
 #include "ResourceHandles.h"
 #include "Transform.h"
 

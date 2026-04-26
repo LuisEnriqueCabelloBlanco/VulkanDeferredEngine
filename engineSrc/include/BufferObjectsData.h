@@ -25,7 +25,6 @@
 #include <cstdint>
 
 #include "ResourceHandles.h"
-#include "MaterialHandle.h"
 
 // ---------------------------------------------------------------------------
 // Camara y iluminacion global

@@ -8,6 +8,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include <glm/vec4.hpp>
+
 #include "BufferObjectsData.h"
 #include "ResourceHandles.h"
 #include "Mesh.h"
@@ -15,8 +17,13 @@
 #include "Texture.h"
 #include "VulkanDevice.h"
 
-class MaterialHandle;
-struct MaterialCreateInfo;
+struct MaterialCreateInfo {
+    glm::vec4     baseColor = glm::vec4( 1.0f );
+    float         metallic = 0.0f;
+    float         roughness = 1.0f;
+    TextureHandle baseColorTexture{};
+    TextureHandle normalTexture{};
+};
 
 enum class ResourceErrorCode {
     InvalidName,
@@ -62,6 +69,9 @@ si un recurso sigue siendo valido.
 */
 class ResourceManager {
 public:
+    // Entrada que representa una textura viva lista para bind en descriptor arrays.
+    // index: indice real del slot en la tabla de texturas del manager.
+    // texture: recurso GPU asociado al slot.
     struct TextureBindingEntry {
         uint32_t index;
         const Texture* texture;
@@ -69,26 +79,40 @@ public:
 
     explicit ResourceManager( VulkanDevice& device );
 
+    // Limpia TODO el estado del manager.
+    // Orden interno: materiales -> texturas -> meshes para respetar dependencias.
+    // Si clear() falla en una fase intermedia, puede dejar estado parcialmente limpiado.
     void clear();
 
-    // Mesh lifecycle
+    // --- Ciclo de vida de Mesh ---------------------------------------------
+    // createMesh(...): crea un mesh unico por nombre y devuelve handle valido.
+    // releaseMesh(...): invalida el handle (bump generation del slot).
+    // releaseAllMeshes(): libera todos los meshes ocupados.
     MeshHandle createMesh( const std::string& name, const std::string& path );
     MeshHandle createMesh( const std::string& name, const std::vector<Vertex>& vertices );
     MeshHandle createMesh( const std::string& name, const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices );
     void releaseMesh( MeshHandle handle );
     void releaseAllMeshes();
 
-    // Texture lifecycle
+    // --- Ciclo de vida de Texture ------------------------------------------
+    // createTexture(...): crea textura unica por nombre.
+    // releaseTexture(...): rechaza liberar si existe dependencia de materiales.
+    // releaseAllTextures(): idem a nivel global; exige no tener materiales vivos
+    // que referencien texturas.
     TextureHandle createTexture( const std::string& name, const std::string& path );
     void releaseTexture( TextureHandle handle );
     void releaseAllTextures();
 
-    // Material lifecycle
+    // --- Ciclo de vida de Material -----------------------------------------
+    // createMaterial(...): valida texturas referenciadas y persiste datos GPU.
+    // releaseMaterial/releaseAllMaterials: liberan slots e invalidan handles.
     MaterialHandle createMaterial( const std::string& name, const MaterialCreateInfo& material );
     void releaseMaterial( MaterialHandle handle );
     void releaseAllMaterials();
 
-    // Handle lookup by name
+    // --- Lookup por nombre --------------------------------------------------
+    // tryGet*Handle(...): devuelve handle valido si el recurso sigue vivo,
+    // o handle nulo (default-constructed) si no existe/no esta ocupado.
     MeshHandle tryGetMeshHandle( const std::string& name ) const;
     TextureHandle tryGetTextureHandle( const std::string& name ) const;
     MaterialHandle tryGetMaterialHandle( const std::string& name ) const;
@@ -96,7 +120,6 @@ public:
 private:
 
     // --- Slots de recursos mallas (privados) --------------------------------
-
     struct MeshSlot {
         uint32_t generation = 1;
         bool occupied = false;
@@ -105,7 +128,6 @@ private:
     };
 
     // --- Slots de recursos texturas (privados) ------------------------------
-
     struct TextureSlot {
         uint32_t generation = 1;
         bool occupied = false;
@@ -114,17 +136,14 @@ private:
     };
 
     // --- Slots de objetos materiales (privados) -----------------------------
-
     struct MaterialSlot {
         uint32_t generation = 1;
         bool occupied = false;
         std::string name;
         MaterialData data{};
-        TextureHandle baseColorTexture{};
-        TextureHandle normalTexture{};
     };
 
-    // --- Acceso interno a los slots de texura (RenderEngine) ----------------
+    // --- Acceso interno para RenderEngine ----------------------------------
 
     friend class RenderEngine;
 
@@ -138,25 +157,19 @@ private:
     // Usado por RenderEngine para actualizar sus descriptor sets.
     std::vector<TextureBindingEntry> getLiveTextureEntries() const;
 
-
-    // --- Acceso interno a datos internos de los handles (RenderEngine) -------
+    // tryGet* de recursos concretos: lookup no-throw por handle.
+    // Si el handle es invalido/stale, devuelve nullptr.
 
     const Mesh* tryGetMesh(MeshHandle handle) const;
     const Texture* tryGetTexture(TextureHandle handle) const;
     const MaterialData* tryGetMaterial(MaterialHandle handle) const;
 
 
-    // --- Acceso interno a los slots de materiales (MaterialHandle) ----------
-
-    friend class MaterialHandle;
-
-    MaterialSlot& requireMaterialSlot(MaterialHandle handle, const char* callSite);
-    const MaterialSlot& requireMaterialSlotConst(MaterialHandle handle, const char* callSite) const;
-
-
     // --- Implementacion interna ---------------------------------------------
 
     // Utilidades comunes: validacion, construccion de handles y reserva de slots.
+    // bumpGeneration: invalida handles previos de un slot.
+    // validateResourceName: contrato comun de nombre no vacio.
     static void bumpGeneration( uint32_t& generation );
     static void validateResourceName( const std::string& name, const char* callSite );
     static std::string makeDuplicateNameMessage( const char* callSite, const std::string& name );
@@ -166,30 +179,44 @@ private:
     TextureHandle makeTextureHandle( uint32_t index, uint32_t generation ) const;
     MaterialHandle makeMaterialHandle( uint32_t index, uint32_t generation ) const;
 
-    // Helpers para obtener un nuevo slot
+    // Reserva de slots por pool + free-list.
+    // Si no hay huecos libres, puede crecer hasta el limite ResourceLimits.
     uint32_t allocateMeshSlot();
     uint32_t allocateTextureSlot();
     uint32_t allocateMaterialSlot();
 
-    // Reset seguro de slots cuando una creacion falla o cuando el recurso se libera.
+    // Reset y release de slots:
+    // - reset*Slot: rollback de create* fallido (NO bump generation).
+    // - release*SlotByIndex: teardown comun reutilizable. bumpGen controla
+    //   si se invalida generacion (true en release normal, false en rollback).
     void resetMeshSlot( uint32_t index );
     void resetTextureSlot( uint32_t index );
     void resetMaterialSlot( uint32_t index );
+    void releaseMeshSlotByIndex( uint32_t index, bool bumpGen );
+    void releaseTextureSlotByIndex( uint32_t index, bool bumpGen );
+    void releaseMaterialSlotByIndex( uint32_t index, bool bumpGen );
 
-    // Resolucion de acceso por handle con validacion de generation.
+    // Resolucion interna por handle (no-throw):
+    // devuelve nullptr si el handle es invalido, out-of-range, slot libre o stale.
     const MeshSlot* tryGetMeshSlot( MeshHandle handle ) const;
     const TextureSlot* tryGetTextureSlot( TextureHandle handle ) const;
     const MaterialSlot* tryGetMaterialSlot( MaterialHandle handle ) const;
 
-    // Acceso a los slots privados.
+    // Resolucion interna por handle (throw):
+    // lanza InvalidHandle o StaleHandle con contexto callSite.
     MeshSlot& requireMeshSlot( MeshHandle handle, const char* callSite );
     TextureSlot& requireTextureSlot( TextureHandle handle, const char* callSite );
+    MaterialSlot& requireMaterialSlot( MaterialHandle handle, const char* callSite );
 
-
-    // Validacion de contratos cruzados: materiales solo pueden apuntar a texturas vivas.
+    // Contratos cruzados de materiales/texturas:
+    // validateMaterialTextureHandle: acepta handle nulo ("sin textura"),
+    // rechaza handles fuera de rango o stale.
+    // isTextureUsedByAnyMaterial: detecta si hay materiales ocupados que
+    // referencian el indice de textura.
     void validateMaterialTextureHandle( TextureHandle textureHandle, const char* callSite ) const;
     bool isTextureUsedByAnyMaterial( TextureHandle textureHandle ) const;
 
+    
     VulkanDevice& _device;
 
     std::vector<MeshSlot> _meshSlots;
@@ -204,5 +231,6 @@ private:
     std::vector<uint32_t> _freeMaterialSlots;
     std::unordered_map<std::string, uint32_t> _materialNameToIndex;
 
+    // Callback para notificar al renderer que debe reconstruir bindings.
     std::function<void()> _textureBindingsChangedCallback;
 };
