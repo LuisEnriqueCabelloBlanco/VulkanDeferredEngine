@@ -321,20 +321,20 @@ void App::loadModels()
 
 void App::addLighting()
 {
-    _engine.createDirectionalLight( glm::vec3( -2, -0.9, 4 ), glm::vec3( 0.1, 0.1, 0.1 ), 1, true );
-    _engine.createPointLight( glm::vec3( 0, 0, -1 ), glm::vec3( 1, 0, 0 ), 1,10, true );
-    _engine.createPointLight( glm::vec3( 1, 0, -1 ), glm::vec3( 0, 1, 0 ), 1,10, true );
-    _engine.createPointLight( glm::vec3( -1, 0, -1 ), glm::vec3( 0, 0, 1 ), 1,10, true );
+    Scene& scene = _engine.getScene();
+
+    LightEntityHandle mainLight =  scene.createLight( LightType::Directional, glm::vec3( -2, -0.9, 4 ), glm::vec3( 0.1, 0.1, 0.1 ), 1, 1000 );
+    scene.createLight( LightType::Point, glm::vec3( 0, 0, -1 ), glm::vec3( 1, 0, 0 ), 1, 10 );
+    scene.createLight( LightType::Point, glm::vec3( 1, 0, -1 ), glm::vec3( 0, 1, 0 ), 1, 10 );
+    scene.createLight( LightType::Point, glm::vec3( -1, 0, -1 ), glm::vec3( 0, 0, 1 ), 1, 10 );
 
 
     for (int i = 0; i < 10;i++) {
         for (int j = 0; j < 10; j++) {
-            _engine.createPointLight( glm::vec3( -5 + i * -5, -0.5, j * 5 - 1.5 ), glm::vec3( 0.01 * i, 0.01 * j, 1 ), 1, 10, true);
+            scene.createLight(LightType::Point, glm::vec3( -5 + i * -5, -0.5, j * 5 - 1.5 ), glm::vec3( 0.01 * i, 0.01 * j, 1 ), 1, 10 );
         }
     }
-    _engine.setMainLight( 0 );
-
-    _engine.updateLightBuffer();
+    scene.setMainLight( mainLight );
 }
 
 void App::freeObjects()

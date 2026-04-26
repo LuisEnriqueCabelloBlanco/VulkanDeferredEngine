@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -67,6 +68,7 @@ public:
     Scene( Scene&& ) = delete;
     Scene& operator=( Scene&& ) = delete;
 
+
     // --- Ciclo de vida de entidades renderizables ---------------------------
 
     // Crea una entidad vacia y devuelve su handle.
@@ -81,6 +83,7 @@ public:
     // Lanza SceneException(InvalidHandle) si el handle nunca fue valido.
     // Lanza SceneException(StaleHandle)   si la entidad ya fue destruida antes.
     void destroyEntity( RenderEntityHandle& handle );
+    
 
     // --- Ciclo de vida de luces ---------------------------------------------
 
@@ -99,6 +102,22 @@ public:
     // Lanza SceneException(StaleHandle)   si la luz ya fue destruida antes.
     void destroyLight( LightEntityHandle& handle );
 
+
+    // --- Main light (shadow caster) -----------------------------------------
+
+    // Designa la luz que genera el shadow map.
+    // Solo acepta luces de tipo Directional; lanza std::invalid_argument si no.
+    // Lanza SceneException(InvalidHandle) si el handle nunca fue valido.
+    // Lanza SceneException(StaleHandle)   si la luz ya fue destruida.
+    void setMainLight(const LightEntityHandle& handle);
+
+    // Retira la designacion sin destruir la luz.
+    void clearMainLight();
+
+    // Devuelve true si hay una main light designada y sigue viva.
+    bool hasMainLight() const;
+
+
     // --- Operaciones globales -----------------------------------------------
 
     // Destruye todas las entidades y luces y reinicia la escena.
@@ -113,6 +132,7 @@ public:
     std::size_t lightCount() const;
 
 private:
+
     // --- Slots de entidades renderizables (privados) ------------------------
 
     struct EntitySlot {
@@ -132,12 +152,23 @@ private:
         LightObject light;
     };
 
+    // Par (index, generation) que identifica al shadow caster en _lightSlots.
+    // std::optional vacio == sin main light designada.
+    struct MainLightRef {
+        uint32_t index = 0;
+        uint32_t generation = 0;
+    };
+
+    std::optional<MainLightRef> _mainLightRef;
+
+
     // --- Acceso interno a slots de entidades (RenderEntityHandle) -----------
 
     friend class RenderEntityHandle;
 
     EntitySlot&       requireSlot     ( uint32_t index, uint32_t generation, const char* callSite );
     const EntitySlot& requireSlotConst( uint32_t index, uint32_t generation, const char* callSite ) const;
+
 
     // --- Acceso interno a slots de luces (LightEntityHandle) ----------------
 
@@ -146,12 +177,19 @@ private:
     LightSlot&       requireLightSlot     ( uint32_t index, uint32_t generation, const char* callSite );
     const LightSlot& requireLightSlotConst( uint32_t index, uint32_t generation, const char* callSite ) const;
 
-    // --- Render queue y light queue (RenderEngine) --------------------------
+
+    // --- Render queue, light queue y main light (RenderEngine) --------------
 
     friend class RenderEngine;
 
     const std::vector<RenderObject>& buildRenderQueue() const;
-    const std::vector<LightObject>&  buildLightQueue()  const;
+    const std::vector<LightObject>& buildLightQueue()  const;
+
+    // Devuelve el LightObject del shadow caster si sigue vivo y activo, nullptr si no.
+    // RenderEngine lo llama cada frame para construir la VP de la shadow pass.
+    // Devuelve nullptr si no hay main light o fue destruida: shadow pass se omite.
+    const LightObject* tryGetMainLight() const;
+
 
     // --- Implementacion interna ---------------------------------------------
 

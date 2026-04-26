@@ -10,6 +10,7 @@
 #include "ResourceManager.h"
 #include "RenderEngine.h"
 #include "RenderEntityHandle.h"
+#include "LightEntityHandle.h"
 #include "Scene.h"
 #include "WindowEvent.h"
 
@@ -24,8 +25,8 @@ public:
             throw std::logic_error( "EngineAPI::init called twice" );
         }
         _engine.init( appName );
-        _scene = &_engine.getSceneInternal();
-        _resources = &_engine.getResourceManagerInternal();
+        _scene = &_engine.getScene();
+        _resources = &_engine.getResourceManager();
         _initialized = true;
     }
 
@@ -65,31 +66,6 @@ public:
     ResourceManager& getResourceManager() {
         requireInitialized( "EngineAPI::getResourceManager" );
         return *_resources;
-    }
-
-    const ResourceManager& getResourceManager() const {
-        requireInitialized( "EngineAPI::getResourceManager const" );
-        return *_resources;
-    }
-
-    void createPointLight( glm::vec3 position, glm::vec3 color, float intensity, float range, bool preload = false ) {
-        requireInitialized( "EngineAPI::createPointLight" );
-        _engine.createPointLight( position, color, intensity, range, preload );
-    }
-
-    void createDirectionalLight( glm::vec3 direction, glm::vec3 color, float intensity, bool preload = false ) {
-        requireInitialized( "EngineAPI::createDirectionalLight" );
-        _engine.createDirectionalLight( direction, color, intensity, preload );
-    }
-
-    void setMainLight( int index ) {
-        requireInitialized( "EngineAPI::setMainLight" );
-        _engine.setMainLight( index );
-    }
-
-    void updateLightBuffer() {
-        requireInitialized( "EngineAPI::updateLightBuffer" );
-        _engine.updateLightBuffer();
     }
 
 private:

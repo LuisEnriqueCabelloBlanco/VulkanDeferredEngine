@@ -44,12 +44,12 @@ void RenderEngine::cleanup()
 	}
 
 	delete _lightUniformBuffer;
-	delete _lightBufferSorage;
+	delete _lightBufferStorage;
 	delete _lightIndexStorage;
 	delete _AABBModelStorage;
 	delete _lightCulledObjectIndex;
 	delete _cameraCulledObjectIndex;
-	delete mainLightData;
+	delete _mainLightVPBuffer;
 
 	_device.destroyDescriptorPool( descriptorPool );
 
@@ -940,43 +940,6 @@ void RenderEngine::createCommandBuffers()
 
 }
 
-void RenderEngine::createPointLight( glm::vec3 position, glm::vec3 color, float intensity,float range, bool preload )
-{
-	LightObject l;
-
-	l.posOrDir = position;
-	l.color = color;
-	l.type = LightType::Point;
-	l.intensity = intensity;
-	l.range = range;
-
-	_lightBuffer.push_back( l );
-
-	if (!preload) {
-		updateLightBuffer();
-	}
-}
-
-void RenderEngine::createDirectionalLight( glm::vec3 direction, glm::vec3 color, float intensity, bool preload )
-{
-	LightObject l;
-
-	l.posOrDir = direction;
-	l.color = color;
-	l.type = LightType::Directional;
-	l.intensity = intensity;
-
-	_lightBuffer.push_back( l );
-
-	if (_mainLightIndex < 0) {
-		_mainLightIndex = static_cast<int>(_lightBuffer.size()) - 1;
-	}
-
-	if (!preload) {
-		updateLightBuffer();
-	}
-}
-
 // ============================
 // Frame recording and presentation
 // ============================
@@ -1166,12 +1129,12 @@ void RenderEngine::drawFrame()
 	}
 
 	const std::vector<RenderObject>& objectsArray = _scene.buildRenderQueue();
+	const std::vector<LightObject>& lightQueue = _scene.buildLightQueue();
 
-	//vkWaitForFences(_device._device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
-	_device.waitForFences( inFlightFences[currentFrame] );
+	_device.waitForFences(inFlightFences[currentFrame]);
 	uint32_t imageIndex;
-	//VkResult result = vkAcquireNextImageKHR(_device._device, swapChain, UINT64_MAX, imageAviablesSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
-	VkResult result = _device.adquireNextImage( _window.getSwapChain(), imageAviablesSemaphores[currentFrame], imageIndex );
+	VkResult result = _device.adquireNextImage(
+		_window.getSwapChain(), imageAviablesSemaphores[currentFrame], imageIndex);
 
 
 	if (result == VK_ERROR_OUT_OF_DATE_KHR) {
@@ -1184,27 +1147,23 @@ void RenderEngine::drawFrame()
 		throw std::runtime_error( "failed to acquire swap chain image!" );
 	}
 
-	// From this point, a successful acquire must always be consumed by submit/present.
-	//vkResetFences(_device._device, 1, &inFlightFences[currentFrame]);
 	ViewProjectionData camDesc;
 	camDesc.proj = _mainCamera.getProjMatrix();
 	camDesc.view = _mainCamera.getViewMatrix();
 	auto outObjects = cullObjects( objectsArray, camDesc);
 
 	updateUniformBuffer( currentFrame, glm::mat4( 1.0f ) );
-	updateLightBuffer();
+	uploadLightBuffer(lightQueue);
 	_device.resetFences( inFlightFences[currentFrame] );
 
 
 	if (outObjects.size() == 0) {
 		std::cout << "No hay objetos a pintar\n";
 	}
+
 	Mesh::_lastRenderedMesh = nullptr;
 	vkResetCommandBuffer( commandBuffers[currentFrame], 0 );
-	auto start = std::chrono::high_resolution_clock::now();
 	recordCommandBuffer( commandBuffers[currentFrame], imageIndex, objectsArray, outObjects );
-	auto end = std::chrono::high_resolution_clock::now();
-	//std::cout << "Time to record: " <<std::chrono::duration<float, std::chrono::milliseconds::period>(end - start)<<"\n";
 
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1355,37 +1314,31 @@ void RenderEngine::createNormalResources()
 	posTexture->createImageView( colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1 );
 }
 
-void RenderEngine::updateUniformBuffer( uint32_t currentImage, glm::mat4 model )
-{
-	static auto startTime = std::chrono::high_resolution_clock::now();
-
-	auto currentTime = std::chrono::high_resolution_clock::now();
-	float time = std::chrono::duration<float, std::chrono::seconds::period>( currentTime - startTime ).count();
-
+void RenderEngine::updateUniformBuffer(uint32_t currentImage, glm::mat4 model) {
 	ViewProjectionData ubo{};
-	//ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	ubo.view = _mainCamera.getViewMatrix();//glm::lookAt(glm::vec3(0, 0, -2.5f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	ubo.proj = _mainCamera.getProjMatrix(); //glm::perspective( glm::radians( 90.0f ), _window.getExtent().width / (float)_window.getExtent().height, 0.1f, 10.0f );
-	//arreglo hecho debido a la logica invertida del eje y
+	ubo.view = _mainCamera.getViewMatrix();
+	ubo.proj = _mainCamera.getProjMatrix();
 	ubo.proj[1][1] *= -1;
+	memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 
-	memcpy( uniformBuffersMapped[currentImage], &ubo, sizeof( ubo ) );
 	_lighting.eyePos = _mainCamera.getPos();
+	memcpy(_lightBufferMapped, &_lighting, sizeof(_lighting));
 
-	memcpy( _lightBufferMapped, &_lighting, sizeof( _lighting ) );
-	//vkCmdUpdateBuffer( commandBuffers[currentImage], uniformBuffers[currentImage]->getBuffer(), 0, sizeof( ViewProjectionData ), uniformBuffersMapped[currentImage] );
-
+	// Shadow pass VP: se construye a partir de la main light de la escena.
+	// Si no hay main light designada o fue destruida, dejamos el UBO como esta;
+	// recordShadowPass() comprobara lo mismo y omitira el pase si es nullptr.
 	float ratio = _window.getExtent().width / static_cast<float>(_window.getExtent().height);
-	float scale = 20;
-	lightCameraUBO->proj = glm::ortho( -ratio*scale, ratio*scale, scale, -scale, 0.01f, 100.0f );
+	float scale = 20.0f;
+	_mainLightVPMapped->proj = glm::ortho(-ratio * scale, ratio * scale,
+		scale, -scale, 0.01f, 100.0f);
 
-	glm::vec3 position = glm::vec3( 5, 10, -10 ) + _mainCamera.getPos();
-	glm::vec3 lightDir( 0.0f, -1.0f, 0.0f );
-	if (_mainLightIndex >= 0 && _mainLightIndex < static_cast<int>(_lightBuffer.size()) && _lightBuffer[_mainLightIndex].type == LightType::Directional) {
-		lightDir = _lightBuffer[_mainLightIndex].posOrDir;
+	const LightObject* mainLight = _scene.tryGetMainLight();
+	glm::vec3 lightDir(0.0f, -1.0f, 0.0f);
+	if (mainLight != nullptr) {
+		lightDir = mainLight->posOrDir;
 	}
-	lightCameraUBO->view = glm::lookAt( position, position + lightDir, glm::vec3( 0, 1, 0 ) );
-
+	glm::vec3 position = glm::vec3(5.0f, 10.0f, -10.0f) + _mainCamera.getPos();
+	_mainLightVPMapped->view = glm::lookAt(position, position + lightDir, glm::vec3(0, 1, 0));
 }
 
 void RenderEngine::updateComputeDescriptorSet()
@@ -1410,7 +1363,7 @@ void RenderEngine::updateComputeDescriptorSet()
 		descriptorWrites[0].dstSet = _lightsDataBufferDescriptroSet;
 
 		VkDescriptorBufferInfo storageBufferInfo2;
-		storageBufferInfo2.buffer = _lightBufferSorage->getBuffer();
+		storageBufferInfo2.buffer = _lightBufferStorage->getBuffer();
 		storageBufferInfo2.offset = 0;
 		storageBufferInfo2.range = sizeof( int ) + (sizeof(LightObject) * MAX_LIGHTS) + sizeof( uint8_t ) * 16;
 
@@ -1447,7 +1400,7 @@ void RenderEngine::updateShadowDescriptorSet()
 	std::vector<VkWriteDescriptorSet> descriptorWrites( size );
 
 	VkDescriptorBufferInfo bufferInfo{};
-	bufferInfo.buffer = mainLightData->getBuffer();
+	bufferInfo.buffer = _mainLightVPBuffer->getBuffer();
 	bufferInfo.offset = 0;
 	bufferInfo.range = sizeof( ViewProjectionData );
 
@@ -1532,8 +1485,8 @@ void RenderEngine::createLightBuffer()
 	_lighting.ambientVal = 0.01f;
 
 	VkDeviceSize memorySize = sizeof( int ) + (sizeof( LightObject ) * MAX_LIGHTS) + sizeof( uint8_t ) * 16;
-	_lightBufferSorage = _device.createBuffer( memorySize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
-	_device.mapMemory( _lightBufferSorage->getMemory(), 0, memorySize, &_lightBufferStorageMapped );
+	_lightBufferStorage = _device.createBuffer( memorySize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
+	_device.mapMemory( _lightBufferStorage->getMemory(), 0, memorySize, &_lightBufferStorageMapped );
 
 	//BUffer de indicies (el plan es que solo exista en gpu ya que es para hacer el culling de luces en un shader de computo)
 	memorySize = sizeof( int ) + (sizeof( int ) * MAX_LIGHTS);
@@ -1586,21 +1539,19 @@ void RenderEngine::createCullingBuffers()
 	_device.mapMemory( _cameraCulledObjectIndex->getMemory(), 0, memorySize, (void**)&_cameraCulledObjectIndexMapped );
 }
 
-void RenderEngine::updateLightBuffer() {
-	if (_lightBuffer.size() >= MAX_LIGHTS) {
-		throw std::runtime_error( "RenderEngine::updateLightBuffer exceeded MAX_LIGHTS" );
+void RenderEngine::uploadLightBuffer(const std::vector<LightObject>& lights) {
+	if (lights.size() >= MAX_LIGHTS) {
+		throw std::runtime_error("RenderEngine::uploadLightBuffer exceeded MAX_LIGHTS");
 	}
 
-	//std::vector<Light> culledLights = cullLights( _lightBuffer );
+	const int size = static_cast<int>(lights.size());
+	memcpy(_lightBufferStorageMapped, &size, sizeof(int));
 
-	const int size = static_cast<int>( _lightBuffer.size() );
-
-	memcpy( _lightBufferStorageMapped, &size, sizeof( int ) );
-
-	//+16 por alineamietno en memoria en la gpu
-	void* arrayStart = (uint8_t*)_lightBufferStorageMapped + 16;
-	memcpy( arrayStart, _lightBuffer.data(), sizeof(LightObject) * _lightBuffer.size() );
+	// +16 por alineamiento en memoria de la GPU.
+	void* arrayStart = static_cast<uint8_t*>(_lightBufferStorageMapped) + 16;
+	memcpy(arrayStart, lights.data(), sizeof(LightObject) * lights.size());
 }
+
 void RenderEngine::handleWindowEvent( const WindowEvent& event )
 {
 	if (event.type == WindowEventType::Resized) {
@@ -1826,8 +1777,14 @@ void RenderEngine::createUniformBuffers()
 	memcpy( _lightBufferMapped, &_lighting, sizeof( _lighting ) );
 
 
-	mainLightData = _device.createBuffer( bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
-	_device.mapMemory( mainLightData->getMemory(), 0, bufferSize, (void**) &lightCameraUBO);
+	// Shadow pass VP buffer
+	VkDeviceSize mainLightBufferSize = sizeof( ViewProjectionData );
+	_mainLightVPBuffer = _device.createBuffer( 
+		mainLightBufferSize,
+		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
+	_device.mapMemory( _mainLightVPBuffer->getMemory(), 0, mainLightBufferSize,
+					   reinterpret_cast<void**>( &_mainLightVPMapped ) );
 }
 
 void RenderEngine::createDescriptorPool()
@@ -2052,7 +2009,7 @@ void RenderEngine::updateLightingDescriptorSets()
 		descriptorWrites[4].dstSet = _globalLightingDescriptorSets[i];
 
 		VkDescriptorBufferInfo bufferInfo{};
-		bufferInfo.buffer = mainLightData->getBuffer();
+		bufferInfo.buffer = _mainLightVPBuffer->getBuffer();
 		bufferInfo.offset = 0;
 		bufferInfo.range = sizeof( ViewProjectionData );
 
@@ -2082,31 +2039,28 @@ void RenderEngine::pushTextureIndex( VkCommandBuffer commnadBuffer, const Materi
 
 void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::vector<RenderObject>& objectsArray )
 {
+	// Si no hay main light designada o fue destruida, no hay shadow pass.
+	if (!_scene.hasMainLight()) {
+		return;
+	}
 
-	std::vector<int> cullIndex = cullObjects( objectsArray,*lightCameraUBO );
-
+	std::vector<int> cullIndex = cullObjects(objectsArray, *_mainLightVPMapped);
 
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.framebuffer = _shadowFrameBuffer;
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	renderPassInfo.renderPass = shadowPass;
 	renderPassInfo.renderArea.offset = { 0, 0 };
-	VkExtent2D ext;
-	ext.width = shadowMap->texWidth;
-	ext.height = shadowMap->texHeight;
+	VkExtent2D ext{ shadowMap->texWidth, shadowMap->texHeight };
 	renderPassInfo.renderArea.extent = ext;
 
 	std::array<VkClearValue, 1> clearValues{};
-	clearValues[0].depthStencil = {1.0f, 0 };
-
-
+	clearValues[0].depthStencil = { 1.0f, 0 };
 	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 	renderPassInfo.pClearValues = clearValues.data();
 
-
 	//tomamos los datos de paso de renderizado
 	vkCmdBeginRenderPass( commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
-
 	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _shadowPipelineLayout, 0, 1, &_mainLightDescriptorSet, 0, nullptr );
 	//Aplicamos la pipeline definida
 	vkCmdBindPipeline( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _shadowPipeline );
@@ -2131,39 +2085,31 @@ void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::v
 		if (mesh == nullptr) {
 			continue;
 		}
-
 		pushModelMatrix( commandBuffer, objectsArray[index].modelMatrix);
 		mesh->draw( commandBuffer );
 	}
 
 	vkCmdEndRenderPass( commandBuffer );
 
+	// Transicion del shadow map para lectura en el fragment shader.
 	VkImageMemoryBarrier barrier{};
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 	barrier.oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	barrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL;
-
 	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-
 	barrier.image = shadowMap->textureImage;
 	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 	barrier.subresourceRange.baseMipLevel = 0;
 	barrier.subresourceRange.levelCount = 1;
 	barrier.subresourceRange.baseArrayLayer = 0;
 	barrier.subresourceRange.layerCount = 1;
-	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-	vkCmdPipelineBarrier(
+	vkCmdPipelineBarrier( 
 		commandBuffer,
 		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-		0,
-		0, nullptr,
-		0, nullptr,
-		1, &barrier
-	);
-
+		0, 0, nullptr, 0, nullptr, 1, &barrier );
 }
 
 const std::vector<int> RenderEngine::cullObjects( const std::vector<RenderObject>& objs, ViewProjectionData& cameraDesc )
@@ -2209,19 +2155,6 @@ const std::vector<LightObject> RenderEngine::cullLights( const std::vector<Light
 	}
 
 	return out;
-}
-
-void RenderEngine::setMainLight( int index )
-{
-	if (index < 0 || index >= static_cast<int>(_lightBuffer.size())) {
-		throw std::runtime_error( "RenderEngine::setMainLight index out of range" );
-	}
-
-	if (_lightBuffer[index].type != LightType::Directional) {
-		throw std::runtime_error( "RenderEngine::setMainLight requires a directional light" );
-	}
-
-	_mainLightIndex = index;
 }
 
 

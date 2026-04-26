@@ -418,18 +418,12 @@ std::string ResourceManager::makeDuplicateNameMessage( const char* callSite, con
     return std::string( callSite ) + " duplicated name: " + name;
 }
 
-MeshHandle ResourceManager::makeMeshHandle( uint32_t index, uint32_t generation ) {
-    MeshHandle handle;
-    handle.index = index;
-    handle.generation = generation;
-    return handle;
+MeshHandle ResourceManager::makeMeshHandle( uint32_t index, uint32_t generation ) const {
+    return MeshHandle{ index, generation };
 }
 
-TextureHandle ResourceManager::makeTextureHandle( uint32_t index, uint32_t generation ) {
-    TextureHandle handle;
-    handle.index = index;
-    handle.generation = generation;
-    return handle;
+TextureHandle ResourceManager::makeTextureHandle( uint32_t index, uint32_t generation ) const {
+    return TextureHandle{ index, generation };
 }
 
 MaterialHandle ResourceManager::makeMaterialHandle( uint32_t index, uint32_t generation ) const {

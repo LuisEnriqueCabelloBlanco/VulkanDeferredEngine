@@ -66,45 +66,43 @@ public:
     void wait();
     RenderEngine();
 
-    // Frame API
+    // --- Frame API ----------------------------------------------------------
     void drawFrame();
 
-    // Scene API
-    Scene& getSceneInternal() { return _scene; }
-    ResourceManager& getResourceManagerInternal() { return _resources; }
+    // --- Scene y recursos ---------------------------------------------------
+    // La escena es la unica fuente de verdad para entidades y luces.
+    // La aplicacion crea luces a traves de scene.createLight() y designa
+    // la main light con scene.setMainLight(). RenderEngine consulta la escena
+    // cada frame internamente; no expone ninguna API propia de luces.
+    Scene& getScene() { return _scene; }
+    ResourceManager& getResourceManager() { return _resources; }
 
-    // Camera and events
+    // --- Camara y eventos ---------------------------------------------------
     Camera& getMainCamera() { return _mainCamera; }
-    void handleWindowEvent( const WindowEvent& event );
+    void    handleWindowEvent(const WindowEvent& event);
 
-    // Lighting API
-    void createPointLight(glm::vec3 position, glm::vec3 color, float intensity, float range, bool preload = false);
-    void createDirectionalLight( glm::vec3 direction, glm::vec3 color, float intensity, bool preload = false );
-    void setMainLight( int index );
-    void updateLightBuffer();
-
-    // Explicit descriptor updates
+    // --- Actualizacion explicita de descriptors (post-resize, post-load) ----
     void updateGeometryDescriptorSets();
     void updateLightingDescriptorSets();
 
-    // Utility
-    void generateMipmaps( VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels );
+    // --- Utilidades ---------------------------------------------------------
+    void generateMipmaps(VkImage image, VkFormat imageFormat,
+        int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
 
-    static void ErrorCallback( int, const char* err_str )
-    {
+    static void ErrorCallback(int, const char* err_str) {
         std::cout << "GLFW Error: " << err_str << std::endl;
     }
 
 private:
 
-    // Vulkan bootstrap
+    // --- Vulkan bootstrap ---------------------------------------------------
     void createInstance(const std::string& appName);
     bool checkValidationLayerSupport();
     std::vector<const char*> getRequiredExtensions();
-    void populateDebugMessengerCreateInfo( VkDebugUtilsMessengerCreateInfoEXT& createInfo );
+    void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
     void setupDebugMessenger();
 
-    // Render pass and pipeline creation
+    // --- Render pass y pipeline creation ------------------------------------
     void createRenderPass();
     void createShadowPass();
     void createGraphicsPipeline();
@@ -113,7 +111,7 @@ private:
     void createObjectCullPipeline();
     void createShadowPipeline();
 
-    // Framebuffer and command infrastructure
+    // --- Framebuffer y command infrastructure -------------------------------
     void createFramebuffers();
     void createShadowFrameBuffer();
     void createCommandPool();
@@ -124,7 +122,7 @@ private:
     void recreateSwapChain();
     void cleanupSwapChain();
 
-    // GPU resources and descriptor layouts
+    // --- GPU resources y descriptor layouts ---------------------------------
     void createColorResources();
     void createNormalResources();
     void createDepthResources();
@@ -147,46 +145,52 @@ private:
     void createObjectCullDescriptorSets();
     void createShadowDescriptorSet();
 
-    // Runtime updates
-    void updateUniformBuffer( uint32_t currentImage, glm::mat4 model );
+    // --- Runtime updates ----------------------------------------------------
+    void updateUniformBuffer(uint32_t currentImage, glm::mat4 model);
     void updateComputeDescriptorSet();
     void updateShadowDescriptorSet();
     void updateCullDescriptorSet();
 
-    // Recording and culling
-    void recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t imageIndex, const std::vector<RenderObject>& objectsArray , const std::vector<int>& cullIndex );
-    void recordShadowPass( VkCommandBuffer commandBuffer, const std::vector<RenderObject>& objectsArray );
-    void recordMainRender( VkCommandBuffer commandBuffer );
-    void pushModelMatrix( VkCommandBuffer commandBuffer, glm::mat4 model = glm::mat4( 1 ) );
-    void pushTextureIndex( VkCommandBuffer commandBuffer, const MaterialData& material );
+    // Vuelca la light queue de la escena al storage buffer de GPU.
+    // Llamado cada frame desde drawFrame(), no desde la API publica.
+    void uploadLightBuffer(const std::vector<LightObject>& lights);
 
-    const std::vector<int> cullObjects( const std::vector<RenderObject>& objs, ViewProjectionData& cameraDesc );
-    const std::vector<LightObject> cullLights( const std::vector<LightObject>& objs );
-    void computeCullObjects( std::vector<RenderObject>& objectsArray );
+    // --- Recording y culling ------------------------------------------------
+    void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex,
+                             const std::vector<RenderObject>& objectsArray,
+                             const std::vector<int>& cullIndex);
+    void recordShadowPass(VkCommandBuffer commandBuffer,
+                          const std::vector<RenderObject>& objectsArray);
+    void recordMainRender(VkCommandBuffer commandBuffer);
+    void pushModelMatrix(VkCommandBuffer commandBuffer, glm::mat4 model = glm::mat4(1));
+    void pushTextureIndex(VkCommandBuffer commandBuffer, const MaterialData& material);
 
-    // Misc
+    const std::vector<int> cullObjects(const std::vector<RenderObject>& objs,
+        ViewProjectionData& cameraDesc);
+    const std::vector<LightObject> cullLights(const std::vector<LightObject>& objs);
+    void computeCullObjects(std::vector<RenderObject>& objectsArray);
+
+    // --- Misc ---------------------------------------------------------------
     void loadModels();
     VkFormat findDepthFormat();
-    bool hasStencilComponent( VkFormat format );
-    bool AABBFrustrumTest( const AABB& aabb,const glm::mat4& MVP);
+    bool hasStencilComponent(VkFormat format);
+    bool AABBFrustrumTest(const AABB& aabb, const glm::mat4& MVP);
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
         VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
         VkDebugUtilsMessageTypeFlagsEXT messageType,
         const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-        void* pUserData ) {
-
-
+        void* pUserData) {
         if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
-            // Message is important enough to show
             std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
         }
-
         return VK_FALSE;
     }
 
+    // --- Vulkan handles -----------------------------------------------------
     const uint32_t WIDTH = 800;
     const uint32_t HEIGHT = 600;
+
     VkInstance instance;
     VkDebugUtilsMessengerEXT debugMessenger;
 
@@ -222,27 +226,24 @@ private:
     VkCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
 
-    //Sinc structures
     std::vector<VkSemaphore> imageAviablesSemaphores;
     std::vector<VkSemaphore> renderFinishedSemaphores;
     std::vector<VkFence> inFlightFences;
 
     bool _framebufferResized = false;
-
     uint32_t currentFrame = 0;
 
+    // --- GPU buffers --------------------------------------------------------
     std::vector<Buffer*> uniformBuffers;
-    std::vector<void*> uniformBuffersMapped;
+    std::vector<void*>   uniformBuffersMapped;
 
-    Buffer* _lightUniformBuffer;
-    void* _lightBufferMapped;
+    Buffer* _lightUniformBuffer = nullptr;   // GlobalLighting UBO (eyePos, ambient)
+    void* _lightBufferMapped = nullptr;
 
-    Buffer* _lightBufferSorage;
-    std::vector<LightObject> _lightBuffer;
-    void* _lightBufferStorageMapped;
+    Buffer* _lightBufferStorage = nullptr;   // Storage buffer con todos los LightObjects
+    void* _lightBufferStorageMapped = nullptr;
 
     Buffer* _lightIndexStorage;
-
     Buffer* _AABBModelStorage;
     void* _AABBModelStorageMapped;
 
@@ -252,27 +253,28 @@ private:
     Buffer* _cameraCulledObjectIndex;
     int* _cameraCulledObjectIndexMapped;
 
+    // Shadow pass: VP desde el punto de vista de la main light.
+    // Se calcula en updateUniformBuffer() consultando _scene.tryGetMainLight().
+    Buffer* _mainLightVPBuffer = nullptr;   // UBO ViewProjectionData
+    ViewProjectionData* _mainLightVPMapped = nullptr;
+
+    // --- Engine objects -----------------------------------------------------
     Camera _mainCamera;
     Scene _scene;
-
     VulkanDevice _device;
     ResourceManager _resources;
     VulkanWindow _window;
 
-    Texture* msaaTexture;
-
-    Texture* depthTexture;
-    Texture* normalTexture;
-    Texture* colorTexture;
-    Texture* posTexture;
-
-    Texture* shadowMap;
-    int _mainLightIndex = -1;
-    Buffer* mainLightData;
-    ViewProjectionData* lightCameraUBO;
+    // --- GBuffer textures ---------------------------------------------------
+    Texture* depthTexture = nullptr;
+    Texture* normalTexture = nullptr;
+    Texture* colorTexture = nullptr;
+    Texture* posTexture = nullptr;
+    Texture* shadowMap = nullptr;
 
     GlobalLighting _lighting;
 
+    // --- Descriptor pool y layouts ------------------------------------------
     VkDescriptorPool descriptorPool;
 
     VkDescriptorSetLayout _inputAttachmentsDescriptorSetLayout;
@@ -288,7 +290,7 @@ private:
     std::vector<VkDescriptorSet> _globalLightingDescriptorSets;
 
     VkDescriptorSet _textureArrayDescriptorSet;
-    VkDescriptorSet _mainLightDescriptorSet;
+    VkDescriptorSet _mainLightDescriptorSet;     // VP de la main light para shadow pass
     VkDescriptorSet _lightsDataBufferDescriptroSet;
     VkDescriptorSet _cameraCullDescriptorSet;
     VkDescriptorSet _lightCullDescriptorSet;

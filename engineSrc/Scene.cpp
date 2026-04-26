@@ -95,6 +95,32 @@ void Scene::destroyLight( LightEntityHandle& handle ) {
     handle.invalidate();
 }
 
+// ---------------------------------------------------------------------------
+// Main light (shadow caster)
+// ---------------------------------------------------------------------------
+
+void Scene::setMainLight(const LightEntityHandle& handle) {
+    // Validacion de handle: lanza InvalidHandle o StaleHandle si no es valido.
+    const LightSlot& slot = requireLightSlotConst(
+        handle._index, handle._generation, "Scene::setMainLight");
+
+    if (slot.light.type != LightType::Directional) {
+        throw std::invalid_argument(
+            "Scene::setMainLight: only Directional lights can be the main light (shadow caster)");
+    }
+
+    _mainLightRef = MainLightRef{ handle._index, handle._generation };
+}
+
+void Scene::clearMainLight() {
+    _mainLightRef.reset();
+}
+
+bool Scene::hasMainLight() const {
+    return tryGetMainLight() != nullptr;
+}
+
+
 // ===========================================================================
 // Operaciones globales
 // ===========================================================================
@@ -104,6 +130,7 @@ void Scene::clear() {
     _freeSlots.clear();
     _lightSlots.clear();
     _freeLightSlots.clear();
+    _mainLightRef.reset();
 }
 
 // ===========================================================================
@@ -189,7 +216,7 @@ const Scene::LightSlot& Scene::requireLightSlotConst( uint32_t index, uint32_t g
 }
 
 // ===========================================================================
-// Render queue y light queue (RenderEngine)
+// Render queue, light queue y main light (RenderEngine)
 // ===========================================================================
 
 const std::vector<RenderObject>& Scene::buildRenderQueue() const {
@@ -215,6 +242,23 @@ const std::vector<LightObject>& Scene::buildLightQueue() const {
     }
 
     return _lightQueueCache;
+}
+
+const LightObject* Scene::tryGetMainLight() const {
+    if (!_mainLightRef.has_value()) {
+        return nullptr;
+    }
+
+    // Si la luz fue destruida entre frames, su generacion en el slot
+    // no coincidira y tryGetLightSlot devolvera nullptr.
+    const LightSlot* slot = tryGetLightSlot(
+        _mainLightRef->index, _mainLightRef->generation);
+
+    if (slot == nullptr || !slot->active) {
+        return nullptr;
+    }
+
+    return &slot->light;
 }
 
 // ===========================================================================
