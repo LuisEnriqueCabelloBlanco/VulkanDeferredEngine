@@ -127,6 +127,7 @@ private:
     void createNormalResources();
     void createDepthResources();
     void createUniformBuffers();
+    void createShadowResources();
     void createLightBuffer();
     void createCullingBuffers();
     void createDescriptorPool();
