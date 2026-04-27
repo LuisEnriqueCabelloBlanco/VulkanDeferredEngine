@@ -34,7 +34,7 @@ public:
 
 	VkSurfaceKHR getSurface() { return _surface; };
 
-	VkFormat getFormat() { return _swapChainImageFormat; }
+	VkFormat getSwapChainFormat() { return _swapChainImageFormat; }
 
 	VkExtent2D getExtent() { return _swapChainExtent; }
 

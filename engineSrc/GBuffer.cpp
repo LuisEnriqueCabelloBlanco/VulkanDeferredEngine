@@ -47,7 +47,7 @@ void GBuffer::destroy()
 
 void GBuffer::createColorResources( VkExtent2D extent )
 {
-    const VkFormat colorFormat = _window.getFormat();
+    const VkFormat colorFormat = _window.getSwapChainFormat();
 
     _colorTexture = std::make_unique<Texture>( _device );
     _colorTexture->createImage( extent.width, extent.height, 1,
