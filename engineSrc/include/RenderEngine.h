@@ -122,6 +122,7 @@ private:
 
     // --- GPU resources y descriptor layouts ---------------------------------
     void createUniformBuffers();
+    void createShadowResources();
     void createLightBuffer();
     void createCullingBuffers();
     void createDescriptorPool();
