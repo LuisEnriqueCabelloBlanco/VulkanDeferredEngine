@@ -267,6 +267,8 @@ public:
 
 	VkFormat findSupportedFormat( const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features );
 
+	VkFormat findDepthFormat();
+
 	inline void wait() {
 		vkDeviceWaitIdle( _device );
 	}

@@ -24,9 +24,11 @@
     <ClCompile Include="..\..\engineSrc\LightEntityHandle.cpp" />
     <ClCompile Include="..\..\engineSrc\Mesh.cpp" />
     <ClCompile Include="..\..\engineSrc\RenderEntityHandle.cpp" />
+    <ClCompile Include="..\..\engineSrc\GBuffer.cpp" />
     <ClCompile Include="..\..\engineSrc\ResourceManager.cpp" />
     <ClCompile Include="..\..\engineSrc\RenderEngine.cpp" />
     <ClCompile Include="..\..\engineSrc\Scene.cpp" />
+    <ClCompile Include="..\..\engineSrc\ShadowPass.cpp" />
     <ClCompile Include="..\..\engineSrc\SwapChain.cpp" />
     <ClCompile Include="..\..\engineSrc\Texture.cpp" />
     <ClCompile Include="..\..\engineSrc\tinyimage.cpp" />
@@ -42,11 +44,13 @@
     <ClInclude Include="..\..\engineSrc\include\LightEntityHandle.h" />
     <ClInclude Include="..\..\engineSrc\include\Mesh.h" />
     <ClInclude Include="..\..\engineSrc\include\RenderEntityHandle.h" />
+    <ClInclude Include="..\..\engineSrc\include\GBuffer.h" />
     <ClInclude Include="..\..\engineSrc\include\ResourceLimits.h" />
     <ClInclude Include="..\..\engineSrc\include\ResourceManager.h" />
     <ClInclude Include="..\..\engineSrc\include\ResourceHandles.h" />
     <ClInclude Include="..\..\engineSrc\include\RenderEngine.h" />
     <ClInclude Include="..\..\engineSrc\include\Scene.h" />
+    <ClInclude Include="..\..\engineSrc\include\ShadowPass.h" />
     <ClInclude Include="..\..\engineSrc\include\stb_image.h" />
     <ClInclude Include="..\..\engineSrc\include\SwapChain.h" />
     <ClInclude Include="..\..\engineSrc\include\Texture.h" />

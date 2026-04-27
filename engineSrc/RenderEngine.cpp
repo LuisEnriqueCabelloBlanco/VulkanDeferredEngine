@@ -34,6 +34,16 @@ VkResult CreateDebugUtilsMessengerEXT( VkInstance instance, const VkDebugUtilsMe
 
 void RenderEngine::cleanup()
 {
+	if (_gbuffer) {
+		_gbuffer->destroy();
+		_gbuffer.reset();
+	}
+
+	if (_shadowPass) {
+		_shadowPass->destroy();
+		_shadowPass.reset();
+	}
+
 	_resources.releaseAllMaterials();
 	_resources.releaseAllTextures();
 	_resources.releaseAllMeshes();
@@ -73,10 +83,7 @@ void RenderEngine::cleanup()
 	_device.destroyPipelineLayout( _shadowPipelineLayout );
 	_device.destroyPipelineLayout( _objectCullingPipelineLayout );
 
-
-	//vkDestroyRenderPass(_device._device, renderPass, nullptr);
 	_device.destroyRenderPass( renderPass );
-	_device.destroyRenderPass( shadowPass );
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 		_device.destroySemaphore( renderFinishedSemaphores[i] );
@@ -90,24 +97,11 @@ void RenderEngine::cleanup()
 	_device.destroyCommandPool( commandPool );
 	//_device.destroyCommandPool( transferPool );
 
-	//delete msaaTexture;
-	delete depthTexture;
-	delete normalTexture;
-	delete colorTexture;
-	delete posTexture;
-	delete shadowMap;
-
-	for (auto framebuffer : swapChainFramebuffers) {
-		_device.destroyFrameBuffer( framebuffer );
-	}
-	_device.destroyFrameBuffer( _shadowFrameBuffer );
-
 	_window.close();
 
 	_device.close();
 
 	//vkDestroyDevice(device, nullptr);
-
 	if (enableValidationLayers) {
 
 		DestroyDebugUtilsMessengerEXT( instance, debugMessenger, nullptr );
@@ -145,14 +139,16 @@ void RenderEngine::init( const std::string& appName )
 	createViewProjectionDescriptorSetLayout();
 	createIndexedObjectsBufferDescriptorSetLayout();
 
-
 	createComputeDescriptorSetLayout();
 	createComputePipeline();
 
 	createObjectCullPipeline();
 
-	createShadowPass();
 	createShadowDescriptorSetLayout();
+
+	_shadowPass = std::make_unique<ShadowPass>(_device, VkExtent2D{ 512, 512 });
+	_shadowPass->create();
+
 	createShadowPipeline();
 
 	createRenderPass();
@@ -160,19 +156,12 @@ void RenderEngine::init( const std::string& appName )
 	createGraphicsPipeline();
 	createDeferredPipeline();
 
-	createColorResources();
-	createDepthResources();
-	createNormalResources();
-
-	createFramebuffers();
-	createShadowFrameBuffer();
+	_gbuffer = std::make_unique<GBuffer>( _device, _window, renderPass);
+	_gbuffer->create();
 
 	createCommandPool();
 	createCommandBuffers();
 	createSyncObjects();
-
-
-	createDescriptorPool();
 
 	//cracion de recursos
 
@@ -183,6 +172,7 @@ void RenderEngine::init( const std::string& appName )
 	_mainCamera = Camera( glm::vec3( 0, 0, -2.5f ), glm::vec3( 0, 0, 1.f ), glm::vec3( 0.0f, 1.0f, 0.0f ),
 						  90.f, _window.getExtent().width / (float)_window.getExtent().height, 0.1f, 40.f );
 
+	createDescriptorPool();
 
 	createGeometryDescriptorSets();
 	createDeferredDescriptorSets();
@@ -860,69 +850,13 @@ void RenderEngine::createShadowPipeline()
 	pipelineInfo.pColorBlendState = nullptr;
 	pipelineInfo.pDynamicState = &dynamicState;
 	pipelineInfo.layout = _shadowPipelineLayout;
-	pipelineInfo.renderPass = shadowPass;
+	pipelineInfo.renderPass = _shadowPass->getRenderPass();
 	pipelineInfo.subpass = 0;
 
 
 	_shadowPipeline = _device.createPipelines( VK_NULL_HANDLE, { pipelineInfo } )[0];
 
 	_device.destroyShaderModule( vertShaderModule );
-}
-
-void RenderEngine::createFramebuffers()
-{
-	swapChainFramebuffers.resize( _window.getImageViews().size() );
-
-	for (size_t i = 0; i < _window.getImageViews().size(); i++) {
-
-		//el orden debe coincidir con la especificacion realizada en la descripcion de la pipeline
-		std::array<VkImageView, 5> attachments = {
-			_window.getImageViews()[i],
-			depthTexture->textureImageView,
-			colorTexture->textureImageView,
-			normalTexture->textureImageView,
-			posTexture->textureImageView
-			//msaaTexture->textureImageView,
-		};
-
-		VkFramebufferCreateInfo framebufferInfo{};
-		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		framebufferInfo.renderPass = renderPass;
-		framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-		framebufferInfo.pAttachments = attachments.data();
-		framebufferInfo.width = _window.getExtent().width;
-		framebufferInfo.height = _window.getExtent().height;
-		framebufferInfo.layers = 1;
-
-		//if (vkCreateFramebuffer(_device._device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS) {
-		//    throw std::runtime_error("failed to create framebuffer!");
-		//}
-
-		swapChainFramebuffers[i] = _device.createFrameBuffer( framebufferInfo );
-	}
-}
-
-void RenderEngine::createShadowFrameBuffer()
-{
-	//el orden debe coincidir con la especificacion realizada en la descripcion de la pipeline
-	std::array<VkImageView, 1> attachments = {
-		shadowMap->textureImageView
-	};
-
-	VkFramebufferCreateInfo framebufferInfo{};
-	framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-	framebufferInfo.renderPass = shadowPass;
-	framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-	framebufferInfo.pAttachments = attachments.data();
-	framebufferInfo.width = shadowMap->texWidth;
-	framebufferInfo.height = shadowMap->texHeight;
-	framebufferInfo.layers = 1;
-
-	//if (vkCreateFramebuffer(_device._device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS) {
-	//    throw std::runtime_error("failed to create framebuffer!");
-	//}
-
-	_shadowFrameBuffer = _device.createFrameBuffer( framebufferInfo );
 }
 
 void RenderEngine::createCommandPool()
@@ -1021,7 +955,7 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 	recordShadowPass( commandBuffer, objectsArray );
 
 	VkRenderPassBeginInfo renderPassInfo{};
-	renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
+	renderPassInfo.framebuffer = _gbuffer->getFramebuffers()[imageIndex];
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	renderPassInfo.renderPass = renderPass;
 	renderPassInfo.renderArea.offset = { 0, 0 };
@@ -1239,79 +1173,15 @@ void RenderEngine::createSyncObjects()
 
 void RenderEngine::recreateSwapChain()
 {
-	//int width = 0, height = 0;
-	//glfwGetFramebufferSize(_window.window, &width, &height);
-	//
-	//while (width == 0 || height == 0) {
-	//    glfwGetFramebufferSize(_window.window, &width, &height);
-	//    glfwWaitEvents();
-	//}
-
-	//vkDeviceWaitIdle(_device._device);
 	_device.wait();
-
-	cleanupSwapChain();
-
-
+	if (_gbuffer) {
+		_gbuffer->destroy();
+	}
+	_window.cleanUpSwapChain();
 
 	_window.createSwapChain();
 	_mainCamera.setAspectRatio( _window.getExtent().width / static_cast<float>( _window.getExtent().height ) );
-	createColorResources();
-	createDepthResources();
-	createNormalResources();
-
-
-	createFramebuffers();
-}
-
-void RenderEngine::cleanupSwapChain()
-{
-	delete depthTexture;
-	delete colorTexture;
-	delete normalTexture;
-	delete posTexture;
-	//delete msaaTexture;
-
-	for (auto framebuffer : swapChainFramebuffers) {
-		_device.destroyFrameBuffer( framebuffer );
-	}
-
-	//for (auto imageView : swapChainImageViews) {
-	//    _device.destroyImageView( imageView );
-	//}
-
-	//_device.destroySwapchain( swapChain );
-
-	_window.cleanUpSwapChain();
-}
-
-void RenderEngine::createColorResources()
-{
-	VkFormat colorFormat = _window.getFormat();
-
-	//msaaTexture = new Texture(_device);
-
-	//msaaTexture->createImage(_window.getExtent().width, _window.getExtent().height, 1, _device.getMssaSamples(), colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT| VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	//msaaTexture->createImageView(colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
-
-	//VkFormat colorFormat = _window.getFormat();
-	colorTexture = new Texture( _device );
-	colorTexture->createImage( _window.getExtent().width, _window.getExtent().height, 1, VK_SAMPLE_COUNT_1_BIT, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );
-	colorTexture->createImageView( colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1 );
-}
-
-void RenderEngine::createNormalResources()
-{
-
-	VkFormat colorFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
-	normalTexture = new Texture( _device );
-	normalTexture->createImage( _window.getExtent().width, _window.getExtent().height, 1, VK_SAMPLE_COUNT_1_BIT, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );
-	normalTexture->createImageView( colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1 );
-
-
-	posTexture = new Texture( _device );
-	posTexture->createImage( _window.getExtent().width, _window.getExtent().height, 1, VK_SAMPLE_COUNT_1_BIT, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );
-	posTexture->createImageView( colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1 );
+	_gbuffer->create();
 }
 
 void RenderEngine::updateUniformBuffer(uint32_t currentImage, glm::mat4 model) {
@@ -1736,16 +1606,6 @@ void RenderEngine::createIndexedObjectsBufferDescriptorSetLayout()
 	_indexedObjectsBufferDescriptroSetLayout = _device.createDescriptorSetLayout( computeLayout );
 }
 
-
-VkFormat RenderEngine::findDepthFormat()
-{
-	return _device.findSupportedFormat(
-		{ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
-	);
-}
-
 bool RenderEngine::hasStencilComponent( VkFormat format )
 {
 	return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
@@ -1807,31 +1667,12 @@ void RenderEngine::createDescriptorPool()
 
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
 	poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 	poolInfo.pPoolSizes = poolSizes.data();
 	poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 5+5;
 
 	descriptorPool = _device.createDescriptorPool( poolInfo );
-}
-
-void RenderEngine::createDepthResources()
-{
-	VkFormat depthFormat = findDepthFormat();
-
-	depthTexture = new Texture( _device );
-
-	depthTexture->createImage( _window.getExtent().width, _window.getExtent().height, 1, VK_SAMPLE_COUNT_1_BIT, depthFormat,
-							   VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );
-	depthTexture->createImageView( depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1 );
-
-
-
-	shadowMap = new Texture( _device );
-
-	shadowMap->createImage( 1920, 1080, 1, VK_SAMPLE_COUNT_1_BIT, depthFormat,
-							   VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );
-	shadowMap->createImageView( depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1 );
-	shadowMap->createTextureSampler(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER);
 }
 
 
@@ -1943,7 +1784,7 @@ void RenderEngine::updateLightingDescriptorSets()
 
 		VkDescriptorImageInfo inputInfo{};
 		inputInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		inputInfo.imageView = colorTexture->textureImageView;
+		inputInfo.imageView = _gbuffer->getColorTexture()->textureImageView;
 		inputInfo.sampler = VK_NULL_HANDLE;
 
 		descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1957,7 +1798,7 @@ void RenderEngine::updateLightingDescriptorSets()
 
 		VkDescriptorImageInfo inputInfo2{};
 		inputInfo2.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		inputInfo2.imageView = normalTexture->textureImageView;
+		inputInfo2.imageView = _gbuffer->getNormalTexture()->textureImageView;
 		inputInfo2.sampler = VK_NULL_HANDLE;
 
 		descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1971,7 +1812,7 @@ void RenderEngine::updateLightingDescriptorSets()
 
 		VkDescriptorImageInfo inputInfo3{};
 		inputInfo3.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		inputInfo3.imageView = posTexture->textureImageView;
+		inputInfo3.imageView = _gbuffer->getPosTexture()->textureImageView;
 		inputInfo3.sampler = VK_NULL_HANDLE;
 
 		descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1997,7 +1838,7 @@ void RenderEngine::updateLightingDescriptorSets()
 		descriptorWrites[2].dstSet = _globalLightingDescriptorSets[i];
 
 
-		VkDescriptorImageInfo imgInfo = shadowMap->getTextureDescriptor( VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL );
+		VkDescriptorImageInfo imgInfo = _shadowPass->getShadowMap()->getTextureDescriptor( VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL );
 
 		descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		descriptorWrites[4].dstBinding = 6;
@@ -2047,10 +1888,11 @@ void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::v
 	std::vector<int> cullIndex = cullObjects(objectsArray, *_mainLightVPMapped);
 
 	VkRenderPassBeginInfo renderPassInfo{};
-	renderPassInfo.framebuffer = _shadowFrameBuffer;
+	renderPassInfo.framebuffer = _shadowPass->getFramebuffer();
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = shadowPass;
+	renderPassInfo.renderPass = _shadowPass->getRenderPass();
 	renderPassInfo.renderArea.offset = { 0, 0 };
+	const Texture* shadowMap = _shadowPass->getShadowMap();
 	VkExtent2D ext{ shadowMap->texWidth, shadowMap->texHeight };
 	renderPassInfo.renderArea.extent = ext;
 
@@ -2090,26 +1932,8 @@ void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::v
 	}
 
 	vkCmdEndRenderPass( commandBuffer );
-
-	// Transicion del shadow map para lectura en el fragment shader.
-	VkImageMemoryBarrier barrier{};
-	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	barrier.oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-	barrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL;
-	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barrier.image = shadowMap->textureImage;
-	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-	barrier.subresourceRange.baseMipLevel = 0;
-	barrier.subresourceRange.levelCount = 1;
-	barrier.subresourceRange.baseArrayLayer = 0;
-	barrier.subresourceRange.layerCount = 1;
-	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-	vkCmdPipelineBarrier( 
-		commandBuffer,
-		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-		0, 0, nullptr, 0, nullptr, 1, &barrier );
+	// El renderpass de sombras automáticamente ha transicionado la imagen a DEPTH_STENCIL_READ_ONLY_OPTIMAL
+	// según su finalLayout declarado, lista para lectura en el lighting pass
 }
 
 const std::vector<int> RenderEngine::cullObjects( const std::vector<RenderObject>& objs, ViewProjectionData& cameraDesc )
@@ -2236,7 +2060,7 @@ void RenderEngine::createRenderPass()
 	posAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 	VkAttachmentDescription depthAttachment{};
-	depthAttachment.format = findDepthFormat();
+	depthAttachment.format = _device.findDepthFormat();
 	depthAttachment.samples = _msaaSamples;
 	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -2370,51 +2194,6 @@ void RenderEngine::createRenderPass()
 
 	renderPass = _device.createRenderPass( renderPassInfo );
 }
-
-void RenderEngine::createShadowPass()
-{
-	VkAttachmentDescription depthAttachment{};
-	depthAttachment.format = findDepthFormat();
-	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-
-	VkAttachmentReference depthAttachmentRef{};
-	depthAttachmentRef.attachment = 0;
-	depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-	VkSubpassDescription subpass{};
-	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpass.colorAttachmentCount = 0;
-	subpass.pColorAttachments = NULL;
-	subpass.pDepthStencilAttachment = &depthAttachmentRef;
-
-	std::array<VkAttachmentDescription, 1> attachments = { depthAttachment};
-	VkRenderPassCreateInfo renderPassInfo{};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-	renderPassInfo.pAttachments = attachments.data();
-	renderPassInfo.subpassCount = 1;
-	renderPassInfo.pSubpasses = &subpass;
-	renderPassInfo.dependencyCount = 0;
-	renderPassInfo.pDependencies = NULL;
-
-
-	shadowPass = _device.createRenderPass( renderPassInfo );
-}
-
-//void App::framebufferResizeCallback(GLFWwindow* window, int width, int height)
-//{
-//    auto app = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
-//    app->_framebufferResized = true;
-//}
-
-
 
 void RenderEngine::populateDebugMessengerCreateInfo( VkDebugUtilsMessengerCreateInfoEXT& createInfo ) {
 

@@ -11,6 +11,8 @@
 #include "VulkanWindow.h"
 #include "VulkanDevice.h"
 #include "Texture.h"
+#include "GBuffer.h"
+#include "ShadowPass.h"
 #include "BufferObjectsData.h"
 #include "Mesh.h"
 #include "Scene.h"
@@ -104,7 +106,6 @@ private:
 
     // --- Render pass y pipeline creation ------------------------------------
     void createRenderPass();
-    void createShadowPass();
     void createGraphicsPipeline();
     void createDeferredPipeline();
     void createComputePipeline();
@@ -112,20 +113,14 @@ private:
     void createShadowPipeline();
 
     // --- Framebuffer y command infrastructure -------------------------------
-    void createFramebuffers();
-    void createShadowFrameBuffer();
     void createCommandPool();
     void createCommandBuffers();
     void createComputeCommandPool();
     void createComputeCommandBuffer();
     void createSyncObjects();
     void recreateSwapChain();
-    void cleanupSwapChain();
 
     // --- GPU resources y descriptor layouts ---------------------------------
-    void createColorResources();
-    void createNormalResources();
-    void createDepthResources();
     void createUniformBuffers();
     void createLightBuffer();
     void createCullingBuffers();
@@ -171,8 +166,6 @@ private:
     void computeCullObjects(std::vector<RenderObject>& objectsArray);
 
     // --- Misc ---------------------------------------------------------------
-    void loadModels();
-    VkFormat findDepthFormat();
     bool hasStencilComponent(VkFormat format);
     bool AABBFrustrumTest(const AABB& aabb, const glm::mat4& MVP);
 
@@ -204,7 +197,6 @@ private:
     VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
 
-    VkRenderPass shadowPass;
     VkPipelineLayout _shadowPipelineLayout;
     VkPipeline _shadowPipeline;
 
@@ -216,9 +208,6 @@ private:
 
     VkPipelineLayout deferredLayout;
     VkPipeline deferredPipeline;
-
-    std::vector<VkFramebuffer> swapChainFramebuffers;
-    VkFramebuffer _shadowFrameBuffer;
 
     VkCommandPool computeComandPool;
     VkCommandBuffer computeCommandBuffer;
@@ -264,13 +253,8 @@ private:
     VulkanDevice _device;
     ResourceManager _resources;
     VulkanWindow _window;
-
-    // --- GBuffer textures ---------------------------------------------------
-    Texture* depthTexture = nullptr;
-    Texture* normalTexture = nullptr;
-    Texture* colorTexture = nullptr;
-    Texture* posTexture = nullptr;
-    Texture* shadowMap = nullptr;
+    std::unique_ptr<GBuffer> _gbuffer;
+    std::unique_ptr<ShadowPass> _shadowPass;
 
     GlobalLighting _lighting;
 
