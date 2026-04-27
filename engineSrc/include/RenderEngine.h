@@ -13,6 +13,7 @@
 #include "Texture.h"
 #include "GBuffer.h"
 #include "ShadowPass.h"
+#include "RenderPipelines.h"
 #include "BufferObjectsData.h"
 #include "Mesh.h"
 #include "Scene.h"
@@ -104,13 +105,8 @@ private:
     void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
     void setupDebugMessenger();
 
-    // --- Render pass y pipeline creation ------------------------------------
+    // --- Render pass ------------------------------------
     void createRenderPass();
-    void createGraphicsPipeline();
-    void createDeferredPipeline();
-    void createComputePipeline();
-    void createObjectCullPipeline();
-    void createShadowPipeline();
 
     // --- Framebuffer y command infrastructure -------------------------------
     void createCommandPool();
@@ -120,19 +116,11 @@ private:
     void createSyncObjects();
     void recreateSwapChain();
 
-    // --- GPU resources y descriptor layouts ---------------------------------
+    // --- GPU resources y descriptor sets ---------------------------------
     void createUniformBuffers();
     void createLightBuffer();
     void createCullingBuffers();
     void createDescriptorPool();
-
-    void createDescriptorSetLayout();
-    void createComputeDescriptorSetLayout();
-    void createShadowDescriptorSetLayout();
-    void createInputAttachmentDescriptorSetLayout();
-    void createTextureArrayDescriptorSetLayout();
-    void createViewProjectionDescriptorSetLayout();
-    void createIndexedObjectsBufferDescriptorSetLayout();
 
     void createGeometryDescriptorSets();
     void createDeferredDescriptorSets();
@@ -156,7 +144,9 @@ private:
                              const std::vector<int>& cullIndex);
     void recordShadowPass(VkCommandBuffer commandBuffer,
                           const std::vector<RenderObject>& objectsArray);
-    void recordMainRender(VkCommandBuffer commandBuffer);
+    void recordMainRender(VkCommandBuffer commandBuffer, uint32_t imageIndex,
+                         const std::vector<RenderObject>& objectsArray,
+                         const std::vector<int>& cullIndex);
     void pushModelMatrix(VkCommandBuffer commandBuffer, glm::mat4 model = glm::mat4(1));
     void pushTextureIndex(VkCommandBuffer commandBuffer, const MaterialData& material);
 
@@ -194,20 +184,8 @@ private:
     VkQueue computeQueue;
 
     VkRenderPass renderPass;
-    VkPipelineLayout pipelineLayout;
-    VkPipeline graphicsPipeline;
 
-    VkPipelineLayout _shadowPipelineLayout;
-    VkPipeline _shadowPipeline;
-
-    VkPipelineLayout _computeLayout;
-    VkPipeline _computePipeline;
-
-    VkPipelineLayout _objectCullingPipelineLayout;
-    VkPipeline _objectCullingPipeline;
-
-    VkPipelineLayout deferredLayout;
-    VkPipeline deferredPipeline;
+    RenderPipelines _pipelines;
 
     VkCommandPool computeComandPool;
     VkCommandBuffer computeCommandBuffer;
@@ -260,13 +238,6 @@ private:
 
     // --- Descriptor pool y layouts ------------------------------------------
     VkDescriptorPool descriptorPool;
-
-    VkDescriptorSetLayout _inputAttachmentsDescriptorSetLayout;
-    VkDescriptorSetLayout _textureArrayDescriptorSetLayout;
-    VkDescriptorSetLayout _viewProjectionDescriptorSetLayout;
-    VkDescriptorSetLayout _indexedObjectsBufferDescriptroSetLayout;
-    VkDescriptorSetLayout _computeDescriptorSetLayout;
-    VkDescriptorSetLayout deferredDescriptorSetLayout;
 
     std::vector<VkDescriptorSet> _computeDescriptorSet;
     std::vector<VkDescriptorSet> _inputAttachemntsDescriptorSet;

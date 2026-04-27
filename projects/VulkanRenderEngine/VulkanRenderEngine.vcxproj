@@ -25,6 +25,7 @@
     <ClCompile Include="..\..\engineSrc\Mesh.cpp" />
     <ClCompile Include="..\..\engineSrc\RenderEntityHandle.cpp" />
     <ClCompile Include="..\..\engineSrc\GBuffer.cpp" />
+    <ClCompile Include="..\..\engineSrc\RenderPipelines.cpp" />
     <ClCompile Include="..\..\engineSrc\ResourceManager.cpp" />
     <ClCompile Include="..\..\engineSrc\RenderEngine.cpp" />
     <ClCompile Include="..\..\engineSrc\Scene.cpp" />
@@ -45,6 +46,7 @@
     <ClInclude Include="..\..\engineSrc\include\Mesh.h" />
     <ClInclude Include="..\..\engineSrc\include\RenderEntityHandle.h" />
     <ClInclude Include="..\..\engineSrc\include\GBuffer.h" />
+    <ClInclude Include="..\..\engineSrc\include\RenderPipelines.h" />
     <ClInclude Include="..\..\engineSrc\include\ResourceLimits.h" />
     <ClInclude Include="..\..\engineSrc\include\ResourceManager.h" />
     <ClInclude Include="..\..\engineSrc\include\ResourceHandles.h" />
