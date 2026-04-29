@@ -8,6 +8,8 @@
 #include <memory>
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
+#include "VulkanInstance.h"
+#include "MainRenderPass.h"
 #include "VulkanWindow.h"
 #include "VulkanDevice.h"
 #include "Texture.h"
@@ -30,16 +32,6 @@ constexpr int MAX_FRAMES_IN_FLIGHT = ResourceLimits::MAX_FRAMES_IN_FLIGHT;
 constexpr int MAX_CULL_OBJECTS = ResourceLimits::MAX_CULL_OBJECTS;
 
 constexpr int MAX_TEXTURES = ResourceLimits::MAX_TEXTURES;
-
-const std::vector<const char*> validationLayers = {
-    "VK_LAYER_KHRONOS_validation"
-};
-
-#ifdef NDEBUG
-const bool enableValidationLayers = true;
-#else
-const bool enableValidationLayers = true;
-#endif
 
 class RenderEngine
 {
@@ -95,17 +87,6 @@ public:
     }
 
 private:
-
-    // --- Vulkan bootstrap ---------------------------------------------------
-    void createInstance(const std::string& appName);
-    bool checkValidationLayerSupport();
-    std::vector<const char*> getRequiredExtensions();
-    void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
-    void setupDebugMessenger();
-
-    // --- Render pass ------------------------------------
-    void createRenderPass();
-
     // --- Framebuffer y command infrastructure -------------------------------
     void createCommandPool();
     void createCommandBuffers();
@@ -171,16 +152,11 @@ private:
     const uint32_t WIDTH = 800;
     const uint32_t HEIGHT = 600;
 
-    VkInstance instance;
-    VkDebugUtilsMessengerEXT debugMessenger;
-
     VkSampleCountFlagBits _msaaSamples = VK_SAMPLE_COUNT_1_BIT;
 
     VkQueue graphicsQueue;
     VkQueue presentQueue;
     VkQueue computeQueue;
-
-    VkRenderPass renderPass;
 
     RenderPipelines _pipelines;
 
@@ -225,6 +201,8 @@ private:
     // --- Engine objects -----------------------------------------------------
     Camera _mainCamera;
     Scene _scene;
+    VulkanInstance _vulkanInstance;
+    MainRenderPass _mainRenderPass;
     VulkanDevice _device;
     ResourceManager _resources;
     VulkanWindow _window;

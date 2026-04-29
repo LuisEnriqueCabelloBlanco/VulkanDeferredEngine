@@ -6,17 +6,13 @@
 #include <limits>
 #include <algorithm> // Necessary for std::clamp
 
-void VulkanWindow::init(const std::string& windowName, uint32_t w, uint32_t h, VkInstance instance)
+void VulkanWindow::init(const std::string& windowName, uint32_t w, uint32_t h)
 {
     SDL_Init( SDL_INIT_VIDEO | SDL_INIT_EVENTS );
-    //this->_instance = _instance;
     _width = w;
-    _heith = h;
+    _height = h;
     _window = SDL_CreateWindow( windowName.data(), 100, 100, w, h, SDL_WINDOW_VULKAN|SDL_WINDOW_RESIZABLE );
-    //createSurface(_instance);
 }
-
-
 
 void VulkanWindow::createSwapChain()
 {
@@ -82,24 +78,45 @@ void VulkanWindow::createSwapChain()
     }
 }
 
-void VulkanWindow::createSurface(VkInstance& instance)
+void VulkanWindow::createSurface(VkInstance instance)
 {
-    //creamos la superficie para la ventana
-
-    _instance = instance;
-
     if (SDL_Vulkan_CreateSurface( _window, instance, &_surface ) == SDL_bool::SDL_FALSE) {
         throw std::runtime_error(SDL_GetError());
     }
 }
 
-void VulkanWindow::cleanUpSwapChain()
+void VulkanWindow::destroySurface(VkInstance instance)
 {
+    if ( _surface != VK_NULL_HANDLE ) {
+        vkDestroySurfaceKHR( instance, _surface, nullptr );
+        _surface = VK_NULL_HANDLE;
+    }
+}
+
+void VulkanWindow::destroySwapChain()
+{
+    if ( _device == nullptr || _swapchain == VK_NULL_HANDLE ) {
+        return;
+    }
+
     for (auto imageView : _swapChainImageViews) {
         _device->destroyImageView( imageView );
     }
 
     _device->destroySwapchain( _swapchain );
+    _swapChainImageViews.clear();
+    _swapChainImages.clear();
+    _swapchain = VK_NULL_HANDLE;
+}
+
+void VulkanWindow::close()
+{
+    if ( _window != nullptr ) {
+        SDL_DestroyWindow( _window );
+        _window = nullptr;
+    }
+
+    SDL_Quit();
 }
 
 void VulkanWindow::handleWindowEvent( const WindowEvent& ev )
@@ -108,7 +125,7 @@ void VulkanWindow::handleWindowEvent( const WindowEvent& ev )
     {
     case WindowEventType::Resized:
         _width = ev.width;
-        _heith = ev.height;
+        _height = ev.height;
         break;
     default:
         break;
@@ -129,14 +146,6 @@ VkSurfaceFormatKHR VulkanWindow::chooseSwapSurfaceFormat(const std::vector<VkSur
     }
 
     return availableFormats[0];
-}
-
-void VulkanWindow::close()
-{
-    cleanUpSwapChain();
-
-    vkDestroySurfaceKHR(_instance, _surface, nullptr);
-    SDL_DestroyWindow( _window );
 }
 
 VkPresentModeKHR VulkanWindow::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes)

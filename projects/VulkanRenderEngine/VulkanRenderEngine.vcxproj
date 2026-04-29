@@ -22,6 +22,7 @@
     <ClCompile Include="..\..\engineSrc\Buffer.cpp" />
     <ClCompile Include="..\..\engineSrc\Camera.cpp" />
     <ClCompile Include="..\..\engineSrc\LightEntityHandle.cpp" />
+    <ClCompile Include="..\..\engineSrc\MainRenderPass.cpp" />
     <ClCompile Include="..\..\engineSrc\Mesh.cpp" />
     <ClCompile Include="..\..\engineSrc\RenderEntityHandle.cpp" />
     <ClCompile Include="..\..\engineSrc\GBuffer.cpp" />
@@ -36,6 +37,7 @@
     <ClCompile Include="..\..\engineSrc\tinyimage.cpp" />
     <ClCompile Include="..\..\engineSrc\Vertex.cpp" />
     <ClCompile Include="..\..\engineSrc\VulkanDevice.cpp" />
+    <ClCompile Include="..\..\engineSrc\VulkanInstance.cpp" />
     <ClCompile Include="..\..\engineSrc\VulkanWindow.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -44,6 +46,7 @@
     <ClInclude Include="..\..\engineSrc\include\Camera.h" />
     <ClInclude Include="..\..\engineSrc\include\EngineAPI.h" />
     <ClInclude Include="..\..\engineSrc\include\LightEntityHandle.h" />
+    <ClInclude Include="..\..\engineSrc\include\MainRenderPass.h" />
     <ClInclude Include="..\..\engineSrc\include\Mesh.h" />
     <ClInclude Include="..\..\engineSrc\include\RenderEntityHandle.h" />
     <ClInclude Include="..\..\engineSrc\include\GBuffer.h" />
@@ -64,6 +67,7 @@
     <ClInclude Include="..\..\engineSrc\include\Utils.h" />
     <ClInclude Include="..\..\engineSrc\include\Vertex.h" />
     <ClInclude Include="..\..\engineSrc\include\VulkanDevice.h" />
+    <ClInclude Include="..\..\engineSrc\include\VulkanInstance.h" />
     <ClInclude Include="..\..\engineSrc\include\VulkanWindow.h" />
     <ClInclude Include="..\..\engineSrc\include\WindowEvent.h" />
   </ItemGroup>

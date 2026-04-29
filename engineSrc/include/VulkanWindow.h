@@ -15,20 +15,17 @@ public:
 	VulkanWindow() {};
 	~VulkanWindow() {};
 
-	void init(const std::string& windowName, uint32_t w, uint32_t h,VkInstance instance);
-
-	/// <summary>
-	/// Crea la swapchain para el VulkanDevice se debe llamar tras haber creado el device
-	/// </summary>
+	void init(const std::string& windowName, uint32_t w, uint32_t h);
 	void createSwapChain();
+	void createSurface(VkInstance instance);
 
+	void destroySurface(VkInstance instance);
+	void destroySwapChain();
+	void close();
 
 	static void framebufferResizeCallback(SDL_Window* window, int width, int height);
 
-
 	void setDevice(VulkanDevice* vkDv) { _device = vkDv; };
-
-	void close();
 
 	SDL_Window* getWindow() { return _window; };
 
@@ -42,11 +39,8 @@ public:
 
 	VkSwapchainKHR getSwapChain() { return _swapchain; }
 
-	void createSurface(VkInstance& instance);
-
-	void cleanUpSwapChain();
-
 	void handleWindowEvent( const WindowEvent& ev );
+	
 private:
 
 	VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
@@ -54,7 +48,6 @@ private:
 	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 	
 	SDL_Window* _window;
-	VkInstance _instance;
 	VkSurfaceKHR _surface;
 
 	VkSwapchainKHR _swapchain;
@@ -65,8 +58,8 @@ private:
 	std::vector<VkImageView> _swapChainImageViews;
 
 	uint32_t _width;
-	uint32_t _heith;
-	
+	uint32_t _height;
+
 	VulkanDevice* _device;
 
 };
