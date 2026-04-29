@@ -42,6 +42,9 @@
     <ClCompile Include="..\..\engineSrc\RenderEngine.cpp">
       <Filter>Archivos de origen</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\engineSrc\DescriptorManager.cpp">
+      <Filter>Archivos de origen</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\engineSrc\SwapChain.cpp">
       <Filter>Archivos de origen</Filter>
     </ClCompile>
@@ -96,6 +99,9 @@
       <Filter>Archivos de encabezado</Filter>
     </ClInclude>
     <ClInclude Include="..\..\engineSrc\include\RenderEngine.h">
+      <Filter>Archivos de encabezado</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\engineSrc\include\DescriptorManager.h">
       <Filter>Archivos de encabezado</Filter>
     </ClInclude>
     <ClInclude Include="..\..\engineSrc\include\Scene.h">

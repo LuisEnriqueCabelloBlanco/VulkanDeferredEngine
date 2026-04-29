@@ -9,6 +9,7 @@
 #include <glm/glm.hpp>
 
 #include "BufferObjectsData.h"
+#include "ResourceLimits.h"
 #include "Transform.h"
 
 // ---------------------------------------------------------------------------
@@ -35,8 +36,8 @@ private:
 
 // ---------------------------------------------------------------------------
 
-static constexpr uint32_t MAX_ENTITIES = 16384;
-static constexpr uint32_t MAX_LIGHTS   = 4096;
+static constexpr uint32_t MAX_ENTITIES = ResourceLimits::MAX_ENTITIES;
+static constexpr uint32_t MAX_LIGHTS   = ResourceLimits::MAX_LIGHTS;
 
 class RenderEntityHandle;
 class LightEntityHandle;

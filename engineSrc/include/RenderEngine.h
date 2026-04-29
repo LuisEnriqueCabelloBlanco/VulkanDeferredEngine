@@ -21,6 +21,8 @@
 #include "ResourceManager.h"
 #include "WindowEvent.h"
 
+#include "DescriptorManager.h"
+
 #include "Camera.h"
 
 constexpr int MAX_FRAMES_IN_FLIGHT = ResourceLimits::MAX_FRAMES_IN_FLIGHT;
@@ -84,10 +86,6 @@ public:
     Camera& getMainCamera() { return _mainCamera; }
     void    handleWindowEvent(const WindowEvent& event);
 
-    // --- Actualizacion explicita de descriptors (post-resize, post-load) ----
-    void updateGeometryDescriptorSets();
-    void updateLightingDescriptorSets();
-
     // --- Utilidades ---------------------------------------------------------
     void generateMipmaps(VkImage image, VkFormat imageFormat,
         int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
@@ -115,24 +113,23 @@ private:
     void createComputeCommandBuffer();
     void createSyncObjects();
     void recreateSwapChain();
+    void performSwapChainRecreation();
 
     // --- GPU resources y descriptor sets ---------------------------------
     void createUniformBuffers();
     void createLightBuffer();
     void createCullingBuffers();
-    void createDescriptorPool();
 
-    void createGeometryDescriptorSets();
-    void createDeferredDescriptorSets();
-    void createComputeDescriptorSets();
-    void createObjectCullDescriptorSets();
-    void createShadowDescriptorSet();
+    // --- Updates de descriptors -------------------------------------------
+    // Llamar en init() o cuando cambien buffers/texturas/swapchain.
+    void updateComputeDescriptorSet();   // tras crear buffers de culling / lighting
+    void updateShadowDescriptorSet();    // tras crear el buffer de VP de la main light
+    void updateCullDescriptorSet();      // tras crear buffers de culling
+    void updateGeometryDescriptors();     // tras cargar/liberar texturas
+    void updateLightingDescriptors();     // tras resize / recrear GBuffer o shadow map
 
     // --- Runtime updates ----------------------------------------------------
     void updateUniformBuffer(uint32_t currentImage, glm::mat4 model);
-    void updateComputeDescriptorSet();
-    void updateShadowDescriptorSet();
-    void updateCullDescriptorSet();
 
     // Vuelca la light queue de la escena al storage buffer de GPU.
     // Llamado cada frame desde drawFrame(), no desde la API publica.
@@ -197,7 +194,7 @@ private:
     std::vector<VkSemaphore> renderFinishedSemaphores;
     std::vector<VkFence> inFlightFences;
 
-    bool _framebufferResized = false;
+    bool _swapChainRecreationPending = false;
     uint32_t currentFrame = 0;
 
     // --- GPU buffers --------------------------------------------------------
@@ -236,19 +233,8 @@ private:
 
     GlobalLighting _lighting;
 
-    // --- Descriptor pool y layouts ------------------------------------------
-    VkDescriptorPool descriptorPool;
-
-    std::vector<VkDescriptorSet> _computeDescriptorSet;
-    std::vector<VkDescriptorSet> _inputAttachemntsDescriptorSet;
-    std::vector<VkDescriptorSet> _cameraDescriptorSet;
-    std::vector<VkDescriptorSet> _globalLightingDescriptorSets;
-
-    VkDescriptorSet _textureArrayDescriptorSet;
-    VkDescriptorSet _mainLightDescriptorSet;     // VP de la main light para shadow pass
-    VkDescriptorSet _lightsDataBufferDescriptroSet;
-    VkDescriptorSet _cameraCullDescriptorSet;
-    VkDescriptorSet _lightCullDescriptorSet;
+    // --- Descriptor manager -----------------------------------------------
+    DescriptorManager _descriptors;
 
 };
 

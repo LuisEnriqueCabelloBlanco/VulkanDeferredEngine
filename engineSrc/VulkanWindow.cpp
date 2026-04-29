@@ -117,10 +117,7 @@ void VulkanWindow::handleWindowEvent( const WindowEvent& ev )
 
 void VulkanWindow::framebufferResizeCallback(SDL_Window* window, int width, int height)
 {
-    //auto app = reinterpret_cast<VulkanWindow*>(glfwGetWindowUserPointer(window));
-    //app->_framebufferResized = true;
-    //app->_width = width;
-    //app->_heith = height;
+    // Reservado para integracion con callbacks nativos si se decide usar resize reactivo.
 }
 
 VkSurfaceFormatKHR VulkanWindow::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)

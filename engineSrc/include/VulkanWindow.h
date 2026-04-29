@@ -66,7 +66,6 @@ private:
 
 	uint32_t _width;
 	uint32_t _heith;
-	bool _framebufferResized = false;
 	
 	VulkanDevice* _device;
 

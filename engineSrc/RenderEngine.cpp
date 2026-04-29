@@ -63,7 +63,7 @@ void RenderEngine::cleanup()
 	delete _cameraCulledObjectIndex;
 	delete _mainLightVPBuffer;
 
-	_device.destroyDescriptorPool( descriptorPool );
+	_descriptors.destroy();
 
 	_pipelines.destroy();
 
@@ -99,7 +99,7 @@ RenderEngine::RenderEngine() : _resources( _device )
 {
 	_resources.setTextureBindingsChangedCallback( [this]() {
 		_device.wait();
-		updateGeometryDescriptorSets();
+		updateGeometryDescriptors();
 	} );
 }
 
@@ -142,21 +142,16 @@ void RenderEngine::init( const std::string& appName )
 	createCullingBuffers();
 
 	_mainCamera = Camera( glm::vec3( 0, 0, -2.5f ), glm::vec3( 0, 0, 1.f ), glm::vec3( 0.0f, 1.0f, 0.0f ),
-						  90.f, _window.getExtent().width / (float)_window.getExtent().height, 0.1f, 40.f );
+				  90.f, _window.getExtent().width / (float)_window.getExtent().height, 0.1f, 40.f );
 
-	createDescriptorPool();
+	// Inicializamos el DescriptorManager
+	_descriptors.init( _device, _pipelines );
 
-	createGeometryDescriptorSets();
-	createDeferredDescriptorSets();
-	createComputeDescriptorSets();
-	createShadowDescriptorSet();
-	createObjectCullDescriptorSets();
-
-	updateGeometryDescriptorSets();
-	updateLightingDescriptorSets();
 	updateComputeDescriptorSet();
 	updateShadowDescriptorSet();
 	updateCullDescriptorSet();
+	updateGeometryDescriptors();
+	updateLightingDescriptors();
 
 }
 
@@ -364,7 +359,7 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 
 	vkCmdBindPipeline( commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _pipelines.getComputePipeline());
 
-	VkDescriptorSet computeSets[] = {_lightsDataBufferDescriptroSet,_computeDescriptorSet[currentFrame] };
+	VkDescriptorSet computeSets[] = {_descriptors.getLightsDataBufferSet(), _descriptors.getComputeSet(currentFrame) };
 
 	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _pipelines.getComputeLayout(), 0, 2, computeSets, 0, nullptr);
 
@@ -402,7 +397,7 @@ void RenderEngine::recordMainRender( VkCommandBuffer commandBuffer, uint32_t ima
 
 	vkCmdBeginRenderPass( commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
 
-	VkDescriptorSet descriptors[] = { _cameraDescriptorSet[currentFrame], _textureArrayDescriptorSet };
+	VkDescriptorSet descriptors[] = { _descriptors.getCameraSet(currentFrame), _descriptors.getTextureArraySet() };
 	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelines.getGraphicsLayout(), 0, 2, descriptors, 0, nullptr );
 	vkCmdBindPipeline( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelines.getGraphicsPipeline() );
 
@@ -442,10 +437,10 @@ void RenderEngine::recordMainRender( VkCommandBuffer commandBuffer, uint32_t ima
 	vkCmdNextSubpass( commandBuffer, VK_SUBPASS_CONTENTS_INLINE );
 
 	VkDescriptorSet sets[] = {
-		_inputAttachemntsDescriptorSet[currentFrame],
-		_mainLightDescriptorSet,
-		_lightsDataBufferDescriptroSet,
-		_globalLightingDescriptorSets[currentFrame]
+		_descriptors.getInputAttachmentsSet(currentFrame),
+		_descriptors.getMainLightSet(),
+		_descriptors.getLightsDataBufferSet(),
+		_descriptors.getGlobalLightingSet(currentFrame)
 	};
 
 	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelines.getDeferredLayout(), 0, 4, sets, 0, nullptr );
@@ -470,11 +465,8 @@ Present the swap chain image
 */
 void RenderEngine::drawFrame()
 {
-	if (_framebufferResized) {
-		recreateSwapChain();
-		updateGeometryDescriptorSets();
-		updateLightingDescriptorSets();
-		_framebufferResized = false;
+	if (_swapChainRecreationPending) {
+		performSwapChainRecreation();
 		return;
 	}
 
@@ -488,9 +480,7 @@ void RenderEngine::drawFrame()
 
 
 	if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-		recreateSwapChain();
-		updateGeometryDescriptorSets();
-		updateLightingDescriptorSets();
+		performSwapChainRecreation();
 		return;
 	}
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
@@ -549,13 +539,9 @@ void RenderEngine::drawFrame()
 
 	result = vkQueuePresentKHR( presentQueue, &presentInfo );
 
-	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || _framebufferResized)
+	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || _swapChainRecreationPending)
 	{
-		_framebufferResized = false;
-		recreateSwapChain();
-
-		updateGeometryDescriptorSets();
-		updateLightingDescriptorSets();
+		performSwapChainRecreation();
 	}
 	else if (result != VK_SUCCESS) {
 		throw std::runtime_error( "failed to present swap chain image!" );
@@ -611,6 +597,13 @@ void RenderEngine::recreateSwapChain()
 	_gbuffer->create();
 }
 
+void RenderEngine::performSwapChainRecreation()
+{
+	recreateSwapChain();
+	updateLightingDescriptors();
+	_swapChainRecreationPending = false;
+}
+
 void RenderEngine::updateUniformBuffer(uint32_t currentImage, glm::mat4 model) {
 	ViewProjectionData ubo{};
 	ubo.view = _mainCamera.getViewMatrix();
@@ -640,140 +633,35 @@ void RenderEngine::updateUniformBuffer(uint32_t currentImage, glm::mat4 model) {
 
 void RenderEngine::updateComputeDescriptorSet()
 {
-	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-
-		int size = 3;
-
-		std::vector<VkWriteDescriptorSet> descriptorWrites( size );
-
-		VkDescriptorBufferInfo bufferInfo{};
-		bufferInfo.buffer = _lightIndexStorage->getBuffer();
-		bufferInfo.offset = 0;
-		bufferInfo.range = sizeof( int ) + (sizeof( int ) * MAX_LIGHTS);
-
-		descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrites[0].dstBinding = 0;
-		descriptorWrites[0].dstArrayElement = 0;
-		descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		descriptorWrites[0].descriptorCount = 1;
-		descriptorWrites[0].pBufferInfo = &bufferInfo;
-		descriptorWrites[0].dstSet = _lightsDataBufferDescriptroSet;
-
-		VkDescriptorBufferInfo storageBufferInfo2;
-		storageBufferInfo2.buffer = _lightBufferStorage->getBuffer();
-		storageBufferInfo2.offset = 0;
-		storageBufferInfo2.range = sizeof( int ) + (sizeof(LightObject) * MAX_LIGHTS) + sizeof( uint8_t ) * 16;
-
-		descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrites[1].dstBinding = 1;
-		descriptorWrites[1].dstArrayElement = 0;
-		descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		descriptorWrites[1].descriptorCount = 1;
-		descriptorWrites[1].pBufferInfo = &storageBufferInfo2;
-		descriptorWrites[1].dstSet = _lightsDataBufferDescriptroSet;
-
-		VkDescriptorBufferInfo lightBuffer;
-		lightBuffer.buffer = _lightUniformBuffer->getBuffer();
-		lightBuffer.offset = 0;
-		lightBuffer.range = sizeof( GlobalLighting );
-
-		descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrites[2].dstBinding = 2;
-		descriptorWrites[2].dstArrayElement = 0;
-		descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		descriptorWrites[2].descriptorCount = 1;
-		descriptorWrites[2].pBufferInfo = &lightBuffer;
-		descriptorWrites[2].dstSet = _computeDescriptorSet[i];
-
-
-		_device.updateDescriptorSet( descriptorWrites );
-	}
+	_descriptors.updateCompute( _lightUniformBuffer );
 }
 
 void RenderEngine::updateShadowDescriptorSet()
 {
-	int size = 1;
-
-	std::vector<VkWriteDescriptorSet> descriptorWrites( size );
-
-	VkDescriptorBufferInfo bufferInfo{};
-	bufferInfo.buffer = _mainLightVPBuffer->getBuffer();
-	bufferInfo.offset = 0;
-	bufferInfo.range = sizeof( ViewProjectionData );
-
-	descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	descriptorWrites[0].dstBinding = 0;
-	descriptorWrites[0].dstArrayElement = 0;
-	descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	descriptorWrites[0].descriptorCount = 1;
-	descriptorWrites[0].pBufferInfo = &bufferInfo;
-	descriptorWrites[0].dstSet = _mainLightDescriptorSet;
-
-	_device.updateDescriptorSet( descriptorWrites );
+	_descriptors.updateShadow( _mainLightVPBuffer );
 }
 
 void RenderEngine::updateCullDescriptorSet()
 {
-	int size = 4;
-
-	std::vector<VkWriteDescriptorSet> descriptorWrites( size );
-
-	VkDescriptorBufferInfo bufferInfo{};
-	bufferInfo.buffer = _cameraCulledObjectIndex->getBuffer();
-	bufferInfo.offset = 0;
-	bufferInfo.range = VK_WHOLE_SIZE;
-
-	descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	descriptorWrites[0].dstBinding = 0;
-	descriptorWrites[0].dstArrayElement = 0;
-	descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	descriptorWrites[0].descriptorCount = 1;
-	descriptorWrites[0].pBufferInfo = &bufferInfo;
-	descriptorWrites[0].dstSet = _cameraCullDescriptorSet;
-
-	VkDescriptorBufferInfo bufferInfo2{};
-	bufferInfo2.buffer = _AABBModelStorage->getBuffer();
-	bufferInfo2.offset = 0;
-	bufferInfo2.range = VK_WHOLE_SIZE;
-
-	descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	descriptorWrites[1].dstBinding = 1;
-	descriptorWrites[1].dstArrayElement = 0;
-	descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	descriptorWrites[1].descriptorCount = 1;
-	descriptorWrites[1].pBufferInfo = &bufferInfo2;
-	descriptorWrites[1].dstSet = _cameraCullDescriptorSet;
-
-
-	VkDescriptorBufferInfo bufferInfo3{};
-	bufferInfo3.buffer = _lightCulledObjectIndex->getBuffer();
-	bufferInfo3.offset = 0;
-	bufferInfo3.range = VK_WHOLE_SIZE;
-
-	descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	descriptorWrites[2].dstBinding = 0;
-	descriptorWrites[2].dstArrayElement = 0;
-	descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	descriptorWrites[2].descriptorCount = 1;
-	descriptorWrites[2].pBufferInfo = &bufferInfo3;
-	descriptorWrites[2].dstSet = _lightCullDescriptorSet;
-
-	VkDescriptorBufferInfo bufferInfo4{};
-	bufferInfo4.buffer = _AABBModelStorage->getBuffer();
-	bufferInfo4.offset = 0;
-	bufferInfo4.range = VK_WHOLE_SIZE;
-
-	descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	descriptorWrites[3].dstBinding = 1;
-	descriptorWrites[3].dstArrayElement = 0;
-	descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	descriptorWrites[3].descriptorCount = 1;
-	descriptorWrites[3].pBufferInfo = &bufferInfo4;
-	descriptorWrites[3].dstSet = _lightCullDescriptorSet;
-
-	_device.updateDescriptorSet( descriptorWrites );
+	_descriptors.updateCulling( _AABBModelStorage,
+								 _lightIndexStorage,
+								 _lightBufferStorage,
+								_cameraCulledObjectIndex,
+								_lightCulledObjectIndex );
 }
 
+void RenderEngine::updateGeometryDescriptors()
+{
+	_descriptors.updateGeometry( uniformBuffers,
+								 _resources.getLiveTextureEntries() );
+}
+
+void RenderEngine::updateLightingDescriptors()
+{
+	_descriptors.updateLighting( *_gbuffer,
+								 *_shadowPass,
+								 _lightUniformBuffer );
+}
 
 void RenderEngine::createLightBuffer()
 {
@@ -852,7 +740,7 @@ void RenderEngine::uploadLightBuffer(const std::vector<LightObject>& lights) {
 void RenderEngine::handleWindowEvent( const WindowEvent& event )
 {
 	if (event.type == WindowEventType::Resized) {
-		_framebufferResized = true;
+		_swapChainRecreationPending = true;
 	}
 	_window.handleWindowEvent( event );
 }
@@ -898,224 +786,6 @@ void RenderEngine::createUniformBuffers()
 					   reinterpret_cast<void**>( &_mainLightVPMapped ) );
 }
 
-void RenderEngine::createDescriptorPool()
-{
-	int numOfInputAttachments = 3;
-
-	int numOfUniformBuffres = 4;
-
-	int numOfStorageBuffers = 6;
-
-	std::array<VkDescriptorPoolSize, 4> poolSizes{};
-	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * numOfUniformBuffres+1;
-	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_TEXTURES) + static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-	poolSizes[2].type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
-	poolSizes[2].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * numOfInputAttachments * 2;
-	poolSizes[3].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	poolSizes[3].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)*numOfStorageBuffers;
-
-	VkDescriptorPoolCreateInfo poolInfo{};
-	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-	poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
-	poolInfo.pPoolSizes = poolSizes.data();
-	poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 5+5;
-
-	descriptorPool = _device.createDescriptorPool( poolInfo );
-}
-
-void RenderEngine::createGeometryDescriptorSets()
-{
-
-	std::vector<VkDescriptorSetLayout> layouts( MAX_FRAMES_IN_FLIGHT, _pipelines.getViewProjectionLayout());
-
-
-	_cameraDescriptorSet = _device.createDescriptorSets( layouts, descriptorPool);
-
-
-	//adicion que permite tener arrays de tamanio variable en los shaders de texturas
-	std::vector<VkDescriptorSetLayout> layouts2( 1, _pipelines.getTextureArrayLayout() );
-	uint32_t counts = static_cast<uint32_t>(MAX_TEXTURES);
-	VkDescriptorSetVariableDescriptorCountAllocateInfo set_counts = {};
-	set_counts.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
-	set_counts.descriptorSetCount = 1;
-	set_counts.pDescriptorCounts = &counts;
-
-	_textureArrayDescriptorSet = _device.createDescriptorSets( layouts2, descriptorPool,&set_counts )[0];
-
-}
-
-void RenderEngine::createDeferredDescriptorSets() 
-{
-    std::vector<VkDescriptorSetLayout> layouts1( MAX_FRAMES_IN_FLIGHT, _pipelines.getDeferredDescriptorLayout() );
-    _globalLightingDescriptorSets = _device.createDescriptorSets( layouts1, descriptorPool );
-
-    std::vector<VkDescriptorSetLayout> layouts2( MAX_FRAMES_IN_FLIGHT, _pipelines.getInputAttachmentsLayout() );
-    _inputAttachemntsDescriptorSet = _device.createDescriptorSets( layouts2, descriptorPool );
-
-    std::vector<VkDescriptorSetLayout> layouts3( 1, _pipelines.getIndexedObjectsBufferLayout() );
-    _lightsDataBufferDescriptroSet = _device.createDescriptorSets( layouts3, descriptorPool )[0];
-}
-
-void RenderEngine::createComputeDescriptorSets()
-{
-	std::vector<VkDescriptorSetLayout> layouts( MAX_FRAMES_IN_FLIGHT, _pipelines.getComputeDescriptorLayout() );
-	_computeDescriptorSet = _device.createDescriptorSets( layouts, descriptorPool );
-}
-
-void RenderEngine::createObjectCullDescriptorSets()
-{
-	std::vector<VkDescriptorSetLayout> layouts( MAX_FRAMES_IN_FLIGHT, _pipelines.getIndexedObjectsBufferLayout() );
-	_cameraCullDescriptorSet = _device.createDescriptorSets( layouts, descriptorPool )[0];
-	_lightCullDescriptorSet = _device.createDescriptorSets( layouts, descriptorPool )[0];
-}
-
-void RenderEngine::createShadowDescriptorSet() 
-{
-    // _mainLightDescriptorSet: VP de la main light, binding 0 del shadow pipeline
-    std::vector<VkDescriptorSetLayout> layouts( 1, _pipelines.getViewProjectionLayout() );
-    _mainLightDescriptorSet = _device.createDescriptorSets( layouts, descriptorPool )[0];
-}
-
-void RenderEngine::updateGeometryDescriptorSets()
-{
-	const std::vector<ResourceManager::TextureBindingEntry> textureEntries = _resources.getLiveTextureEntries();
-
-	if (textureEntries.size() > static_cast<size_t>(MAX_TEXTURES)) {
-		throw std::runtime_error( "RenderEngine::updateGeometryDescriptorSets exceeded MAX_TEXTURES" );
-	}
-
-	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-
-		std::vector<VkWriteDescriptorSet> descriptorWrites( 1 + textureEntries.size() );
-
-		VkDescriptorBufferInfo bufferInfo{};
-		bufferInfo.buffer = uniformBuffers[i]->getBuffer();
-		bufferInfo.offset = 0;
-		bufferInfo.range = sizeof( ViewProjectionData );
-
-		descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrites[0].dstBinding = 0;
-		descriptorWrites[0].dstArrayElement = 0;
-		descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		descriptorWrites[0].descriptorCount = 1;
-		descriptorWrites[0].pBufferInfo = &bufferInfo;
-		descriptorWrites[0].dstSet = _cameraDescriptorSet[i];
-
-		std::vector<VkDescriptorImageInfo> imagesDesc;
-		imagesDesc.reserve( textureEntries.size() );
-
-		for (size_t textureWriteIndex = 0; textureWriteIndex < textureEntries.size(); ++textureWriteIndex) {
-			imagesDesc.push_back( textureEntries[textureWriteIndex].texture->getTextureDescriptor() );
-
-			VkWriteDescriptorSet& write = descriptorWrites[textureWriteIndex + 1];
-			write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			write.dstBinding = 0;
-			write.dstArrayElement = textureEntries[textureWriteIndex].index;
-			write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-			write.descriptorCount = 1;
-			write.pImageInfo = &imagesDesc[textureWriteIndex];
-			write.pBufferInfo = VK_NULL_HANDLE;
-			write.dstSet = _textureArrayDescriptorSet;
-		}
-
-		_device.updateDescriptorSet( descriptorWrites );
-	}
-}
-
-void RenderEngine::updateLightingDescriptorSets()
-{
-	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-
-		std::vector<VkWriteDescriptorSet> descriptorWrites( 6 );
-
-		VkDescriptorImageInfo inputInfo{};
-		inputInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		inputInfo.imageView = _gbuffer->getColorTexture()->textureImageView;
-		inputInfo.sampler = VK_NULL_HANDLE;
-
-		descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrites[0].dstBinding = 0;
-		descriptorWrites[0].dstArrayElement = 0;
-		descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
-		descriptorWrites[0].descriptorCount = 1;
-		descriptorWrites[0].pImageInfo = &inputInfo;
-		descriptorWrites[0].dstSet = _inputAttachemntsDescriptorSet[i];
-
-
-		VkDescriptorImageInfo inputInfo2{};
-		inputInfo2.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		inputInfo2.imageView = _gbuffer->getNormalTexture()->textureImageView;
-		inputInfo2.sampler = VK_NULL_HANDLE;
-
-		descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrites[1].dstBinding = 1;
-		descriptorWrites[1].dstArrayElement = 0;
-		descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
-		descriptorWrites[1].descriptorCount = 1;
-		descriptorWrites[1].pImageInfo = &inputInfo2;
-		descriptorWrites[1].dstSet = _inputAttachemntsDescriptorSet[i];
-
-
-		VkDescriptorImageInfo inputInfo3{};
-		inputInfo3.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		inputInfo3.imageView = _gbuffer->getPosTexture()->textureImageView;
-		inputInfo3.sampler = VK_NULL_HANDLE;
-
-		descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrites[2].dstBinding = 2;
-		descriptorWrites[2].dstArrayElement = 0;
-		descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
-		descriptorWrites[2].descriptorCount = 1;
-		descriptorWrites[2].pImageInfo = &inputInfo3;
-		descriptorWrites[2].dstSet = _inputAttachemntsDescriptorSet[i];
-
-
-		VkDescriptorBufferInfo lightBuffer;
-		lightBuffer.buffer = _lightUniformBuffer->getBuffer();
-		lightBuffer.offset = 0;
-		lightBuffer.range = sizeof( GlobalLighting );
-
-		descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrites[3].dstBinding = 3;
-		descriptorWrites[3].dstArrayElement = 0;
-		descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		descriptorWrites[3].descriptorCount = 1;
-		descriptorWrites[3].pBufferInfo = &lightBuffer;
-		descriptorWrites[3].dstSet = _globalLightingDescriptorSets[i];
-
-
-		VkDescriptorImageInfo imgInfo = _shadowPass->getShadowMap()->getTextureDescriptor( VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL );
-
-		descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrites[4].dstBinding = 6;
-		descriptorWrites[4].dstArrayElement = 0;
-		descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		descriptorWrites[4].descriptorCount = 1;
-		descriptorWrites[4].pImageInfo = &imgInfo;
-		descriptorWrites[4].pBufferInfo = VK_NULL_HANDLE;
-		descriptorWrites[4].dstSet = _globalLightingDescriptorSets[i];
-
-		VkDescriptorBufferInfo bufferInfo{};
-		bufferInfo.buffer = _mainLightVPBuffer->getBuffer();
-		bufferInfo.offset = 0;
-		bufferInfo.range = sizeof( ViewProjectionData );
-
-		descriptorWrites[5].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrites[5].dstBinding = 0;
-		descriptorWrites[5].dstArrayElement = 0;
-		descriptorWrites[5].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		descriptorWrites[5].descriptorCount = 1;
-		descriptorWrites[5].pBufferInfo = &bufferInfo;
-		descriptorWrites[5].dstSet = _mainLightDescriptorSet;
-
-
-		//descriptorWritesVec.push_back( std::move( descriptorWrites ) );
-		_device.updateDescriptorSet( descriptorWrites );
-	}
-}
 
 void RenderEngine::pushModelMatrix( VkCommandBuffer commnadBuffer, glm::mat4 model )
 {
@@ -1152,7 +822,8 @@ void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::v
 
 	//tomamos los datos de paso de renderizado
 	vkCmdBeginRenderPass( commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
-	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelines.getShadowLayout(), 0, 1, &_mainLightDescriptorSet, 0, nullptr );
+	VkDescriptorSet shadowSet = _descriptors.getMainLightSet();
+	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelines.getShadowLayout(), 0, 1, &shadowSet, 0, nullptr );
 	//Aplicamos la pipeline definida
 	vkCmdBindPipeline( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelines.getShadowPipeline());
 
