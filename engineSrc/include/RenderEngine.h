@@ -28,6 +28,7 @@
 #include "Camera.h"
 
 #include "CullManager.h"
+#include "GPUBufferManager.h"
 
 constexpr int MAX_FRAMES_IN_FLIGHT = ResourceLimits::MAX_FRAMES_IN_FLIGHT;
 
@@ -98,10 +99,6 @@ private:
     void recreateSwapChain();
     void performSwapChainRecreation();
 
-    // --- GPU resources y descriptor sets ---------------------------------
-    void createUniformBuffers();
-    void createLightBuffer();
-    void createCullingBuffers();
 
     // --- Updates de descriptors -------------------------------------------
     // Llamar en init() o cuando cambien buffers/texturas/swapchain.
@@ -111,12 +108,6 @@ private:
     void updateGeometryDescriptors();     // tras cargar/liberar texturas
     void updateLightingDescriptors();     // tras resize / recrear GBuffer o shadow map
 
-    // --- Runtime updates ----------------------------------------------------
-    void updateUniformBuffer(uint32_t currentImage, glm::mat4 model);
-
-    // Vuelca la light queue de la escena al storage buffer de GPU.
-    // Llamado cada frame desde drawFrame(), no desde la API publica.
-    void uploadLightBuffer(const std::vector<LightObject>& lights);
 
     // --- Recording y culling ------------------------------------------------
     void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex,
@@ -173,29 +164,7 @@ private:
     uint32_t currentFrame = 0;
 
     // --- GPU buffers --------------------------------------------------------
-    std::vector<Buffer*> uniformBuffers;
-    std::vector<void*>   uniformBuffersMapped;
-
-    Buffer* _lightUniformBuffer = nullptr;   // GlobalLighting UBO (eyePos, ambient)
-    void* _lightBufferMapped = nullptr;
-
-    Buffer* _lightBufferStorage = nullptr;   // Storage buffer con todos los LightObjects
-    void* _lightBufferStorageMapped = nullptr;
-
-    Buffer* _lightIndexStorage;
-    Buffer* _AABBModelStorage;
-    void* _AABBModelStorageMapped;
-
-    Buffer* _lightCulledObjectIndex;
-    int* _lightCulledObjectIndexMapped;
-
-    Buffer* _cameraCulledObjectIndex;
-    int* _cameraCulledObjectIndexMapped;
-
-    // Shadow pass: VP desde el punto de vista de la main light.
-    // Se calcula en updateUniformBuffer() consultando _scene.tryGetMainLight().
-    Buffer* _mainLightVPBuffer = nullptr;   // UBO ViewProjectionData
-    ViewProjectionData* _mainLightVPMapped = nullptr;
+    GPUBufferManager _buffers;
 
     // --- Engine objects -----------------------------------------------------
     Camera _mainCamera;

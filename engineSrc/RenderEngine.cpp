@@ -22,19 +22,9 @@ void RenderEngine::cleanup()
 	_resources.releaseAllMeshes();
 	_resources.clear();
 
-	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		delete uniformBuffers[i];
-	}
+	_buffers.destroy();
 
 	_window.destroySwapChain();
-
-	delete _lightUniformBuffer;
-	delete _lightBufferStorage;
-	delete _lightIndexStorage;
-	delete _AABBModelStorage;
-	delete _lightCulledObjectIndex;
-	delete _cameraCulledObjectIndex;
-	delete _mainLightVPBuffer;
 
 	_descriptors.destroy();
 	_mainRenderPass.destroy();
@@ -43,9 +33,6 @@ void RenderEngine::cleanup()
 		_device.destroySemaphore( renderFinishedSemaphores[i] );
 		_device.destroySemaphore( imageAviablesSemaphores[i] );
 		_device.destroyFence( inFlightFences[i] );
-		/* vkDestroySemaphore(_device._device,renderFinishedSemaphores[i],nullptr);
-		 vkDestroySemaphore(_device._device, imageAviablesSemaphores[i], nullptr);
-		 vkDestroyFence(_device._device, inFlightFences[i], nullptr);*/
 	}
 
 	_device.destroyCommandPool( commandPool );
@@ -94,11 +81,7 @@ void RenderEngine::init( const std::string& appName )
 	createCommandBuffers();
 	createSyncObjects();
 
-	//cracion de recursos
-
-	createUniformBuffers();
-	createLightBuffer();
-	createCullingBuffers();
+	_buffers.init( _device );
 
 	_mainCamera = Camera( glm::vec3( 0, 0, -2.5f ), glm::vec3( 0, 0, 1.f ), glm::vec3( 0.0f, 1.0f, 0.0f ),
 				  90.f, _window.getExtent().width / (float)_window.getExtent().height, 0.1f, 40.f );
@@ -190,7 +173,7 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 
 	VkBufferMemoryBarrier memBarr;
 	memBarr.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-	memBarr.buffer = _lightIndexStorage->getBuffer();
+	memBarr.buffer = _buffers.getLightIndexStorage()->getBuffer();
 	memBarr.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 	memBarr.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
 	memBarr.offset = 0;
@@ -339,15 +322,36 @@ void RenderEngine::drawFrame()
 	std::vector<ViewProjectionData> cullVPs;
 	cullVPs.push_back( camDesc );
 	if ( hasShadows ) {
-		cullVPs.push_back( *_mainLightVPMapped );
+		cullVPs.push_back( *_buffers.getMainLightVPMapped() );
 	}
 
 	auto cullResults = _culler.cullObjects( objectsArray, cullVPs, _resources );
 	const std::vector<int>& cameraVisible = cullResults[0];
 	const std::vector<int>& mainLightVisible = hasShadows ? cullResults[1] : cameraVisible;
 
-	updateUniformBuffer( currentFrame, glm::mat4( 1.0f ) );
-	uploadLightBuffer(lightQueue);
+	// Update de buffers de cámara, luces y VP de la main light
+	ViewProjectionData camVP;
+	camVP.view = _mainCamera.getViewMatrix();
+	camVP.proj = _mainCamera.getProjMatrix();
+	_buffers.writeCameraVP( currentFrame, camVP );
+
+	_lighting.eyePos = _mainCamera.getPos();
+	_buffers.writeLighting( _lighting );
+
+	// VP de la main light para shadow pass
+	{
+		ViewProjectionData lightVP;
+		float ratio = _window.getExtent().width / static_cast<float>( _window.getExtent().height );
+		constexpr float scale = 20.f;
+		lightVP.proj = glm::ortho( -ratio * scale, ratio * scale, scale, -scale, 0.01f, 100.f );
+		const LightObject* mainLight = _scene.tryGetMainLight();
+		glm::vec3 lightDir = (mainLight != nullptr) ? mainLight->posOrDir : glm::vec3( 0.f, -1.f, 0.f );
+		glm::vec3 pos = glm::vec3( 5.f, 10.f, -10.f ) + _mainCamera.getPos();
+		lightVP.view = glm::lookAt( pos, pos + lightDir, glm::vec3( 0, 1, 0 ) );
+		_buffers.writeMainLightVP( lightVP );
+	}
+
+	_buffers.writeLights( lightQueue );
 	_device.resetFences( inFlightFences[currentFrame] );
 
 	/* DEBUG
@@ -406,7 +410,6 @@ void RenderEngine::drawFrame()
 
 }
 
-
 void RenderEngine::createSyncObjects()
 {
 	imageAviablesSemaphores.resize( MAX_FRAMES_IN_FLIGHT );
@@ -457,58 +460,28 @@ void RenderEngine::performSwapChainRecreation()
 	_swapChainRecreationPending = false;
 }
 
-void RenderEngine::updateUniformBuffer(uint32_t currentImage, glm::mat4 model) {
-	ViewProjectionData ubo{};
-	ubo.view = _mainCamera.getViewMatrix();
-	ubo.proj = _mainCamera.getProjMatrix();
-	ubo.proj[1][1] *= -1;
-
-	// Escribimos los datos calculados en el UBO mapeado del frame actual
-	memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
-
-	// Actualizamos datos de iluminación dependientes de la cámara
-	_lighting.eyePos = _mainCamera.getPos();
-	memcpy(_lightBufferMapped, &_lighting, sizeof(_lighting));
-
-	// Shadow pass VP: se construye a partir de la main light de la escena.
-	// Si no hay main light designada o fue destruida, dejamos el UBO como esta;
-	// recordShadowPass() comprobara lo mismo y omitira el pase si es nullptr.
-	float ratio = _window.getExtent().width / static_cast<float>(_window.getExtent().height);
-	float scale = 20.0f;
-	_mainLightVPMapped->proj = glm::ortho(-ratio * scale, ratio * scale,
-		scale, -scale, 0.01f, 100.0f);
-
-	const LightObject* mainLight = _scene.tryGetMainLight();
-	glm::vec3 lightDir(0.0f, -1.0f, 0.0f);
-	if (mainLight != nullptr) {
-		lightDir = mainLight->posOrDir;
-	}
-	glm::vec3 position = glm::vec3(5.0f, 10.0f, -10.0f) + _mainCamera.getPos();
-	_mainLightVPMapped->view = glm::lookAt(position, position + lightDir, glm::vec3(0, 1, 0));
-}
-
 void RenderEngine::updateComputeDescriptorSet()
 {
-	_descriptors.updateCompute( _lightUniformBuffer );
+	_descriptors.updateCompute( _buffers.getLightingUBO() );
 }
 
 void RenderEngine::updateShadowDescriptorSet()
 {
-	_descriptors.updateShadow( _mainLightVPBuffer );
+	_descriptors.updateShadow( _buffers.getMainLightVPBuffer() );
 }
 
 void RenderEngine::updateCullDescriptorSet()
 {
-	_descriptors.updateCulling( _AABBModelStorage,
-								 _lightIndexStorage,
-								 _lightBufferStorage,
-								_cameraCulledObjectIndex,
-								_lightCulledObjectIndex );
+	_descriptors.updateCulling( _buffers.getAABBStorage(),
+						 	 _buffers.getLightIndexStorage(),
+						 	 _buffers.getLightStorage(),
+							_buffers.getCameraCullIndex(),
+							_buffers.getLightCullIndex() );
 }
 
 void RenderEngine::updateGeometryDescriptors()
 {
-	_descriptors.updateGeometry( uniformBuffers,
+	_descriptors.updateGeometry( _buffers.getCameraBuffers(),
 								 _resources.getLiveTextureEntries() );
 }
 
@@ -516,81 +489,7 @@ void RenderEngine::updateLightingDescriptors()
 {
 	_descriptors.updateLighting( _gbuffer,
 								 _shadowPass,
-								 _lightUniformBuffer );
-}
-
-void RenderEngine::createLightBuffer()
-{
-	_lighting.eyePos = glm::vec3( 0, 0, -2.5f );
-
-	_lighting.ambientVal = 0.01f;
-
-	VkDeviceSize memorySize = sizeof( int ) + (sizeof( LightObject ) * MAX_LIGHTS) + sizeof( uint8_t ) * 16;
-	_lightBufferStorage = _device.createBuffer( memorySize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
-	_device.mapMemory( _lightBufferStorage->getMemory(), 0, memorySize, &_lightBufferStorageMapped );
-
-	//BUffer de indicies (el plan es que solo exista en gpu ya que es para hacer el culling de luces en un shader de computo)
-	memorySize = sizeof( int ) + (sizeof( int ) * MAX_LIGHTS);
-	_lightIndexStorage = _device.createBuffer( memorySize,(VkBufferUsageFlagBits)(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-
-	//memorySize = sizeof( int ) + (sizeof( AABBModel ) * MAX_CULL_OBJECTS);
-	//_AABBModelStorage = _device.createBuffer( memorySize, (VkBufferUsageFlagBits)(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );
-	//_device.mapMemory( _AABBModelStorage->getMemory(), 0, memorySize, &_AABBModelStorageMapped);
-
-
-	//std::vector<uint32_t> index;
-	//for (int i = 0; i < MAX_LIGHTS;i++) {
-	//	index.push_back( i );
-	//}
-
-	//Buffer* staginBuffer = _device.createBuffer( memorySize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-	//									 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
-	//
-	//int size = index.size();
-	//
-	//void* dataMap;
-	//_device.mapMemory( staginBuffer->getMemory(), 0, sizeof( uint32_t ), &dataMap);
-	//memcpy( dataMap, &size, sizeof( uint32_t ) );
-	//_device.unmapMemory( staginBuffer->getMemory() );
-	//_device.mapMemory( staginBuffer->getMemory(), sizeof( uint32_t ), memorySize, &dataMap);
-	//memcpy( dataMap, index.data(), index.size() * sizeof( uint32_t ) );
-	//_device.unmapMemory( staginBuffer->getMemory() );
-
-	//_device.copyBuffer( staginBuffer->getBuffer(), _lightIndexStorage->getBuffer(), memorySize);
-
-	//delete staginBuffer;
-
-}
-
-void RenderEngine::createCullingBuffers()
-{
-	VkDeviceSize memorySize = sizeof( int ) + (sizeof( AABBModel ) * MAX_CULL_OBJECTS) + sizeof( uint8_t ) * 16;
-	_AABBModelStorage = _device.createBuffer( memorySize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
-	_device.mapMemory( _AABBModelStorage->getMemory(), 0, memorySize, &_AABBModelStorageMapped );
-
-	memorySize= sizeof( int ) + (sizeof( int ) * MAX_CULL_OBJECTS);
-	_lightCulledObjectIndex = _device.createBuffer( memorySize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT , VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
-
-	//_device.mapMemory( _lightCulledObjectIndex->getMemory(), 0, sizeof( int ),(void**)&_lightObjectCount);
-	_device.mapMemory( _lightCulledObjectIndex->getMemory(), 0, memorySize,(void**)&_lightCulledObjectIndexMapped);
-
-	_cameraCulledObjectIndex = _device.createBuffer( memorySize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
-	//_device.mapMemory( _cameraCulledObjectIndex->getMemory(), 0, sizeof( int ), (void**)&_cameraObjectCount );
-	_device.mapMemory( _cameraCulledObjectIndex->getMemory(), 0, memorySize, (void**)&_cameraCulledObjectIndexMapped );
-}
-
-void RenderEngine::uploadLightBuffer(const std::vector<LightObject>& lights) {
-	if (lights.size() >= MAX_LIGHTS) {
-		throw std::runtime_error("RenderEngine::uploadLightBuffer exceeded MAX_LIGHTS");
-	}
-
-	const int size = static_cast<int>(lights.size());
-	memcpy(_lightBufferStorageMapped, &size, sizeof(int));
-
-	// +16 por alineamiento en memoria de la GPU.
-	void* arrayStart = static_cast<uint8_t*>(_lightBufferStorageMapped) + 16;
-	memcpy(arrayStart, lights.data(), sizeof(LightObject) * lights.size());
+								 _buffers.getLightingUBO() );
 }
 
 void RenderEngine::handleWindowEvent( const WindowEvent& event )
@@ -604,42 +503,6 @@ void RenderEngine::handleWindowEvent( const WindowEvent& event )
 bool RenderEngine::hasStencilComponent( VkFormat format )
 {
 	return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
-}
-
-void RenderEngine::createUniformBuffers()
-{
-	VkDeviceSize bufferSize = sizeof( ViewProjectionData );
-
-	uniformBuffers.resize( MAX_FRAMES_IN_FLIGHT );
-	//uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
-	uniformBuffersMapped.resize( MAX_FRAMES_IN_FLIGHT );
-
-	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		//createBuffer(_device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
-		uniformBuffers[i] = _device.createBuffer( bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
-
-
-		//vkMapMemory(_device._device, uniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
-		_device.mapMemory( uniformBuffers[i]->getMemory(), 0, bufferSize, &uniformBuffersMapped[i] );
-	}
-
-	//Creamos un buffer para los datos de la luz
-	VkDeviceSize lightBufferSize = sizeof( GlobalLighting );
-
-
-	_lightUniformBuffer = _device.createBuffer( lightBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
-	_device.mapMemory( _lightUniformBuffer->getMemory(), 0, lightBufferSize, &_lightBufferMapped );
-	memcpy( _lightBufferMapped, &_lighting, sizeof( _lighting ) );
-
-
-	// Shadow pass VP buffer
-	VkDeviceSize mainLightBufferSize = sizeof( ViewProjectionData );
-	_mainLightVPBuffer = _device.createBuffer( 
-		mainLightBufferSize,
-		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
-	_device.mapMemory( _mainLightVPBuffer->getMemory(), 0, mainLightBufferSize,
-					   reinterpret_cast<void**>( &_mainLightVPMapped ) );
 }
 
 
@@ -706,7 +569,4 @@ void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::v
 	}
 
 	vkCmdEndRenderPass( commandBuffer );
-	// El renderpass de sombras automáticamente ha transicionado la imagen a DEPTH_STENCIL_READ_ONLY_OPTIMAL
-	// según su finalLayout declarado, lista para lectura en el lighting pass
 }
-
