@@ -206,8 +206,8 @@ private:
     ResourceManager _resources;
     VulkanWindow _window;
     CullManager _culler;
-    std::unique_ptr<GBuffer> _gbuffer;
-    std::unique_ptr<ShadowPass> _shadowPass;
+    GBuffer _gbuffer;
+    ShadowPass _shadowPass;
 
     GlobalLighting _lighting;
 

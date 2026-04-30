@@ -7,35 +7,45 @@
 class VulkanDevice;
 
 /**
- * ShadowPass gestiona los recursos necesarios para el mapeo de sombras (Shadow Mapping).
+ * ShadowPass gestiona los recursos necesarios para el mapeo de sombras.
  * Responsabilidades:
  * - Crear y destruir la textura de profundidad (Shadow Map).
- * - Gestionar el Framebuffer específico para el renderizado desde la luz.
- * - Mantener las dimensiones (Extent) de la sombra, independientes de la ventana.
+ * - Gestionar el Framebuffer y el RenderPass propios del shadow pass.
+ * - Mantener las dimensiones del mapa de sombras, independientes de la ventana.
+ *
+ * CICLO DE VIDA
+ * -------------
+ * init()    â€” asocia las dependencias externas (device, extent).
+ *             Debe llamarse una vez antes del primer create().
+ * create()  â€” crea todos los recursos GPU. Llama a destroy() internamente,
+ *             por lo que es seguro repetirla si el extent cambia.
+ * destroy() â€” libera todos los recursos GPU.
  */
 class ShadowPass {
 public:
-    ShadowPass(VulkanDevice& device, VkExtent2D extent);
-    ~ShadowPass();
+    ShadowPass()  = default;
+    ~ShadowPass() { destroy(); }
 
-    void create();  // Inicializa recursos
-    void destroy(); // Libera recursos
+    ShadowPass( const ShadowPass& ) = delete;
+    ShadowPass& operator=( const ShadowPass& ) = delete;
 
-    // Getters para el RenderEngine
-    VkRenderPass getRenderPass() const { return _renderPass; }
-    const Texture* getShadowMap() const { return _shadowMap.get(); }
-    VkFramebuffer getFramebuffer() const { return _framebuffer; }
-    VkExtent2D getExtent() const { return _extent; }
+    void init( VulkanDevice& device, VkExtent2D extent );
+    void create();
+    void destroy();
+
+    VkRenderPass   getRenderPass()  const { return _renderPass;       }
+    const Texture* getShadowMap()   const { return _shadowMap.get();  }
+    VkFramebuffer  getFramebuffer() const { return _framebuffer;      }
+    VkExtent2D     getExtent()      const { return _extent;           }
 
 private:
-    // Sub-metodos de create()
     void createRenderPass();
     void createShadowMap();
     void createFramebuffer();
 
-    VulkanDevice& _device;
-    VkRenderPass _renderPass = VK_NULL_HANDLE;  // RenderPass de sombras (solo profundidad)
-    VkExtent2D _extent;                         // Resolución del mapa de sombras (ej. 2048x2048)
+    VulkanDevice* _device     = nullptr;
+    VkExtent2D    _extent     = {};
+    VkRenderPass  _renderPass = VK_NULL_HANDLE;
 
     std::unique_ptr<Texture> _shadowMap;
     VkFramebuffer _framebuffer = VK_NULL_HANDLE;

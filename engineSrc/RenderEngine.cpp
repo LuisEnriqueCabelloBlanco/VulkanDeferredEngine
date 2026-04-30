@@ -14,15 +14,8 @@ void RenderEngine::cleanup()
 {
 	_device.wait();
 
-	if (_gbuffer) {
-		_gbuffer->destroy();
-		_gbuffer.reset();
-	}
-
-	if (_shadowPass) {
-		_shadowPass->destroy();
-		_shadowPass.reset();
-	}
+	_gbuffer.destroy();
+	_shadowPass.destroy();
 
 	_resources.releaseAllMaterials();
 	_resources.releaseAllTextures();
@@ -85,17 +78,16 @@ void RenderEngine::init( const std::string& appName )
 	_window.setDevice( &_device );
 	_window.createSwapChain();
 
-
-	_shadowPass = std::make_unique<ShadowPass>(_device, VkExtent2D{ 512, 512 });
-	_shadowPass->create();
+	_shadowPass.init( _device, VkExtent2D{ 512, 512 } );
+	_shadowPass.create();
 
 
 	_mainRenderPass.init( _device, _window );
 
-	_gbuffer = std::make_unique<GBuffer>( _device, _window, _mainRenderPass.get() );
-	_gbuffer->create();
+	_gbuffer.init( _device, _window, _mainRenderPass.get() );
+	_gbuffer.create();
 
-	_pipelines.init( _device, _mainRenderPass.get(), _shadowPass->getRenderPass() );
+	_pipelines.init( _device, _mainRenderPass.get(), _shadowPass.getRenderPass() );
 
 
 	createCommandPool();
@@ -229,7 +221,7 @@ void RenderEngine::recordMainRender( VkCommandBuffer commandBuffer, uint32_t ima
 	const std::vector<RenderObject>& objectsArray, const std::vector<int>& cullIndex )
 {
 	VkRenderPassBeginInfo renderPassInfo{};
-	renderPassInfo.framebuffer = _gbuffer->getFramebuffers()[imageIndex];
+	renderPassInfo.framebuffer = _gbuffer.getFramebuffers()[imageIndex];
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	renderPassInfo.renderPass = _mainRenderPass.get();
 	renderPassInfo.renderArea.offset = { 0, 0 };
@@ -439,9 +431,7 @@ void RenderEngine::createSyncObjects()
 void RenderEngine::recreateSwapChain()
 {
 	_device.wait();
-	if ( _gbuffer ) {
-		_gbuffer->destroy();
-	}
+	_gbuffer.destroy();
 
 	VkFormat oldFormat = _window.getSwapChainFormat();
 	_window.destroySwapChain();
@@ -453,11 +443,11 @@ void RenderEngine::recreateSwapChain()
 		_mainRenderPass.destroy();
 		_mainRenderPass.init( _device, _window );
 		_pipelines.destroy();
-		_pipelines.init( _device, _mainRenderPass.get(), _shadowPass->getRenderPass() );
+		_pipelines.init( _device, _mainRenderPass.get(), _shadowPass.getRenderPass() );
 	}
 
 	_mainCamera.setAspectRatio( _window.getExtent().width / static_cast<float>( _window.getExtent().height ) );
-	_gbuffer->create();
+	_gbuffer.create();
 }
 
 void RenderEngine::performSwapChainRecreation()
@@ -524,8 +514,8 @@ void RenderEngine::updateGeometryDescriptors()
 
 void RenderEngine::updateLightingDescriptors()
 {
-	_descriptors.updateLighting( *_gbuffer,
-								 *_shadowPass,
+	_descriptors.updateLighting( _gbuffer,
+								 _shadowPass,
 								 _lightUniformBuffer );
 }
 
@@ -671,11 +661,11 @@ void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::v
 	}
 
 	VkRenderPassBeginInfo renderPassInfo{};
-	renderPassInfo.framebuffer = _shadowPass->getFramebuffer();
+	renderPassInfo.framebuffer = _shadowPass.getFramebuffer();
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = _shadowPass->getRenderPass();
+	renderPassInfo.renderPass = _shadowPass.getRenderPass();
 	renderPassInfo.renderArea.offset = { 0, 0 };
-	const Texture* shadowMap = _shadowPass->getShadowMap();
+	const Texture* shadowMap = _shadowPass.getShadowMap();
 	VkExtent2D ext{ shadowMap->texWidth, shadowMap->texHeight };
 	renderPassInfo.renderArea.extent = ext;
 
