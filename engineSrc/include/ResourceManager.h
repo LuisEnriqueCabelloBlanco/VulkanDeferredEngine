@@ -157,9 +157,13 @@ private:
     // Usado por RenderEngine para actualizar sus descriptor sets.
     std::vector<TextureBindingEntry> getLiveTextureEntries() const;
 
+
+    // --- Acceso interno para RenderEngine y CullManager --------------------
+
+    friend class CullManager;
+
     // tryGet* de recursos concretos: lookup no-throw por handle.
     // Si el handle es invalido/stale, devuelve nullptr.
-
     const Mesh* tryGetMesh(MeshHandle handle) const;
     const Texture* tryGetTexture(TextureHandle handle) const;
     const MaterialData* tryGetMaterial(MaterialHandle handle) const;

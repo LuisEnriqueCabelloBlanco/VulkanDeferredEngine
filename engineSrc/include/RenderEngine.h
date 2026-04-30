@@ -27,6 +27,8 @@
 
 #include "Camera.h"
 
+#include "CullManager.h"
+
 constexpr int MAX_FRAMES_IN_FLIGHT = ResourceLimits::MAX_FRAMES_IN_FLIGHT;
 
 constexpr int MAX_CULL_OBJECTS = ResourceLimits::MAX_CULL_OBJECTS;
@@ -119,23 +121,20 @@ private:
     // --- Recording y culling ------------------------------------------------
     void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex,
                              const std::vector<RenderObject>& objectsArray,
-                             const std::vector<int>& cullIndex);
+                             const std::vector<int>& cameraIndex,
+                             const std::vector<int>& shadowIndex);
     void recordShadowPass(VkCommandBuffer commandBuffer,
-                          const std::vector<RenderObject>& objectsArray);
+                          const std::vector<RenderObject>& objectsArray,
+                          const std::vector<int>& cullIndex);
     void recordMainRender(VkCommandBuffer commandBuffer, uint32_t imageIndex,
                          const std::vector<RenderObject>& objectsArray,
                          const std::vector<int>& cullIndex);
     void pushModelMatrix(VkCommandBuffer commandBuffer, glm::mat4 model = glm::mat4(1));
     void pushTextureIndex(VkCommandBuffer commandBuffer, const MaterialData& material);
 
-    const std::vector<int> cullObjects(const std::vector<RenderObject>& objs,
-        ViewProjectionData& cameraDesc);
-    const std::vector<LightObject> cullLights(const std::vector<LightObject>& objs);
-    void computeCullObjects(std::vector<RenderObject>& objectsArray);
 
     // --- Misc ---------------------------------------------------------------
     bool hasStencilComponent(VkFormat format);
-    bool AABBFrustrumTest(const AABB& aabb, const glm::mat4& MVP);
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
         VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -206,13 +205,14 @@ private:
     VulkanDevice _device;
     ResourceManager _resources;
     VulkanWindow _window;
+    CullManager _culler;
     std::unique_ptr<GBuffer> _gbuffer;
     std::unique_ptr<ShadowPass> _shadowPass;
 
     GlobalLighting _lighting;
 
-    // --- Descriptor manager -----------------------------------------------
     DescriptorManager _descriptors;
+
 
 };
 

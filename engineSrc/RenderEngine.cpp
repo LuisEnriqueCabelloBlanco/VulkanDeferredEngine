@@ -143,7 +143,7 @@ void RenderEngine::createCommandBuffers()
 // Frame recording and presentation
 // ============================
 
-void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t imageIndex, const std::vector<RenderObject>& objectsArray, const std::vector<int>&cullIndex )
+void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t imageIndex, const std::vector<RenderObject>& objectsArray, const std::vector<int>&cameraIndex, const std::vector<int>&shadowIndex )
 {
 	static auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -217,8 +217,8 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 
 	vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 1, &memBarr, 0, nullptr );
 
-	recordShadowPass( commandBuffer, objectsArray );
-	recordMainRender( commandBuffer, imageIndex, objectsArray, cullIndex );
+	recordShadowPass( commandBuffer, objectsArray, shadowIndex );
+	recordMainRender( commandBuffer, imageIndex, objectsArray, cameraIndex );
 
 	if (vkEndCommandBuffer( commandBuffer ) != VK_SUCCESS) {
 		throw std::runtime_error( "failed to record command buffer!" );
@@ -340,20 +340,33 @@ void RenderEngine::drawFrame()
 	ViewProjectionData camDesc;
 	camDesc.proj = _mainCamera.getProjMatrix();
 	camDesc.view = _mainCamera.getViewMatrix();
-	auto outObjects = cullObjects( objectsArray, camDesc);
+
+	// Usamos CullManager para obtener el culling de los objetos
+	// respecto a todos los frustums de una sola pasada.
+	const bool hasShadows = _scene.hasMainLight();
+	std::vector<ViewProjectionData> cullVPs;
+	cullVPs.push_back( camDesc );
+	if ( hasShadows ) {
+		cullVPs.push_back( *_mainLightVPMapped );
+	}
+
+	auto cullResults = _culler.cullObjects( objectsArray, cullVPs, _resources );
+	const std::vector<int>& cameraVisible = cullResults[0];
+	const std::vector<int>& mainLightVisible = hasShadows ? cullResults[1] : cameraVisible;
 
 	updateUniformBuffer( currentFrame, glm::mat4( 1.0f ) );
 	uploadLightBuffer(lightQueue);
 	_device.resetFences( inFlightFences[currentFrame] );
 
-
-	if (outObjects.size() == 0) {
+	/* DEBUG
+	if (cameraVisible.size() == 0) {
 		std::cout << "No hay objetos a pintar\n";
 	}
+	*/
 
 	Mesh::_lastRenderedMesh = nullptr;
 	vkResetCommandBuffer( commandBuffers[currentFrame], 0 );
-	recordCommandBuffer( commandBuffers[currentFrame], imageIndex, objectsArray, outObjects );
+	recordCommandBuffer( commandBuffers[currentFrame], imageIndex, objectsArray, cameraVisible, mainLightVisible );
 
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -650,14 +663,12 @@ void RenderEngine::pushTextureIndex( VkCommandBuffer commnadBuffer, const Materi
 	vkCmdPushConstants( commnadBuffer, _pipelines.getGraphicsLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, sizeof( glm::mat4 ), sizeof( material ), &material );
 }
 
-void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::vector<RenderObject>& objectsArray )
+void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::vector<RenderObject>& objectsArray, const std::vector<int>& cullIndex )
 {
 	// Si no hay main light designada o fue destruida, no hay shadow pass.
 	if (!_scene.hasMainLight()) {
 		return;
 	}
-
-	std::vector<int> cullIndex = cullObjects(objectsArray, *_mainLightVPMapped);
 
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.framebuffer = _shadowPass->getFramebuffer();
@@ -709,83 +720,3 @@ void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::v
 	// según su finalLayout declarado, lista para lectura en el lighting pass
 }
 
-const std::vector<int> RenderEngine::cullObjects( const std::vector<RenderObject>& objs, ViewProjectionData& cameraDesc )
-{
-	auto start = std::chrono::high_resolution_clock::now();
-	std::vector<int> out;
-	out.reserve(objs.size());
-	glm::mat4 VP = cameraDesc.proj * cameraDesc.view;
-
-	int i = 0;
-	for (const auto& obj : objs) {
-		const Mesh* mesh = _resources.tryGetMesh( obj.mesh );
-		if (mesh == nullptr) {
-			i++;
-			continue;
-		}
-
-		glm::mat4 MVP = VP * obj.modelMatrix;
-		if (AABBFrustrumTest( mesh->getAABB(),MVP )) {
-			out.emplace_back(i);
-		}
-		i++;
-	}
-	auto end = std::chrono::high_resolution_clock::now();
-
-	//std::cout <<"Objects To paint: "<< out.size() << " Time to process object Culling: " << std::chrono::duration<float, std::chrono::milliseconds::period>(end-start) << "\n";
-	return out;
-}
-
-const std::vector<LightObject> RenderEngine::cullLights( const std::vector<LightObject>& lights )
-{
-	std::vector<LightObject> out;
-	glm::mat4 VP = _mainCamera.getProjMatrix() * _mainCamera.getViewMatrix();
-
-
-	for (auto& light : lights) {
-
-		glm::vec4 pos = VP*glm::vec4(light.posOrDir,1);
-
-		if ((pos.w <= _mainCamera.getFarPlane()+100 && pos.w >= -100) || light.type == LightType::Directional) {
-			out.push_back( light );
-		}
-	}
-
-	return out;
-}
-
-
-bool RenderEngine::AABBFrustrumTest( const AABB& aabb, const glm::mat4& MVP )
-{
-	//auto start = std::chrono::high_resolution_clock::now();
-	glm::vec4 corners[8] = {
-		{aabb.min.x, aabb.min.y, aabb.min.z, 1.0}, // x y z
-		{aabb.max.x, aabb.min.y, aabb.min.z, 1.0}, // X y z
-		{aabb.min.x, aabb.max.y, aabb.min.z, 1.0}, // x Y z
-		{aabb.max.x, aabb.max.y, aabb.min.z, 1.0}, // X Y z
-
-		{aabb.min.x, aabb.min.y, aabb.max.z, 1.0}, // x y Z
-		{aabb.max.x, aabb.min.y, aabb.max.z, 1.0}, // X y Z
-		{aabb.min.x, aabb.max.y, aabb.max.z, 1.0}, // x Y Z
-		{aabb.max.x, aabb.max.y, aabb.max.z, 1.0}, // X Y Z
-	};
-
-	bool inside = false;
-
-	for (size_t corner_idx = 0; corner_idx < 8 && !inside; corner_idx++) {
-		// Transform vertex
-		glm::vec4 corner = MVP * corners[corner_idx];
-		// Check vertex against clip space bounds
-		inside = inside || (
-			(corner.x <= corner.w && corner.x > -corner.w)&&
-			(corner.y <= corner.w && corner.y > -corner.w)&&
-			(corner.z <= corner.w && corner.w > 0)
-			);
-	}
-
-	/*auto end = std::chrono::high_resolution_clock::now();
-
-	std::cout << " Time to process AABB: " << std::chrono::duration<float, std::chrono::milliseconds::period>( end - start ) << "\n";*/
-
-	return inside;
-}
