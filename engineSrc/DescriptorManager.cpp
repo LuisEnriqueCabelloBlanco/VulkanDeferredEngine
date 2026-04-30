@@ -46,7 +46,7 @@ void DescriptorManager::createPool()
     //  UNIFORM_BUFFER
     //    _cameraDescriptorSets        : FRAMES × 1  (binding 0, VP)
     //    _globalLightingDescriptorSets: FRAMES × 1  (binding 3, GlobalLighting)
-    //    _mainLightDescriptorSet      : 1     × 1  (binding 0, shadow VP)
+    //    _mainLightDescriptorSet      : 1      × 1  (binding 0, shadow VP)
     //    _computeDescriptorSets       : FRAMES × 1  (binding 2, GlobalLighting)
     //    Total: FRAMES*3 + 1
     //
