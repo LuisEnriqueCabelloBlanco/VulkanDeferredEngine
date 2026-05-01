@@ -68,7 +68,7 @@ private:
 
     EngineAPI _engine;
 
-    Camera* _mainCamera;
+    CameraHandle* _mainCamera;
 
     float _deltaTime;
 

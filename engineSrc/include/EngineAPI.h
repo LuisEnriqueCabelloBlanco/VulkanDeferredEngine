@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "BufferObjectsData.h"
-#include "Camera.h"
+#include "CameraHandle.h"
 #include "Mesh.h"
 #include "ResourceManager.h"
 #include "RenderEngine.h"
@@ -53,9 +53,9 @@ public:
         _engine.handleWindowEvent( event );
     }
 
-    Camera& getMainCamera() {
-        requireInitialized( "EngineAPI::getMainCamera" );
-        return _engine.getMainCamera();
+    CameraHandle& getCamera() {
+        requireInitialized( "EngineAPI::getCamera" );
+        return _scene->getCamera();
     }
 
     Scene& getScene() {

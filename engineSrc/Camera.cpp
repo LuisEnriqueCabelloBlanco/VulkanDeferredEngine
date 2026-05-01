@@ -1,42 +1,64 @@
 #include "Camera.h"
-#include <glm/glm.hpp>
-#include <glm/ext/matrix_transform.hpp>
-#include <glm/fwd.hpp>
-#include <glm/ext/matrix_clip_space.hpp>
 
+#include <glm/gtc/matrix_transform.hpp>
 
-Camera::Camera()
+Camera::Camera(glm::vec3 position,
+    glm::vec3 rotationRadians,
+    float     fov,
+    float     aspectRatio,
+    float     nearPlane,
+    float     farPlane)
+    : _position(position)
+    , _rotation(rotationRadians)
+    , _fov(fov)
+    , _aspectRatio(aspectRatio)
+    , _nearPlane(nearPlane)
+    , _farPlane(farPlane)
+{}
+
+glm::vec3 Camera::getForward() const
 {
+    // Reconstruimos la direccion a partir de la rotacion Euler XYZ.
+    // pitch = _rotation.x, yaw = _rotation.y, roll = _rotation.z (ignorado para forward).
+    glm::vec3 forward;
+    forward.x = std::cos(_rotation.x) * std::sin(-_rotation.y);  // negado
+    forward.y = -std::sin(_rotation.x);
+    forward.z = std::cos(_rotation.x) * std::cos(-_rotation.y);  // negado
+    return glm::normalize(forward);
 }
 
-Camera::Camera( glm::vec3 pos, glm::vec3 dir, glm::vec3 up, float fov, float aspectRatio, float nearDistance, float farDistance ) {
-    _position = pos;
-    _direction = dir;
-    _up = up;
-
-    _fov = fov;
-    _aspectRatio = aspectRatio;
-    _nearPlane = nearDistance;
-    _farPlane = farDistance;
+glm::vec3 Camera::getRight() const
+{
+    return glm::normalize(glm::cross(getForward(), _worldUp));
 }
 
-
-Camera::~Camera()
+glm::vec3 Camera::getUp() const
 {
+    return glm::normalize(glm::cross(getRight(), getForward()));
 }
 
-glm::mat4 Camera::getProjMatrix()
+glm::mat4 Camera::getViewMatrix() const
 {
-    return glm::perspective( glm::radians( _fov ), _aspectRatio, _nearPlane, _farPlane );
+    const glm::vec3 forward = getForward();
+    return glm::lookAt(_position, _position + forward, _worldUp);
 }
 
-glm::mat4 Camera::getViewMatrix()
+glm::mat4 Camera::getProjMatrix() const
 {
-    
-    return glm::lookAt( _position, _position + _direction, _up );
+    return glm::perspective(glm::radians(_fov), _aspectRatio, _nearPlane, _farPlane);
 }
 
-void Camera::rotateY( float degrees )
+void Camera::moveForward(float distance)
 {
-    _direction = glm::vec3(glm::vec4(_direction,0)* glm::rotate( glm::mat4( 1 ), glm::radians( degrees ), glm::vec3( 0, 1, 0) ));
+    _position += getForward() * distance;
+}
+
+void Camera::moveRight(float distance)
+{
+    _position += getRight() * distance;
+}
+
+void Camera::moveUp(float distance)
+{
+    _position += _worldUp * distance;
 }

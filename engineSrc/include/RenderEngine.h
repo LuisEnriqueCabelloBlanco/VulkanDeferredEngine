@@ -109,7 +109,6 @@ public:
     // con scene.setMainLight(). RenderEngine consulta la escena cada frame.
     Scene&           getScene()           { return _scene;     }
     ResourceManager& getResourceManager() { return _resources; }
-    Camera&          getMainCamera()      { return _mainCamera; }
 
     // Propaga eventos de ventana (resize, etc.) al engine y a VulkanWindow.
     void handleWindowEvent( const WindowEvent& event );
@@ -296,8 +295,6 @@ private:
     // Entidades renderizables y luces de la escena.
     Scene _scene;
 
-    // Camara principal: genera las matrices view y proj cada frame.
-    Camera _mainCamera;
 
     // Parametros de iluminacion global (eyePos, ambientVal).
     // Se sincronizan con _buffers cada frame.

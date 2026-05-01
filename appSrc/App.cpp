@@ -51,7 +51,7 @@ bool App::run() {
 void App::start()
 {
 
-    _mainCamera = &_engine.getMainCamera();
+    _mainCamera = &_engine.getScene().getCamera();
     auto startTime = std::chrono::high_resolution_clock::now();
     loadModels();
     auto endTime = std::chrono::high_resolution_clock::now();
@@ -100,7 +100,8 @@ void App::mainLoop() {
             }
 
             if (ev.type == SDL_MOUSEMOTION) {
-                _mainCamera->rotateY( static_cast<float>( ev.motion.xrel ) * 0.1f );
+                _mainCamera->rotateY( glm::radians( static_cast<float>( ev.motion.xrel ) * 0.1f ) );
+                _mainCamera->rotateX( glm::radians( static_cast<float>( ev.motion.yrel ) * 0.1f ) );
             }
             if (ev.type == SDL_QUIT) {
                 running = false;
@@ -154,10 +155,10 @@ void App::update()
     }
 
 
-    glm::vec3 right = glm::cross( glm::vec3( 0, 1, 0 ), _mainCamera->getDirection()  );
+    glm::vec3 right = glm::cross( glm::vec3( 0, 1, 0 ), _mainCamera->getForward()  );
 
 
-    glm::vec3 newPos = _mainCamera->getPos() + (right * _moveDir.x + _mainCamera->getDirection() * _moveDir.z)*_deltaTime *10.f;
+    glm::vec3 newPos = _mainCamera->getPosition() + (right * _moveDir.x + _mainCamera->getForward() * _moveDir.z)*_deltaTime *10.f;
 
     _mainCamera->setPosition( newPos );
 }

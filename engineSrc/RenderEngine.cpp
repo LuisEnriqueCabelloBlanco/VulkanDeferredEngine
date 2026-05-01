@@ -83,8 +83,9 @@ void RenderEngine::init( const std::string& appName )
 
 	_buffers.init( _device );
 
-	_mainCamera = Camera( glm::vec3( 0, 0, -2.5f ), glm::vec3( 0, 0, 1.f ), glm::vec3( 0.0f, 1.0f, 0.0f ),
-				  90.f, _window.getExtent().width / (float)_window.getExtent().height, 0.1f, 40.f );
+	// Camera now lives inside Scene; set initial aspect ratio from window.
+	_scene.setCameraAspectRatio(
+		_window.getExtent().width / static_cast<float>( _window.getExtent().height ) );
 
 	// Inicializamos el DescriptorManager
 	_descriptors.init( _device, _pipelines );
@@ -313,8 +314,9 @@ void RenderEngine::drawFrame()
 	}
 
 	ViewProjectionData camDesc;
-	camDesc.proj = _mainCamera.getProjMatrix();
-	camDesc.view = _mainCamera.getViewMatrix();
+	const Camera& cam = _scene.getInternalCamera();
+	camDesc.proj = cam.getProjMatrix();
+	camDesc.view = cam.getViewMatrix();
 
 	// Usamos CullManager para obtener el culling de los objetos
 	// respecto a todos los frustums de una sola pasada.
@@ -331,11 +333,11 @@ void RenderEngine::drawFrame()
 
 	// Update de buffers de cámara, luces y VP de la main light
 	ViewProjectionData camVP;
-	camVP.view = _mainCamera.getViewMatrix();
-	camVP.proj = _mainCamera.getProjMatrix();
+	camVP.view = cam.getViewMatrix();
+	camVP.proj = cam.getProjMatrix();
 	_buffers.writeCameraVP( currentFrame, camVP );
 
-	_lighting.eyePos = _mainCamera.getPos();
+	_lighting.eyePos = cam.getPosition();
 	_buffers.writeLighting( _lighting );
 
 	// VP de la main light para shadow pass
@@ -346,7 +348,7 @@ void RenderEngine::drawFrame()
 		lightVP.proj = glm::ortho( -ratio * scale, ratio * scale, scale, -scale, 0.01f, 100.f );
 		const LightObject* mainLight = _scene.tryGetMainLight();
 		glm::vec3 lightDir = (mainLight != nullptr) ? mainLight->posOrDir : glm::vec3( 0.f, -1.f, 0.f );
-		glm::vec3 pos = glm::vec3( 5.f, 10.f, -10.f ) + _mainCamera.getPos();
+		glm::vec3 pos = glm::vec3( 5.f, 10.f, -10.f ) + cam.getPosition();
 		lightVP.view = glm::lookAt( pos, pos + lightDir, glm::vec3( 0, 1, 0 ) );
 		_buffers.writeMainLightVP( lightVP );
 	}
@@ -449,7 +451,7 @@ void RenderEngine::recreateSwapChain()
 		_pipelines.init( _device, _mainRenderPass.get(), _shadowPass.getRenderPass() );
 	}
 
-	_mainCamera.setAspectRatio( _window.getExtent().width / static_cast<float>( _window.getExtent().height ) );
+	_scene.setCameraAspectRatio( _window.getExtent().width / static_cast<float>( _window.getExtent().height ) );
 	_gbuffer.create();
 }
 

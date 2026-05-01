@@ -2,6 +2,18 @@
 #include "RenderEntityHandle.h"
 #include "LightEntityHandle.h"
 
+// Inicializa la camara interna y su CameraHandle.
+Scene::Scene()
+    : _camera( glm::vec3( 0.f, 0.f, -2.5f ),
+               glm::vec3( 0.f, 0.f, 0.f ),
+               90.f,
+               1.f,
+               0.1f,
+               40.f ),
+      _cameraHandle( _camera )
+{
+}
+
 // ===========================================================================
 // Entidades renderizables
 // ===========================================================================
