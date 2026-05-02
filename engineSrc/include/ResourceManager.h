@@ -86,27 +86,40 @@ public:
 
     // --- Ciclo de vida de Mesh ---------------------------------------------
     // createMesh(...): crea un mesh unico por nombre y devuelve handle valido.
+    // Lanza ResourceException si el nombre es invalido, duplicado, se supera
+    // el limite o falla la carga/creacion interna.
     // releaseMesh(...): invalida el handle (bump generation del slot).
     // releaseAllMeshes(): libera todos los meshes ocupados.
-    MeshHandle createMesh( const std::string& name, const std::string& path );
-    MeshHandle createMesh( const std::string& name, const std::vector<Vertex>& vertices );
-    MeshHandle createMesh( const std::string& name, const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices );
+    [[nodiscard]] MeshHandle createMesh( const std::string& name, 
+                                         const std::string& path );
+
+    [[nodiscard]] MeshHandle createMesh( const std::string& name, 
+                                         const std::vector<Vertex>& vertices );
+
+    [[nodiscard]] MeshHandle createMesh( const std::string& name, 
+                                         const std::vector<uint32_t>& indices, 
+                                         const std::vector<Vertex>& vertices );
+                                         
     void releaseMesh( MeshHandle handle );
     void releaseAllMeshes();
 
     // --- Ciclo de vida de Texture ------------------------------------------
     // createTexture(...): crea textura unica por nombre.
+    // Lanza ResourceException ante nombre invalido, duplicado, limite o fallo
+    // de carga.
     // releaseTexture(...): rechaza liberar si existe dependencia de materiales.
     // releaseAllTextures(): idem a nivel global; exige no tener materiales vivos
     // que referencien texturas.
-    TextureHandle createTexture( const std::string& name, const std::string& path );
+    [[nodiscard]] TextureHandle createTexture( const std::string& name, const std::string& path );
     void releaseTexture( TextureHandle handle );
     void releaseAllTextures();
 
     // --- Ciclo de vida de Material -----------------------------------------
     // createMaterial(...): valida texturas referenciadas y persiste datos GPU.
+    // Lanza ResourceException ante nombre invalido, duplicado, limite,
+    // dependencia invalida o fallo de persistencia interna.
     // releaseMaterial/releaseAllMaterials: liberan slots e invalidan handles.
-    MaterialHandle createMaterial( const std::string& name, const MaterialCreateInfo& material );
+    [[nodiscard]] MaterialHandle createMaterial( const std::string& name, const MaterialCreateInfo& material );
     void releaseMaterial( MaterialHandle handle );
     void releaseAllMaterials();
 
@@ -116,6 +129,14 @@ public:
     MeshHandle tryGetMeshHandle( const std::string& name ) const;
     TextureHandle tryGetTextureHandle( const std::string& name ) const;
     MaterialHandle tryGetMaterialHandle( const std::string& name ) const;
+
+    // --- Enumeracion de recursos vivos --------------------------------------
+    // Devuelven los nombres de todos los recursos actualmente ocupados.
+    // Util para inspectores, herramientas de debug y serializacion.
+    // El orden no esta garantizado.
+    std::vector<std::string> getMeshNames()     const;
+    std::vector<std::string> getTextureNames()  const;
+    std::vector<std::string> getMaterialNames() const;
 
 private:
 

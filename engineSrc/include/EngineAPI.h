@@ -4,9 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "BufferObjectsData.h"
 #include "CameraHandle.h"
-#include "Mesh.h"
 #include "ResourceManager.h"
 #include "RenderEngine.h"
 #include "RenderEntityHandle.h"
@@ -16,6 +14,9 @@
 
 class EngineAPI {
 public:
+    // Barrera publica del motor.
+    // La fachada no unifica excepciones de dominio en esta iteracion:
+    // pueden propagarse SceneException y ResourceException hacia la app.
     EngineAPI()
         : _engine(), _scene( nullptr ), _resources( nullptr ), _initialized( false ) {
     }
@@ -51,11 +52,6 @@ public:
     void handleWindowEvent( const WindowEvent& event ) {
         requireInitialized( "EngineAPI::handleWindowEvent" );
         _engine.handleWindowEvent( event );
-    }
-
-    CameraHandle& getCamera() {
-        requireInitialized( "EngineAPI::getCamera" );
-        return _scene->getCamera();
     }
 
     Scene& getScene() {

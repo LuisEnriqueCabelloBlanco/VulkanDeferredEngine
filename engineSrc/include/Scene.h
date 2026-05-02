@@ -38,9 +38,6 @@ private:
 
 // ---------------------------------------------------------------------------
 
-static constexpr uint32_t MAX_ENTITIES = ResourceLimits::MAX_ENTITIES;
-static constexpr uint32_t MAX_LIGHTS   = ResourceLimits::MAX_LIGHTS;
-
 class RenderEntityHandle;
 class LightEntityHandle;
 
@@ -83,12 +80,12 @@ public:
     // -------------------------------------------------------------------------
 
     // Crea una entidad vacia y devuelve su handle.
-    RenderEntityHandle createEntity();
+    [[nodiscard]] RenderEntityHandle createEntity();
 
     // Crea una entidad con mesh, material y transform ya asignados.
-    RenderEntityHandle createEntity(MeshHandle     mesh,
-        MaterialHandle material,
-        const Transform& transform);
+    [[nodiscard]] RenderEntityHandle createEntity( MeshHandle       mesh,
+                                                   MaterialHandle   material,
+                                                   const Transform& transform);
 
     // Destruye la entidad e invalida el handle.
     // Lanza SceneException(InvalidHandle) si el handle nunca fue valido.
@@ -103,11 +100,11 @@ public:
     // Crea una luz y devuelve su handle.
     // posOrDir: posicion para Point/Spotlight, direccion normalizada para Directional.
     // range:    solo relevante para Point y Spotlight.
-    LightEntityHandle createLight( LightType         type,
-                                   const glm::vec3&  posOrDir,
-                                   const glm::vec3&  color,
-                                   float             intensity,
-                                   float             range = 0.0f );
+    [[nodiscard]] LightEntityHandle createLight( LightType         type,
+                                                 const glm::vec3&  posOrDir,
+                                                 const glm::vec3&  color,
+                                                 float             intensity,
+                                                 float             range = 0.0f );
 
     // Destruye la luz e invalida el handle.
     // Lanza SceneException(InvalidHandle) si el handle nunca fue valido.
@@ -149,6 +146,44 @@ public:
     bool        hasLight(const LightEntityHandle& handle)  const;
     std::size_t lightCount() const;
 
+    // Llama a fn( RenderEntityHandle& ) por cada entidad viva (slot ocupado).
+    // Comportamiento indefinido si la funcion crea o destruye entidades durante la
+    // enumeracion, o si invalida handles de entidades que aun no se han visitado.
+    //
+    // Ejemplo:
+    //   scene.forEachEntity( [&]( RenderEntityHandle& e ) {
+    //       if (e.isValid()) std::cout << e.getPosition().x << "\n";
+    //   });
+    template <typename Fn>
+    void forEachEntity( Fn&& fn )
+    {
+        for ( uint32_t i = 0; i < static_cast<uint32_t>( _slots.size() ); ++i ) {
+            EntitySlot& slot = _slots[i];
+            if ( !slot.occupied ) continue;
+            RenderEntityHandle handle{ i, slot.generation, this };
+            fn( handle );
+        }
+    }
+
+    // Llama a fn( LightEntityHandle& ) por cada luz viva (slot ocupado).
+    // Comportamiento indefinido si la funcion crea o destruye luces durante la
+    // enumeracion, o si invalida handles de luces que aun no se han visitado.
+    //
+    // Ejemplo:
+    //   scene.forEachLight( [&]( LightEntityHandle& l ) {
+    //       if (l.isValid()) std::cout << l.getIntensity() << "\n";
+    //   });
+    template <typename Fn>
+    void forEachLight( Fn&& fn )
+    {
+        for ( uint32_t i = 0; i < static_cast<uint32_t>( _lightSlots.size() ); ++i ) {
+            LightSlot& slot = _lightSlots[i];
+            if ( !slot.occupied ) continue;
+            LightEntityHandle handle{ i, slot.generation, this };
+            fn( handle );
+        }
+    }
+
 
 private:
 
@@ -186,7 +221,7 @@ private:
 
 
     // -------------------------------------------------------------------------
-    // Acceso interno — RenderEntityHandle
+    // Acceso interno ï¿½ RenderEntityHandle
     // -------------------------------------------------------------------------
     friend class RenderEntityHandle;
 
@@ -195,7 +230,7 @@ private:
 
 
     // -------------------------------------------------------------------------
-    // Acceso interno — LightEntityHandle
+    // Acceso interno ï¿½ LightEntityHandle
     // -------------------------------------------------------------------------
     friend class LightEntityHandle;
 
@@ -204,7 +239,7 @@ private:
 
 
     // -------------------------------------------------------------------------
-    // Acceso interno — RenderEngine
+    // Acceso interno ï¿½ RenderEngine
     // -------------------------------------------------------------------------
     friend class RenderEngine;
 

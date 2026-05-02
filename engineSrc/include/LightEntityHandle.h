@@ -26,13 +26,11 @@ renderer lee.
 El handle es move-only.
 
 Uso tipico:
-    LightDesc desc;
-    desc.type      = LightType::Directional;
-    desc.posOrDir  = glm::normalize( glm::vec3( -1, -1, 0 ) );
-    desc.color     = glm::vec3( 1, 1, 0.9f );
-    desc.intensity = 2.0f;
-
-    LightEntityHandle sun = scene.createLight( desc );
+    LightEntityHandle sun = scene.createLight(
+        LightType::Directional,
+        glm::normalize( glm::vec3( -1, -1, 0 ) ),
+        glm::vec3( 1, 1, 0.9f ),
+        2.0f );
     sun.setIntensity( 1.5f );
     sun.setActive( false );
     // Al salir de scope NO destruye la luz; el caller decide cuando llamar destroyLight().

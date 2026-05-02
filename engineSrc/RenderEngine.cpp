@@ -178,7 +178,7 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 	memBarr.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 	memBarr.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
 	memBarr.offset = 0;
-	memBarr.size = sizeof( int ) + (sizeof( int ) * MAX_LIGHTS);
+	memBarr.size = sizeof( int ) + (sizeof( int ) * ResourceLimits::MAX_LIGHTS);
 	memBarr.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	memBarr.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	memBarr.pNext = NULL;
@@ -189,7 +189,7 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 
 	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _pipelines.getComputeLayout(), 0, 2, computeSets, 0, nullptr);
 
-	vkCmdDispatch( commandBuffer, (MAX_LIGHTS/32)+1, 1, 1 );
+	vkCmdDispatch( commandBuffer, (ResourceLimits::MAX_LIGHTS/32)+1, 1, 1 );
 
 	vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 1, &memBarr, 0, nullptr );
 

@@ -36,6 +36,10 @@ bool App::run() {
         std::cerr << "Scene error [" << static_cast<int>( e.code() ) << "]: " << e.what() << "\n";
         safeCleanup( initialized );
     }
+    catch (const ResourceException& e) {
+        std::cerr << "Resource error [" << static_cast<int>( e.code() ) << "]: " << e.what() << "\n";
+        safeCleanup( initialized );
+    }
     catch (const std::exception& e) {
         std::cerr << "Engine runtime error: " << e.what() << "\n";
         safeCleanup( initialized );
@@ -292,7 +296,7 @@ void App::loadModels()
             dynamicMat.metallic = std::min( static_cast<float>( j ) * 0.1f, 1.0f );
             MaterialHandle dynamicMatHandle = resources.createMaterial( "mat_grid_" + std::to_string( i ) + "_" + std::to_string( j ), dynamicMat );
 
-            scene.createEntity(
+            const auto gridEntity = scene.createEntity(
                 esfera,
                 dynamicMatHandle,
                 Transform{
@@ -306,7 +310,7 @@ void App::loadModels()
 
     for (int i = 0; i < 10; i++) {
         for (int j = 0; j < 10; j++) {
-            scene.createEntity(
+            const auto floorEntity = scene.createEntity(
                 planoSincolor,
                 planeMatHandle,
                 Transform{
@@ -324,15 +328,15 @@ void App::addLighting()
 {
     Scene& scene = _engine.getScene();
 
-    LightEntityHandle mainLight =  scene.createLight( LightType::Directional, glm::vec3( -2, -0.9, 4 ), glm::vec3( 0.1, 0.1, 0.1 ), 1, 1000 );
-    scene.createLight( LightType::Point, glm::vec3( 0, 0, -1 ), glm::vec3( 1, 0, 0 ), 1, 10 );
-    scene.createLight( LightType::Point, glm::vec3( 1, 0, -1 ), glm::vec3( 0, 1, 0 ), 1, 10 );
-    scene.createLight( LightType::Point, glm::vec3( -1, 0, -1 ), glm::vec3( 0, 0, 1 ), 1, 10 );
+    LightEntityHandle mainLight = scene.createLight( LightType::Directional, glm::vec3( -2, -0.9, 4 ), glm::vec3( 0.1, 0.1, 0.1 ), 1, 1000 );
+    LightEntityHandle redLight = scene.createLight( LightType::Point, glm::vec3( 0, 0, -1 ), glm::vec3( 1, 0, 0 ), 1, 10 );
+    LightEntityHandle greenLight = scene.createLight( LightType::Point, glm::vec3( 1, 0, -1 ), glm::vec3( 0, 1, 0 ), 1, 10 );
+    LightEntityHandle blueLight = scene.createLight( LightType::Point, glm::vec3( -1, 0, -1 ), glm::vec3( 0, 0, 1 ), 1, 10 );
 
 
     for (int i = 0; i < 10;i++) {
         for (int j = 0; j < 10; j++) {
-            scene.createLight(LightType::Point, glm::vec3( -5 + i * -5, -0.5, j * 5 - 1.5 ), glm::vec3( 0.01 * i, 0.01 * j, 1 ), 1, 10 );
+            LightEntityHandle gridLight = scene.createLight( LightType::Point, glm::vec3( -5 + i * -5, -0.5, j * 5 - 1.5 ), glm::vec3( 0.01 * i, 0.01 * j, 1 ), 1, 10 );
         }
     }
     scene.setMainLight( mainLight );
@@ -342,9 +346,7 @@ void App::freeObjects()
 {
     ResourceManager& resources = _engine.getResourceManager();
     _engine.getScene().clear();
-    resources.releaseAllMaterials();
-    resources.releaseAllTextures();
-    resources.releaseAllMeshes();
+    resources.clear();
 }
 
 

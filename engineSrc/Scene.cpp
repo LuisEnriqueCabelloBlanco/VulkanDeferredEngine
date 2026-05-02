@@ -335,9 +335,9 @@ uint32_t Scene::allocateSlot() {
         _freeSlots.pop_back();
         return index;
     }
-    if (_slots.size() >= MAX_ENTITIES) {
+    if (_slots.size() >= ResourceLimits::MAX_ENTITIES) {
         throw SceneException( SceneErrorCode::LimitExceeded,
-            "Scene::createEntity exceeded MAX_ENTITIES (" + std::to_string( MAX_ENTITIES ) + ")" );
+            "Scene::createEntity exceeded MAX_ENTITIES (" + std::to_string(ResourceLimits::MAX_ENTITIES ) + ")" );
     }
     _slots.emplace_back();
     return static_cast<uint32_t>(_slots.size() - 1);
@@ -349,9 +349,9 @@ uint32_t Scene::allocateLightSlot() {
         _freeLightSlots.pop_back();
         return index;
     }
-    if (_lightSlots.size() >= MAX_LIGHTS) {
+    if (_lightSlots.size() >= ResourceLimits::MAX_LIGHTS) {
         throw SceneException( SceneErrorCode::LimitExceeded,
-            "Scene::createLight exceeded MAX_LIGHTS (" + std::to_string( MAX_LIGHTS ) + ")" );
+            "Scene::createLight exceeded MAX_LIGHTS (" + std::to_string(ResourceLimits::MAX_LIGHTS ) + ")" );
     }
     _lightSlots.emplace_back();
     return static_cast<uint32_t>(_lightSlots.size() - 1);

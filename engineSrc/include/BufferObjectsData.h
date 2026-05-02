@@ -8,8 +8,7 @@
 // unicos consumidores legitimos.
 //
 // La aplicacion nunca incluye este header directamente; accede a los recursos
-// a traves de ResourceHandles.h y a las entidades a traves de Scene.h /
-// RenderEntityHandle.h / LightEntityHandle.h.
+// a traves de ResourceHandles.h y a las entidades a traves de Scene.h
 // ---------------------------------------------------------------------------
 
 #include <vulkan/vulkan_core.h>
@@ -58,9 +57,9 @@ static_assert( sizeof( LightType ) == sizeof( int32_t ),
 // LightType vive en este mismo header y su valor int32_t es consumido
 // directamente por el shader como un campo de 32 bits.
 //
-// La aplicacion no manipula LightObject directamente; usa LightDesc para
-// describir una luz y LightEntityHandle para mutarla. Scene traduce esos
-// datos a LightObject en el slot correspondiente.
+// La aplicacion no manipula LightObject directamente; usa LightEntityHandle
+// para mutar la luz y Scene traduce esos datos a LightObject en el slot
+// correspondiente.
 // ---------------------------------------------------------------------------
 
 struct alignas(16) LightObject {

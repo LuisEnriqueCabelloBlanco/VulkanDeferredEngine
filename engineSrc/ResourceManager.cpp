@@ -314,6 +314,36 @@ MaterialHandle ResourceManager::tryGetMaterialHandle( const std::string& name ) 
     return makeMaterialHandle( index, slot.generation );
 }
 
+std::vector<std::string> ResourceManager::getMeshNames() const
+{
+    std::vector<std::string> names;
+    names.reserve( _meshSlots.size() - _freeMeshSlots.size() );
+    for ( const MeshSlot& slot : _meshSlots ) {
+        if ( slot.occupied ) names.push_back( slot.name );
+    }
+    return names;
+}
+ 
+std::vector<std::string> ResourceManager::getTextureNames() const
+{
+    std::vector<std::string> names;
+    names.reserve( _textureSlots.size() - _freeTextureSlots.size() );
+    for ( const TextureSlot& slot : _textureSlots ) {
+        if ( slot.occupied ) names.push_back( slot.name );
+    }
+    return names;
+}
+ 
+std::vector<std::string> ResourceManager::getMaterialNames() const
+{
+    std::vector<std::string> names;
+    names.reserve( _materialSlots.size() - _freeMaterialSlots.size() );
+    for ( const MaterialSlot& slot : _materialSlots ) {
+        if ( slot.occupied ) names.push_back( slot.name );
+    }
+    return names;
+}
+
 const Mesh* ResourceManager::tryGetMesh( MeshHandle handle ) const {
     const MeshSlot* slot = tryGetMeshSlot( handle );
     return (slot == nullptr) ? nullptr : slot->resource.get();
