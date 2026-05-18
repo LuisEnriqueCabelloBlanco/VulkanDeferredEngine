@@ -80,4 +80,8 @@ private:
     RenderEntityHandle _characterEntity;
     RenderEntityHandle _sphereLeftEntity;
     RenderEntityHandle _sphereRightEntity;
+
+    bool _axisInput[4] = { false, false, false,false };
+
+    float _movementSpeed = 1.f;
 };

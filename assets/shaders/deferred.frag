@@ -182,7 +182,7 @@ void main() {
             aux.color =  lightBuffer.lights[index].color.rgb;
             aux.intensity =  lightBuffer.lights[index].intensity/(length(ponintToPos)*length(ponintToPos));
             //TOOD hacer parametro de rango de la luz
-            if(ponintToPos.length() < lightBuffer.lights[index].range){
+            if(length(ponintToPos) < lightBuffer.lights[index].range){
                 colorVal += PBR(aux, light.ambient, sampleColor, metallic, roughness, normalVec, viewVector);
             }
 

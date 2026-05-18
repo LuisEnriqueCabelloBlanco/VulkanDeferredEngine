@@ -81,32 +81,55 @@ void App::mainLoop() {
         auto frameStart = std::chrono::high_resolution_clock::now();
 
         SDL_Event ev;
-        _moveDir = glm::vec3( 0 );
         while (SDL_PollEvent( &ev )) {
 
             if (ev.type == SDL_KEYDOWN) {
                 if (ev.key.keysym.scancode == SDL_SCANCODE_D) {
-                    _moveDir += glm::vec3( -1, 0, 0 );
+                    _axisInput[0] = true;
                 }
                 if (ev.key.keysym.scancode == SDL_SCANCODE_A) {
-                    _moveDir += glm::vec3( 1, 0, 0 );
+                    _axisInput[1] = true;
                 }
                 if (ev.key.keysym.scancode == SDL_SCANCODE_W) {
-                    _moveDir += glm::vec3( 0, 0, 1 );
+                    _axisInput[2] = true;
                 }
                 if (ev.key.keysym.scancode == SDL_SCANCODE_S) {
-                    _moveDir += glm::vec3( 0, 0, -1 );
+                    _axisInput[3] = true;
                 }
+
                 if (ev.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
                     SDL_bool b = SDL_GetRelativeMouseMode();
                     SDL_SetRelativeMouseMode((SDL_bool)(((int)b+1)%2) );
                 }
             }
 
+            if (ev.type == SDL_KEYUP) {
+                if (ev.key.keysym.scancode == SDL_SCANCODE_D) {
+                    _axisInput[0] = false;
+                }
+                if (ev.key.keysym.scancode == SDL_SCANCODE_A) {
+                    _axisInput[1] = false;
+                }
+                if (ev.key.keysym.scancode == SDL_SCANCODE_W) {
+                    _axisInput[2] = false;
+                }
+                if (ev.key.keysym.scancode == SDL_SCANCODE_S) {
+                    _axisInput[3] = false;
+                }
+            }
+
+
+
             if (ev.type == SDL_MOUSEMOTION) {
                 _mainCamera->rotateY( glm::radians( static_cast<float>( ev.motion.xrel ) * 0.1f ) );
                 _mainCamera->rotateX( glm::radians( static_cast<float>( ev.motion.yrel ) * 0.1f ) );
             }
+
+            if (ev.type == SDL_MOUSEWHEEL) {
+                _movementSpeed += ev.wheel.preciseY;
+                _movementSpeed = std::max(0.f, _movementSpeed);
+            }
+
             if (ev.type == SDL_QUIT) {
                 running = false;
             }
@@ -123,6 +146,26 @@ void App::mainLoop() {
                 _engine.handleWindowEvent( out );
             }
         }
+
+        _moveDir = glm::vec3(0);
+        if (_axisInput[0]) {
+            _moveDir += glm::vec3(-1, 0, 0);
+        }
+        if (_axisInput[1]) {
+            _moveDir += glm::vec3(1, 0, 0);
+        }
+        if (_axisInput[2]) {
+            _moveDir += glm::vec3(0, 0, 1);
+        }
+        if (_axisInput[3]) {
+            _moveDir += glm::vec3(0, 0, -1);
+        }
+
+        if (_moveDir != glm::vec3(0)) {
+            _moveDir = glm::normalize(_moveDir);
+        }
+
+
 
         update();
 
@@ -162,7 +205,10 @@ void App::update()
     glm::vec3 right = glm::cross( glm::vec3( 0, 1, 0 ), _mainCamera->getForward()  );
 
 
-    glm::vec3 newPos = _mainCamera->getPosition() + (right * _moveDir.x + _mainCamera->getForward() * _moveDir.z)*_deltaTime *10.f;
+    glm::vec3 move = normalize(right) * _moveDir.x + normalize(_mainCamera->getForward()) * _moveDir.z;
+
+    glm::vec3 newPos = _mainCamera->getPosition() + move * _deltaTime * _movementSpeed;
+
 
     _mainCamera->setPosition( newPos );
 }
@@ -289,34 +335,36 @@ void App::loadModels()
         }
     );
 
-    for (int i = 0; i < 100;i++) {
-        for (int j = 0; j < 100; j++) {
-            MaterialCreateInfo dynamicMat = mat3;
-            dynamicMat.roughness = std::min( static_cast<float>( i ) * 0.1f, 1.0f );
-            dynamicMat.metallic = std::min( static_cast<float>( j ) * 0.1f, 1.0f );
-            MaterialHandle dynamicMatHandle = resources.createMaterial( "mat_grid_" + std::to_string( i ) + "_" + std::to_string( j ), dynamicMat );
+    for (int i = 0; i < 20;i++) {
+        for (int j = 0; j < 20; j++) {
+            for (int k = 0; k < 10; k++) {
+                MaterialCreateInfo dynamicMat = mat3;
+                dynamicMat.roughness = 0.5f; // std::min( static_cast<float>( i ) * 0.1f, 1.0f );
+                dynamicMat.metallic =0.5f; //std::min( static_cast<float>( j ) * 0.1f, 1.0f );
+                MaterialHandle dynamicMatHandle = resources.createMaterial( "mat_grid_" + std::to_string( i ) + "_" + std::to_string( j )+"_" + std::to_string(k), dynamicMat);
 
-            const auto gridEntity = scene.createEntity(
-                esfera,
-                dynamicMatHandle,
-                Transform{
-                    glm::vec3( -5.0f + static_cast<float>( i ) * -5.0f, 0.0f, static_cast<float>( j ) * 5.0f ),
-                    glm::vec3( 0.0f ),
-                    glm::vec3( 1.0f )
-                }
-            );
+                const auto gridEntity = scene.createEntity(
+                    esfera,
+                    dynamicMatHandle,
+                    Transform{
+                        glm::vec3( -5.0f + static_cast<float>( i ) * -2.0f, k*2.f, static_cast<float>( j ) * 2.0f ),
+                        glm::vec3( 0.0f ),
+                        glm::vec3( 0.5f )
+                    }
+                );
+            }
         }
     }
 
-    for (int i = 0; i < 10; i++) {
-        for (int j = 0; j < 10; j++) {
+    for (int i = 0; i < 5; i++) {
+        for (int j = 0; j < 5; j++) {
             const auto floorEntity = scene.createEntity(
                 planoSincolor,
                 planeMatHandle,
                 Transform{
-                    glm::vec3( static_cast<float>( i ) * -5.0f, -1.0f, static_cast<float>( j ) * 5.0f ),
+                    glm::vec3( static_cast<float>( i ) * -10.0f, -1, static_cast<float>( j ) * 10.0f ),
                     glm::vec3( 0.0f ),
-                    glm::vec3( 10.0f )
+                    glm::vec3( 20.0f )
                 }
             );
         }
@@ -328,18 +376,20 @@ void App::addLighting()
 {
     Scene& scene = _engine.getScene();
 
-    LightEntityHandle mainLight = scene.createLight( LightType::Directional, glm::vec3( -2, -0.9, 4 ), glm::vec3( 0.1, 0.1, 0.1 ), 1, 1000 );
+    LightEntityHandle mainLight = scene.createLight( LightType::Directional, glm::vec3(-2, -0.9, 4), glm::vec3( 0.5, 1, 1 ), 0.8);
     LightEntityHandle redLight = scene.createLight( LightType::Point, glm::vec3( 0, 0, -1 ), glm::vec3( 1, 0, 0 ), 1, 10 );
     LightEntityHandle greenLight = scene.createLight( LightType::Point, glm::vec3( 1, 0, -1 ), glm::vec3( 0, 1, 0 ), 1, 10 );
     LightEntityHandle blueLight = scene.createLight( LightType::Point, glm::vec3( -1, 0, -1 ), glm::vec3( 0, 0, 1 ), 1, 10 );
 
 
-    for (int i = 0; i < 10;i++) {
-        for (int j = 0; j < 10; j++) {
-            LightEntityHandle gridLight = scene.createLight( LightType::Point, glm::vec3( -5 + i * -5, -0.5, j * 5 - 1.5 ), glm::vec3( 0.01 * i, 0.01 * j, 1 ), 1, 10 );
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 2; j++) {
+            for (int k = 0; k < 3; k++) {
+                LightEntityHandle gridLight = scene.createLight( LightType::Point, glm::vec3( -5 + i * -2, k*4  + 2, j * 2 - 1 ), glm::vec3( 1 , 0.4 , 0.8 ), 1, 20 );
+            }
         }
     }
-    scene.setMainLight( mainLight );
+   // scene.setMainLight( mainLight );
 }
 
 void App::freeObjects()

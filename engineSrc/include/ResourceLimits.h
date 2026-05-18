@@ -5,7 +5,7 @@ namespace ResourceLimits {
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 constexpr int MAX_CULL_OBJECTS = 100000;
 constexpr int MAX_TEXTURES = 32;
-constexpr int MAX_LIGHTS = 4096;
+constexpr int MAX_LIGHTS = 16384;
 constexpr int MAX_ENTITIES = 16384;
 
 constexpr int MAX_MESHES = 4096;
