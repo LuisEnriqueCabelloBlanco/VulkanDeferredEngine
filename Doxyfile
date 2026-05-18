@@ -1141,7 +1141,6 @@ EXCLUDE = \
     engineSrc/include/Mesh.h \
     engineSrc/include/RenderEngine.h \
     engineSrc/include/RenderPipelines.h \
-    engineSrc/include/ResourceLimits.h \
     engineSrc/include/ShadowPass.h \
     engineSrc/include/stb_image.h \
     engineSrc/include/SwapChain.h \
