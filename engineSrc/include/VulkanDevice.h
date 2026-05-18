@@ -10,8 +10,6 @@ const std::vector<const char*> deviceExtensions = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 	VK_KHR_MAINTENANCE3_EXTENSION_NAME,
 	"VK_EXT_descriptor_indexing"
-	/*,
-	VK_KHR_SURFACE_EXTENSION_NAME*/
 };
 
 class VulkanDevice
@@ -43,11 +41,7 @@ public:
 	void init( VkInstance instance, VulkanWindow& window );
 
 
-	/// <summary>
-	/// devuelve el soporte para una swapchain que se ajueste a la superficie indicada
-	/// </summary>
-	/// <param name="surface"></param>
-	/// <returns></returns>
+	// devuelve el soporte para una swapchain que se ajueste a la superficie indicada
 	SwapChainSupportDetails getSwapChainSupportDetails( VkSurfaceKHR surface );
 
 	void close();
@@ -80,7 +74,7 @@ public:
 	VkSwapchainKHR createSwapChain( const VkSurfaceKHR& surface, VkFormat& format, VkExtent2D& extent, std::vector<VkImage>& images );
 
 	std::vector<VkPipeline> createPipelines( VkPipelineCache pipelineCache, std::vector<VkGraphicsPipelineCreateInfo> createInfos, VkAllocationCallbacks* pAllocator = nullptr );
-	
+
 	std::vector<VkPipeline> createcomputePipelines( VkPipelineCache pipelineCache, std::vector<VkComputePipelineCreateInfo> createInfos, VkAllocationCallbacks* pAllocator = nullptr );
 
 	std::vector<VkCommandBuffer> createCommandBuffers( VkCommandPool comandPool, VkCommandBufferLevel level, uint32_t numCommandBuffers );
@@ -98,7 +92,7 @@ public:
 	VkFence createFence( VkFenceCreateInfo createInfo, VkAllocationCallbacks* pAllocator = nullptr );
 
 	void createBuffer( VkDeviceSize size, VkBufferUsageFlagBits usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory, std::vector<uint32_t> familyIndex = std::vector<uint32_t>(0) );
-	
+
 	Buffer* createBuffer( VkDeviceSize size, VkBufferUsageFlagBits usage, VkMemoryPropertyFlags properties);
 
 	template <typename t>
@@ -285,16 +279,12 @@ public:
 		return vkAcquireNextImageKHR( _device, swapChain, UINT64_MAX, sem, VK_NULL_HANDLE, &index );
 	}
 
-	/**
-	 * @brief Reserva memoria y la vincula a una imagen
-	 * @param image 
-	 * @return 
-	 */
+	// Reserva memoria y la vincula a una imagen
 	VkDeviceMemory bindMemoryToImage( VkImage image );
 
 private:
 
-	
+
 
 	void pickPhysicalDevice();
 	bool isDeviceSuitable( VkPhysicalDevice device );
@@ -305,13 +295,7 @@ private:
 	VkPresentModeKHR chooseSwapPresentMode( const std::vector<VkPresentModeKHR>& availablePresentModes );
 	VkSurfaceFormatKHR chooseSwapSurfaceFormat( const std::vector<VkSurfaceFormatKHR>& availableFormats );
 
-
-	/// <summary>
-	/// busca los indices de las colas de un dispositivo físico cualquiera
-	/// </summary>
-	/// <param name="device"></param>
-	/// <param name="window"></param>
-	/// <returns></returns>
+	// busca los indices de las colas de un dispositivo fisico cualquiera
 	QueueFamilyIndices findQueueFamilies( VkPhysicalDevice device, VulkanWindow& window );
 
 	VkSampleCountFlagBits getMaxUsableSampleCount();

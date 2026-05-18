@@ -6,7 +6,7 @@
 
 class VulkanDevice;
 
-/**
+/*
  * ShadowPass gestiona los recursos necesarios para el mapeo de sombras.
  * Responsabilidades:
  * - Crear y destruir la textura de profundidad (Shadow Map).

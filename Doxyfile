@@ -843,7 +843,7 @@ SHOW_USED_FILES        = NO
 # (if specified).
 # The default value is: YES.
 
-SHOW_FILES             = NO
+SHOW_FILES             = YES
 
 # Set the SHOW_NAMESPACES tag to NO to disable the generation of the Namespaces
 # page. This will remove the Namespaces entry from the Quick Index and from the
@@ -1130,7 +1130,28 @@ RECURSIVE              = YES
 # Note that relative paths are relative to the directory from which Doxygen is
 # run.
 
-EXCLUDE                = engineSrc\include\tiny_obj_loader.h
+EXCLUDE = \
+    engineSrc/include/Buffer.h \
+    engineSrc/include/Camera.h \
+    engineSrc/include/CullManager.h \
+    engineSrc/include/DescriptorManager.h \
+    engineSrc/include/GBuffer.h \
+    engineSrc/include/GPUBufferManager.h \
+    engineSrc/include/MainRenderPass.h \
+    engineSrc/include/Mesh.h \
+    engineSrc/include/RenderEngine.h \
+    engineSrc/include/RenderPipelines.h \
+    engineSrc/include/ResourceLimits.h \
+    engineSrc/include/ShadowPass.h \
+    engineSrc/include/stb_image.h \
+    engineSrc/include/SwapChain.h \
+    engineSrc/include/Texture.h \
+    engineSrc/include/tinyimage.h \
+    engineSrc/include/tiny_obj_loader.h \
+    engineSrc/include/Utils.h \
+    engineSrc/include/VulkanDevice.h \
+    engineSrc/include/VulkanInstance.h \
+    engineSrc/include/VulkanWindow.h
 
 # The EXCLUDE_SYMLINKS tag can be used to select whether or not files or
 # directories that are symbolic links (a Unix file system feature) are excluded
@@ -1146,7 +1167,8 @@ EXCLUDE_SYMLINKS       = NO
 # Note that the wildcards are matched against the file with absolute path, so to
 # exclude all test directories for example use the pattern */test/*
 
-EXCLUDE_PATTERNS       =
+EXCLUDE_PATTERNS = \
+    */engineSrc/*.cpp
 
 # The EXCLUDE_SYMBOLS tag can be used to specify one or more symbol names
 # (namespaces, classes, functions, etc.) that should be excluded from the

@@ -8,7 +8,7 @@
 class VulkanDevice;
 class VulkanWindow;
 
-/**
+/*
  * GBuffer gestiona el Geometry Buffer para renderizado diferido.
  * Responsabilidades:
  * - Crear texturas de Albedo, Normales, Posiciones y Profundidad de escena.

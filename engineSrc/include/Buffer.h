@@ -5,13 +5,13 @@
 class VulkanDevice;
 
 
-/**
- * @brief Clase buffer responsable de destruir los datos asociados
+/*
+ * Clase buffer responsable de destruir los datos asociados
  */
 class Buffer
 {
 	friend VulkanDevice;
-public: 
+public:
 	Buffer( VkDeviceSize size, VkBufferUsageFlagBits usage, VkMemoryPropertyFlags properties, VulkanDevice* device );
 	~Buffer();
 
@@ -25,9 +25,9 @@ private:
 	VkDeviceMemory _bufferMemory;
 
 	VkDeviceSize _size;
-	VkBufferUsageFlagBits _usage; 
+	VkBufferUsageFlagBits _usage;
 	VkMemoryPropertyFlags _properties;
-	
+
 	VulkanDevice* _device;
 };
 
