@@ -430,3 +430,7 @@ FodyWeavers.xsd
 *.msp
 
 !assets/mesh/*
+
+# Ocultar la documentación generada por Doxygen
+docs/html/
+docs/latex/

@@ -154,6 +154,10 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PostBuildEvent>
+      <Command>cd "$(SolutionDir)" &amp;&amp; doxygen Doxyfile</Command>
+      <Message>Generando documentación de la API con Doxygen...</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -170,6 +174,10 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PostBuildEvent>
+      <Command>cd "$(SolutionDir)" &amp;&amp; doxygen Doxyfile</Command>
+      <Message>Generando documentación de la API con Doxygen...</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -196,10 +204,8 @@
       </Command>
     </CustomBuildStep>
     <PostBuildEvent>
-      <Command>
-      </Command>
-      <Message>
-      </Message>
+      <Command>cd "$(SolutionDir)" &amp;&amp; doxygen Doxyfile</Command>
+      <Message>Generando documentación de la API con Doxygen...</Message>
     </PostBuildEvent>
     <Lib>
       <AdditionalDependencies>SDL2.lib;vulkan-1.lib;</AdditionalDependencies>
@@ -227,10 +233,8 @@
       <Command>$(SolutionDir)utils/shader_compilation.bat assets/ $(SolutionDir)assets/shaders/build/</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>
-      </Command>
-      <Message>
-      </Message>
+      <Command>cd "$(SolutionDir)" &amp;&amp; doxygen Doxyfile</Command>
+      <Message>Generando documentación de la API con Doxygen...</Message>
     </PostBuildEvent>
     <Lib>
       <AdditionalDependencies>SDL2.lib;vulkan-1.lib;</AdditionalDependencies>
