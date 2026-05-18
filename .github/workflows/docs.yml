@@ -12,11 +12,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Instalar Doxygen
-        run: sudo apt-get install -y doxygen graphviz
+      - name: Instalar dependencias
+        run: sudo apt-get install -y doxygen graphviz texlive-latex-recommended texlive-fonts-recommended
 
       - name: Generar documentacion
         run: doxygen Doxyfile
+
+      - name: Compilar PDF
+        run: |
+          cd docs/latex
+          make pdf
+          cp refman.pdf ../html/documentacion.pdf
 
       - name: Publicar en GitHub Pages
         uses: actions/upload-pages-artifact@v3
