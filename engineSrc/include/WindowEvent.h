@@ -2,11 +2,11 @@
 
 /**
  * @file WindowEvent.h
- * @brief Contrato de evento de ventana desacoplado del backend de ventana.
+ * @brief Contrato de evento de ventana desacoplado.
  *
- * La aplicacion traduce eventos nativos (SDL u otro framework) a estas
- * estructuras y las pasa al motor mediante EngineAPI::handleWindowEvent().
- * El motor nunca depende de un backend de ventana concreto.
+ * El motor tiene una capa de contrato de eventos desacoplada. Necesita que
+ * la aplicacion traduzca los eventos nativos a WindowEvent y los entregue al
+ * motor mediante EngineAPI::handleWindowEvent().
  */
 
 /**
@@ -24,7 +24,7 @@ enum class WindowEventType {
  * entrega al motor con EngineAPI::handleWindowEvent(). El motor actualiza
  * su estado interno (por ejemplo, recrea el swapchain) en funcion del tipo.
  *
- * Ejemplo de uso con SDL:
+ * Ejemplo de uso:
  * @code
  * case SDL_WINDOWEVENT_RESIZED:
  *     WindowEvent ev;

@@ -134,10 +134,10 @@ public:
     /**
      * @brief Notifica al motor un evento de ventana.
      *
-     * La aplicacion debe traducir los eventos nativos del backend de ventana
-     * (SDL, GLFW, Win32...) al tipo WindowEvent y entregarlos aqui. El motor
-     * reacciona internamente segun el tipo (por ejemplo, recrea el swapchain
-     * ante un WindowEventType::Resized).
+     * El motor tiene una capa de contrato de eventos desacoplada. Necesita
+     * que la aplicacion traduzca los eventos nativos a WindowEvent y los
+     * entregue aqui. El motor reacciona internamente segun el tipo (por
+     * ejemplo, recrea el swapchain ante un WindowEventType::Resized).
      *
      * @param event Evento de ventana a procesar.
      * @throws std::logic_error si el motor no esta inicializado.

@@ -1,5 +1,280 @@
 @mainpage Documentacion del motor
 
-Bienvenido a la documentacion de VulkanDeferredEngine.
+Bienvenido a la documentacion de **VulkanDeferredEngine**.
 
 [Descargar documentacion en PDF](documentacion.pdf)
+
+---
+
+## Indice
+
+- [Gestion de recursos](#gestion-de-recursos)
+- [Escena: entidades y luces](#escena-entidades-y-luces)
+- [Camara](#camara)
+- [Bucle principal y eventos de ventana](#bucle-principal-y-eventos-de-ventana)
+- [Manejo de errores](#manejo-de-errores)
+- [Limites de capacidad](#limites-de-capacidad)
+
+---
+
+## Gestion de recursos
+
+El `ResourceManager` gestiona tres tipos de recursos de GPU. Todos se identifican mediante **handles opacos** que el motor invalida automaticamente si el recurso es liberado, evitando punteros colgantes.
+
+### Meshes
+
+```cpp
+// Desde fichero
+MeshHandle m1 = res.createMesh("terreno", "terrain.obj");
+
+// Desde vertices en memoria (sin indices)
+MeshHandle m2 = res.createMesh("triangulo", vertices);
+
+// Indexada
+MeshHandle m3 = res.createMesh("cubo", indices, vertices);
+```
+
+### Texturas
+
+```cpp
+TextureHandle albedo  = res.createTexture("albedo",   "diffuse.png");
+TextureHandle normals = res.createTexture("normales", "normal.png");
+```
+
+### Materiales PBR
+
+Los materiales describen la apariencia fisica del objeto. Se configuran mediante `MaterialCreateInfo`:
+
+```cpp
+MaterialCreateInfo info;
+info.baseColor        = { 1.f, 0.8f, 0.2f, 1.f };  // color base RGBA
+info.metallic         = 0.9f;                        // 0 = dielectrico, 1 = metalico
+info.roughness        = 0.2f;                        // 0 = espejo, 1 = completamente rugoso
+info.baseColorTexture = albedo;                      // textura de albedo (opcional)
+info.normalTexture    = normals;                     // mapa de normales (opcional)
+
+MaterialHandle mat = res.createMaterial("oro", info);
+```
+
+### Lookup y liberacion
+
+```cpp
+// Buscar un recurso ya cargado por nombre (no lanza excepciones)
+MeshHandle m = res.tryGetMeshHandle("terreno");
+
+// Liberar en runtime
+res.releaseMaterial(mat);   // primero el material
+res.releaseTexture(albedo); // despues la textura que referencia
+
+// Enumerar recursos vivos (util para debug)
+for (const auto& name : res.getMeshNames()) { /* ... */ }
+```
+
+> **Dependencias:** una textura no puede liberarse mientras algun material vivo la referencia. El motor lanza `ResourceException(DependencyInUse)` para proteger la coherencia.
+
+---
+
+## Escena: entidades y luces
+
+### Entidades renderizables
+
+```cpp
+// Crear con mesh, material y transform
+RenderEntityHandle entity = scene.createEntity(mesh, mat,
+    Transform({ 0.f, 0.f, 0.f }, { 0.f, 0.f, 0.f }, { 1.f, 1.f, 1.f }));
+
+// Crear vacia y configurar despues
+RenderEntityHandle e2 = scene.createEntity();
+e2.setMesh(mesh);
+e2.setMaterial(mat);
+```
+
+**Transform:** la convencion de rotacion es Euler XYZ (pitch, yaw, roll) en radianes. Se soportan operaciones absolutas y relativas; multiples mutaciones en el mismo frame tienen coste unitario.
+
+```cpp
+// Setters absolutos
+entity.setPosition({ 3.f, 0.f, 0.f });
+entity.setRotation({ 0.f, glm::radians(45.f), 0.f });
+entity.setScale(2.f);
+
+// Mutaciones relativas
+entity.translate({ 0.f, 0.1f, 0.f });
+entity.rotateY(glm::radians(1.f));
+entity.scale(0.99f);
+```
+
+**Visibilidad y activacion:**
+
+```cpp
+entity.setVisible(false);  // oculta sin eliminar de la escena
+entity.setActive(false);   // excluye del render queue y del culling
+```
+
+**Destruccion:**
+
+```cpp
+scene.destroyEntity(entity);
+```
+
+### Luces
+
+El motor soporta tres tipos de luz definidos por `LightType`:
+
+| Tipo           | `posOrDir`                            | Rango | Descripcion                       |
+|----------------|---------------------------------------|-------|-----------------------------------|
+| `Directional`  | Direccion normalizada hacia la fuente | No    | Luz global sin atenuacion         |
+| `Point`        | Posicion en el mundo                  | Si    | Omnidireccional con atenuacion    |
+| `Spotlight`    | Posicion en el mundo                  | Si    | Cono de luz con atenuacion        |
+
+```cpp
+// Luz direccional (sol)
+LightEntityHandle sol = scene.createLight(
+    LightType::Directional,
+    glm::normalize(glm::vec3(-1, -1, 0)),
+    glm::vec3(1.f, 0.95f, 0.8f),
+    2.0f
+);
+
+// Luz puntual
+LightEntityHandle bombilla = scene.createLight(
+    LightType::Point,
+    glm::vec3(0.f, 3.f, 0.f),   // posicion
+    glm::vec3(1.f, 0.8f, 0.4f), // color
+    1.5f,                        // intensidad
+    10.f                         // rango en unidades de mundo
+);
+```
+
+Todos los parametros de una luz pueden modificarse en tiempo real:
+
+```cpp
+sol.setIntensity(1.5f);
+sol.setColor({ 1.f, 0.6f, 0.3f }); // amanecer
+sol.setActive(false);               // apagar sin destruir
+```
+
+### Shadow caster (main light)
+
+Una de las luces puede ser configurada para que proyecte sombras en tiempo real. Debe ser de tipo `Directional`:
+
+```cpp
+scene.setMainLight(sol);  // designa la luz principal (shadow caster)
+scene.clearMainLight();   // elimina la designacion
+scene.hasMainLight();     // consulta si hay una designada
+```
+
+### Enumeracion de la escena
+
+```cpp
+scene.forEachEntity([&](RenderEntityHandle& e) {
+    e.translate({ 0.f, 0.001f, 0.f });
+});
+
+scene.forEachLight([&](LightEntityHandle& l) {
+    l.setIntensity(l.getIntensity() * 0.99f);
+});
+
+std::cout << scene.entityCount() << " entidades, "
+          << scene.lightCount()  << " luces\n";
+```
+
+> **Advertencia:** no crear ni destruir entidades o luces dentro del callback de `forEachEntity` / `forEachLight`.
+
+---
+
+## Camara
+
+Hay exactamente una camara en la escena, accesible mediante `scene.getCamera()`
+
+```cpp
+CameraHandle& cam = scene.getCamera();
+
+// Posicion y orientacion
+cam.setPosition({ 0.f, 5.f, -10.f });
+cam.setYaw(glm::radians(180.f));
+cam.setPitch(glm::radians(-15.f));
+
+// Proyeccion
+cam.setFOV(75.f);         // campo de vision vertical en grados
+cam.setNearPlane(0.1f);
+cam.setFarPlane(1000.f);
+```
+
+**Movimiento relativo** (tipico para camara FPS):
+
+```cpp
+cam.moveForward(speed * deltaTime);
+cam.moveRight  (strafe * deltaTime);
+cam.moveUp     (vertical * deltaTime);
+cam.rotateY    (mouseX * sensitivity);
+cam.rotateX    (mouseY * sensitivity);
+```
+
+> El aspect ratio se actualiza automaticamente al redimensionar la ventana.
+
+---
+
+## Bucle principal y eventos de ventana
+
+El motor tiene una capa de contrato de eventos desacoplada. Necesita que la aplicacion traduzca los eventos nativos a `WindowEvent` y los entregue al motor:
+
+```cpp
+while (running) {
+    // Traducir eventos nativos
+    if (sdlEvent.type == SDL_WINDOWEVENT_RESIZED) {
+        WindowEvent ev;
+        ev.type   = WindowEventType::Resized;
+        ev.width  = sdlEvent.window.data1;
+        ev.height = sdlEvent.window.data2;
+        engine.handleWindowEvent(ev); // recrea el swapchain internamente
+    }
+
+    // Logica de la aplicacion
+    entity.rotateY(glm::radians(1.f));
+
+    // Renderizar
+    engine.drawFrame();
+}
+```
+
+---
+
+## Manejo de errores
+
+El motor usa excepciones tipadas que exponen un codigo de error, permitiendo reaccionar de forma programatica sin depender del texto del mensaje:
+
+```cpp
+try {
+    scene.destroyEntity(handle);
+} catch (const SceneException& e) {
+    if (e.code() == SceneErrorCode::StaleHandle) {
+        // La entidad ya fue destruida previamente
+    }
+}
+```
+
+| Excepcion           | Cuando se lanza                                          |
+|---------------------|----------------------------------------------------------|
+| `SceneException`    | Operaciones invalidas sobre handles de entidad o luz     |
+| `ResourceException` | Operaciones invalidas sobre handles de recurso           |
+| `std::logic_error`  | Llamadas al motor antes de `init()` o tras `cleanup()`   |
+
+Codigos de `SceneErrorCode`: `InvalidHandle`, `StaleHandle`, `LimitExceeded`.
+
+Codigos de `ResourceErrorCode`: `InvalidName`, `DuplicateName`, `LimitExceeded`, `InvalidHandle`, `StaleHandle`, `DependencyInUse`, `LoadFailed`.
+
+---
+
+## Limites de capacidad
+
+Definidos como constantes de compilacion en `ResourceLimits.h`:
+
+| Recurso / elemento     | Limite  |
+|------------------------|---------|
+| Entidades en escena    | 16 384  |
+| Luces en escena        | 16 384  |
+| Mallas                 | 4 096   |
+| Materiales             | 20 000  |
+| Texturas               | 32      |
+
+Superar cualquiera de estos limites lanza una excepcion con codigo `LimitExceeded`.
