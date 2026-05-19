@@ -40,6 +40,7 @@ struct ViewProjectionData {
 struct alignas(16) GlobalLighting {
     glm::vec3 eyePos;
     float     ambientVal;
+    uint32_t mainLightIndex;
 };
 /// @endcond
 

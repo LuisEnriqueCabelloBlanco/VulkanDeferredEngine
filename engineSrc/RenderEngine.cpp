@@ -339,6 +339,7 @@ void RenderEngine::drawFrame()
 	_buffers.writeCameraVP( currentFrame, camVP );
 
 	_lighting.eyePos = cam.getPosition();
+	_lighting.mainLightIndex = _scene.getMainLightIndexInQueue(); // TODO aceder a la luz principal
 	_buffers.writeLighting( _lighting );
 
 	// VP de la main light para shadow pass

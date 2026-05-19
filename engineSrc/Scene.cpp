@@ -231,6 +231,11 @@ const Scene::LightSlot& Scene::requireLightSlotConst( uint32_t index, uint32_t g
 // Render queue, light queue y main light (RenderEngine)
 // ===========================================================================
 
+int Scene::getMainLightIndexInQueue()
+{
+    return _mainLightIndex;
+}
+
 const std::vector<RenderObject>& Scene::buildRenderQueue() const {
     _renderQueueCache.clear();
     _renderQueueCache.reserve( entityCount() );
@@ -248,9 +253,15 @@ const std::vector<LightObject>& Scene::buildLightQueue() const {
     _lightQueueCache.clear();
     _lightQueueCache.reserve( lightCount() );
 
+    const LightObject* mainLight = tryGetMainLight();
+    int mainLightIndex = 0;
     for (const LightSlot& slot : _lightSlots) {
         if (!slot.occupied || !slot.active) continue;
+        if (mainLight != nullptr && &slot.light == mainLight) {
+            _mainLightIndex = mainLightIndex;
+        }
         _lightQueueCache.push_back( slot.light );
+        mainLightIndex++;
     }
 
     return _lightQueueCache;

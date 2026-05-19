@@ -385,6 +385,7 @@ private:
     // -------------------------------------------------------------------------
     friend class RenderEngine;
 
+    int getMainLightIndexInQueue();
     const std::vector<RenderObject>& buildRenderQueue() const;
     const std::vector<LightObject>&  buildLightQueue()  const;
     const LightObject*               tryGetMainLight()  const;
@@ -430,4 +431,5 @@ private:
     std::vector<LightSlot>           _lightSlots;
     std::vector<uint32_t>            _freeLightSlots;
     mutable std::vector<LightObject> _lightQueueCache;
+    mutable int _mainLightIndex;
 };

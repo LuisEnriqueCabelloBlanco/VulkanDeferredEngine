@@ -34,6 +34,7 @@ layout(set = 2,binding= 1) readonly buffer LightBuffer {
 layout(set = 3, binding = 3 ) uniform GlobalLightData{
     vec3 eyePos;
     float ambient;
+    int mainLightIndex;
 }light;
 
 layout(set = 3,binding  = 6) uniform sampler2D shadowMap;
@@ -132,7 +133,7 @@ bool shadowCasting(){
     float lightDepth = texture(shadowMap,projCoords).r;
     float currentDepth = pixelPositionWS.z/pixelPositionWS.w;
 
-    float bias = max(0.05 * (1.0 - dot(normalize(subpassLoad(normal).rgb), -lightBuffer.lights[0].dir_center)), 0.005);
+    float bias = max(0.05 * (1.0 - dot(normalize(subpassLoad(normal).rgb), -lightBuffer.lights[light.mainLightIndex].dir_center)), 0.005);
 
     return (currentDepth-bias >= lightDepth && lightDepth != 0);
 }
