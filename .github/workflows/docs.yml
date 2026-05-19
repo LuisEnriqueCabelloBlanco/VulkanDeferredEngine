@@ -27,7 +27,8 @@ jobs:
         run: |
           cd docs/latex
           make pdf
-          
+          cp refman.pdf ../html/documentacion.pdf
+
       - name: Publicar en GitHub Pages
         uses: actions/upload-pages-artifact@v3
         with:
