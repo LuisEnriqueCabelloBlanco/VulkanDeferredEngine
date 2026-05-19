@@ -8,12 +8,37 @@ Bienvenido a la documentacion de **VulkanDeferredEngine**.
 
 ## Indice
 
+- [EngineAPI](#engineapi)
 - [Gestion de recursos](#gestion-de-recursos)
 - [Escena: entidades y luces](#escena-entidades-y-luces)
 - [Camara](#camara)
 - [Bucle principal y eventos de ventana](#bucle-principal-y-eventos-de-ventana)
 - [Manejo de errores](#manejo-de-errores)
 - [Limites de capacidad](#limites-de-capacidad)
+
+---
+
+## EngineAPI
+
+`EngineAPI` es la unica clase que la aplicacion necesita instanciar, y `EngineAPI.h` es el unico header que necesita incluir. El resto de cabeceras del motor son accesibles de forma transitiva a traves de el.
+
+La clase encapsula el ciclo de vida completo del motor: inicializacion, bucle de renderizado y limpieza. Tambien es el punto de acceso a los dos subsistemas principales:
+
+```cpp
+EngineAPI engine;
+engine.init("Mi aplicacion");
+
+ResourceManager& res   = engine.getResourceManager();
+Scene&           scene = engine.getScene();
+
+// ... bucle principal ...
+
+engine.cleanup();
+```
+
+Adicionalmente, `engine.wait()` permite esperar a que todos los comandos pendientes en la GPU terminen antes de liberar recursos manualmente.
+
+> Cualquier llamada a los metodos del motor antes de `init()` o despues de `cleanup()` lanza `std::logic_error`.
 
 ---
 
@@ -184,7 +209,7 @@ std::cout << scene.entityCount() << " entidades, "
 
 ## Camara
 
-Hay exactamente una camara en la escena, accesible mediante `scene.getCamera()`
+Hay exactamente una camara en la escena, accesible mediante `scene.getCamera()`.
 
 ```cpp
 CameraHandle& cam = scene.getCamera();
