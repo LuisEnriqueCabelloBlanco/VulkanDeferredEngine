@@ -22,6 +22,7 @@ jobs:
 
       - name: Generar documentacion
         run: doxygen Doxyfile
+        working-directory: ${{ github.workspace }}
 
       - name: Compilar PDF
         run: |
