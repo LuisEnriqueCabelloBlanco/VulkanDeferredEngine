@@ -152,13 +152,19 @@
     <PostBuildEvent>
       <Message>Copiado de Assets</Message>
     </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>$(SolutionDir)utils/shader_compilation.bat assets/ $(SolutionDir)assets/shaders/build/</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\appSrc\App.cpp" />
+    <ClCompile Include="..\..\appSrc\BenchmarkScene.cpp" />
     <ClCompile Include="..\..\appSrc\main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\appSrc\include\App.h" />
+    <ClInclude Include="..\..\appSrc\include\BenchmarkScene.h" />
+    <ClInclude Include="..\..\appSrc\include\ResourcePaths.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

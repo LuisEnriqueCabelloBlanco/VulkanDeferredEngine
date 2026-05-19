@@ -21,9 +21,18 @@
     <ClCompile Include="..\..\appSrc\main.cpp">
       <Filter>Archivos de origen</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\appSrc\BenchmarkScene.cpp">
+      <Filter>Archivos de origen</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\appSrc\include\App.h">
+      <Filter>Archivos de encabezado</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\appSrc\include\BenchmarkScene.h">
+      <Filter>Archivos de encabezado</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\appSrc\include\ResourcePaths.h">
       <Filter>Archivos de encabezado</Filter>
     </ClInclude>
   </ItemGroup>

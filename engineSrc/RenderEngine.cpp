@@ -350,7 +350,7 @@ void RenderEngine::drawFrame()
 		lightVP.proj = glm::ortho( -ratio * scale, ratio * scale, scale, -scale, 0.01f, 100.f );
 		const LightObject* mainLight = _scene.tryGetMainLight();
 		glm::vec3 lightDir = (mainLight != nullptr) ? mainLight->posOrDir : glm::vec3( 0.f, -1.f, 0.001f );
-		glm::vec3 pos = -lightDir * 4.f + cam.getPosition();
+		glm::vec3 pos = -lightDir * 10.f + cam.getPosition();
 		lightVP.view = glm::lookAt( pos, pos + lightDir, glm::vec3( 0, 1, 0 ) );
 		_buffers.writeMainLightVP( lightVP );
 	}
