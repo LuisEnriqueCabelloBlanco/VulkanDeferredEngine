@@ -179,6 +179,8 @@ public:
         return *_resources;
     }
 
+    uint64_t getInCameraObjects() { return _engine._totalInCameraObjects; }
+
 private:
     /**
      * @brief Verifica que el motor esta inicializado; lanza std::logic_error si no.

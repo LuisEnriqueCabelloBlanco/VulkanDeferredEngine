@@ -46,7 +46,14 @@ bool App::run() {
         _engine.init( "AppExample" );
 		initialized = true;
 
+
+		auto beginTime = std::chrono::high_resolution_clock::now();
 		mainLoop();
+		auto endTime = std::chrono::high_resolution_clock::now();
+		float executionTime = std::chrono::duration<float, std::chrono::seconds::period>(endTime - beginTime).count();
+
+		std::cout << "Media de objetos en camara: " << (float)_engine.getInCameraObjects()/ (float)frameCounter<<std::endl;
+		std::cout << "FPS Medios: "<< frameCounter / executionTime<<std::endl;
 
         safeCleanup( initialized );
 		return true;
@@ -88,7 +95,7 @@ void App::start()
 	//endTime = std::chrono::high_resolution_clock::now();
 	//std::cout << "Tiempo en cargar las luces: " <<
 	//	std::chrono::duration<float, std::chrono::seconds::period>(endTime - startTime).count() << "\n";
-	_benchScene.init(&_engine,10000,1800);
+	_benchScene.init(&_engine,NUM_OBJ,NUM_LIGHT);
 }
 
 void App::mainLoop() {
@@ -196,6 +203,7 @@ void App::mainLoop() {
 
 		_deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(endFrame - frameStart).count();
 
+		frameCounter++;
 	}
 }
 

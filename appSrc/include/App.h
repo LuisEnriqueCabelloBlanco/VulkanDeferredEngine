@@ -21,7 +21,8 @@
 #include "ResourcePaths.h"
 #include "BenchmarkScene.h"
 
-
+constexpr int NUM_OBJ = 1000;
+constexpr int NUM_LIGHT = 1000;
 
 class App
 {
@@ -82,6 +83,8 @@ private:
     float _movementSpeed = 1.f;
 
     BenchmarkScene _benchScene;
+
+    uint64_t frameCounter;
 
     //random tools
     std::mt19937 _gen;

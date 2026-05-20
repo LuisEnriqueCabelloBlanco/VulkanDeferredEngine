@@ -25,6 +25,8 @@ void BenchmarkScene::generateFloor(Scene& scene, const MeshHandle& mesh, const M
 
 void BenchmarkScene::init(EngineAPI* engine, int numSpheres, int numLights)
 {
+	float limiter = (numSpheres + numLights) / 2.f; //std::max(numSpheres, numLights);
+
 	_engine = engine;
 	assert(_engine != nullptr);
 	Scene& scene = _engine->getScene();
@@ -57,9 +59,9 @@ void BenchmarkScene::init(EngineAPI* engine, int numSpheres, int numLights)
 
 	std::normal_distribution<float> scaleRan(0.6, 0.3);
 
-	std::uniform_real_distribution<float> positionXRan(-numSpheres/200, numSpheres/200);
-	std::uniform_real_distribution<float> positionZRan(-numSpheres / 200, numSpheres / 200);
-	std::uniform_real_distribution<float> positionYRan(0, numSpheres / 500);
+	std::uniform_real_distribution<float> positionXRan( - std::max(limiter / 100,5.f), std::max(limiter / 100, 5.f));
+	std::uniform_real_distribution<float> positionZRan(-std::max(limiter / 100, 5.f), std::max(limiter / 100, 5.f));
+	std::uniform_real_distribution<float> positionYRan(0, std::clamp(limiter / 500,5.f,200.f));
 
 
 	for (int i = 0; i < numSpheres; i++) {
@@ -81,13 +83,13 @@ void BenchmarkScene::init(EngineAPI* engine, int numSpheres, int numLights)
 		);
 	}
 
-	generateFloor(scene, planoSincolor, planeMatHandle, 5 );
+	//generateFloor(scene, planoSincolor, planeMatHandle, 5 );
 
 
 	//std::uniform_real_distribution<float> positionXRan(-50, 50);
 	//std::uniform_real_distribution<float> positionZRan(-50, 50);
 
-	std::normal_distribution<float> intensity(0.5, 0.001);
+	std::normal_distribution<float> intensity(0.3, 0.001);
 	std::normal_distribution<float> r(0.5, 0.5);
 	std::normal_distribution<float> g(0.5, 0.5);
 	std::normal_distribution<float> b(0.5, 0.5);
@@ -95,12 +97,14 @@ void BenchmarkScene::init(EngineAPI* engine, int numSpheres, int numLights)
 	float inten = intensity(_gen);
 
 	for (int k = 0; k < numLights; k++) {
-		LightEntityHandle gridLight = scene.createLight(LightType::Point, glm::vec3(positionXRan(_gen), 1 + positionYRan(_gen), positionZRan(_gen)), glm::vec3(r(_gen), g(_gen), b(_gen)), inten, 50);
+		LightEntityHandle gridLight = scene.createLight(LightType::Point, glm::vec3(positionXRan(_gen), 1 + positionYRan(_gen), positionZRan(_gen)), glm::vec3(r(_gen), g(_gen), b(_gen)), inten, 100);
 	}
 
 
 	LightEntityHandle mainLight = scene.createLight(LightType::Directional, glm::vec3(-0.1, -0.9,0.1), glm::vec3(1, 1, 1), 0.1);
-	//scene.setMainLight(mainLight);
+	scene.setMainLight(mainLight);
+
+	scene.getCamera().setPosition(glm::vec3(0.f, std::clamp(limiter / 500, 5.f, 200.f) /2.f,0.f));
 }
 
 void BenchmarkScene::update()

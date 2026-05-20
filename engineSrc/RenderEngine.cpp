@@ -330,6 +330,7 @@ void RenderEngine::drawFrame()
 
 	auto cullResults = _culler.cullObjects( objectsArray, cullVPs, _resources );
 	const std::vector<int>& cameraVisible = cullResults[0];
+	_totalInCameraObjects += cameraVisible.size();
 	const std::vector<int>& mainLightVisible = hasShadows ? cullResults[1] : cameraVisible;
 
 	// Update de buffers de cámara, luces y VP de la main light

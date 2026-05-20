@@ -299,4 +299,7 @@ private:
     // Parametros de iluminacion global (eyePos, ambientVal).
     // Se sincronizan con _buffers cada frame.
     GlobalLighting _lighting;
+
+public:
+    uint64_t _totalInCameraObjects;
 };
