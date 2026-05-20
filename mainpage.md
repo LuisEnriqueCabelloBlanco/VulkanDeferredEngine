@@ -23,7 +23,7 @@ Bienvenido a la documentacion de **VulkanDeferredEngine**.
 
 ## Plataforma
 
-VulkanDeferredEngine esta dirigido a **Windows x64**. Requiere una GPU con soporte de Vulkan 1.2 o superior y los redistribuibles de Visual C++ correspondientes. No se soportan otras plataformas en esta version.
+VulkanDeferredEngine esta dirigido a **Windows x64**. Requiere una GPU con soporte de Vulkan 1.3 o superior y los redistribuibles de Visual C++ correspondientes. No se soportan otras plataformas en esta version.
 
 ---
 
@@ -153,9 +153,13 @@ engine.wait();    // espera a que la GPU termine todo el trabajo en vuelo
 engine.cleanup(); // libera todos los recursos internos del motor
 ```
 
-**`engine.wait()`** debe llamarse antes de liberar recursos manualmente al salir. Garantiza que no hay comandos pendientes en la GPU en el momento de la destruccion.
+#### engine.wait()
 
-**`engine.drawFrame()`** es la llamada central del bucle principal. Recoge el estado actual de la escena (entidades, luces y camara), ejecuta los pases de renderizado deferred y presenta el resultado en la ventana. Debe llamarse exactamente una vez por iteracion del bucle.
+Debe llamarse antes de liberar recursos manualmente al salir. Garantiza que no hay comandos pendientes en la GPU en el momento de la destruccion.
+
+#### engine.drawFrame()
+
+Es la llamada central del bucle principal. Recoge el estado actual de la escena (entidades, luces y camara), ejecuta los pases de renderizado deferred y presenta el resultado en la ventana. Debe llamarse exactamente una vez por iteracion del bucle.
 
 @note Cualquier llamada a los metodos del motor antes de `init()` o despues de `cleanup()` lanza `std::logic_error`.
 
