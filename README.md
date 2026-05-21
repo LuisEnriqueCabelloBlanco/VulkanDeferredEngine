@@ -7,3 +7,5 @@ Motor de Renderizado en C++ que emplea Vulkan. Su renderizado se realiza con una
 ---
 
 Documentación disponible [aquí](https://luisenriquecabelloblanco.github.io/VulkanDeferredEngine/)
+
+El uso del motor requiere que se coloque en el directorio de trabajo la carpeta shaders/build donde se encuentran los shaders necesarios para ejecutar el motor.
