@@ -133,7 +133,7 @@
     <IncludePath>$(VULKAN_SDK)\Include;$(SolutionDir)engineSrc\include;$(IncludePath)</IncludePath>
     <LibraryPath>$(VULKAN_SDK)\Lib;$(LibraryPath)</LibraryPath>
     <IntDir>$(SolutionDir)tmp\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
-    <OutDir>$(SolutionDir)lib/$(Platform)</OutDir>
+    <OutDir>$(SolutionDir)lib/$(Platform)/$(Configuration)</OutDir>
     <ExtensionsToDeleteOnClean>*.png;*.jpeg;*.jpg;$(ExtensionsToDeleteOnClean)</ExtensionsToDeleteOnClean>
     <TargetName>$(ProjectName)d</TargetName>
   </PropertyGroup>
