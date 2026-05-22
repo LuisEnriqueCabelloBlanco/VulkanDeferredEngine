@@ -37,8 +37,8 @@ std::vector<std::vector<int>> CullManager::cullObjects(
         for ( size_t f = 0; f < frustumCount; ++f ) {
             glm::mat4 MVP = vpMats[f] * objects[i].modelMatrix;
             if ( AABBFrustumTest( aabb, MVP ) ) {
-            }
                 results[f].push_back( i );
+            }
         }
     }
 
