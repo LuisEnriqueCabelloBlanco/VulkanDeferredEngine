@@ -85,7 +85,8 @@ void Mesh::loadMesh( const std::string& path )
 	auto& materials = reader.GetMaterials();
 
 	for (auto mat : materials) {
-		std::cout << mat.diffuse_texname << "\n";
+		std::cout << "Textura de base correspondiente de " << path << " " << mat.diffuse_texname << "\n";
+		std::cout << "Mapa de Normales correspondiente de " << path << " " << mat.normal_texname << "\n";
 	}
 
 

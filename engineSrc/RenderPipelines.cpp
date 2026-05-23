@@ -497,7 +497,7 @@ void RenderPipelines::createShadowPipeline() {
     vertStage.pName  = "main";
 
     auto bindingDesc   = Vertex::getBindingDescription();
-    auto attributeDesc = Vertex::getAttributeDescriptions();
+    auto attributeDesc = Vertex::getShadowAttributeDescriptions();
 
     VkPipelineVertexInputStateCreateInfo vertexInput{};
     vertexInput.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;

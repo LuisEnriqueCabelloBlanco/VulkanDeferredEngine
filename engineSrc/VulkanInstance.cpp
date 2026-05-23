@@ -49,8 +49,10 @@ static void destroyDebugMessenger(
 
 void VulkanInstance::init( const std::string& appName )
 {
-    if ( enableValidationLayers && !checkValidationLayerSupport() ) {
-        throw std::runtime_error( "Validation layers requested but not available" );
+    bool layerSupport = checkValidationLayerSupport();
+    if ( enableValidationLayers && ! layerSupport) {
+        std::cout << "Validation layers not available engine will run without Validation Layers";
+        //throw std::runtime_error( "Validation layers requested but not available" );
     }
 
     VkApplicationInfo appInfo{};
@@ -73,7 +75,7 @@ void VulkanInstance::init( const std::string& appName )
     // vkCreateInstance / vkDestroyInstance, que ocurren fuera del messenger
     // normal porque este todavía no existe.
     VkDebugUtilsMessengerCreateInfoEXT debugInfo{};
-    if ( enableValidationLayers ) {
+    if ( enableValidationLayers && layerSupport ) {
         createInfo.enabledLayerCount   = static_cast<uint32_t>( validationLayers.size() );
         createInfo.ppEnabledLayerNames = validationLayers.data();
         populateDebugMessengerCreateInfo( debugInfo );

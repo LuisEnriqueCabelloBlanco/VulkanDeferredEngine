@@ -21,7 +21,7 @@
 #include "ResourcePaths.h"
 #include "BenchmarkScene.h"
 
-constexpr int NUM_OBJ = 1000;
+constexpr int NUM_OBJ = 10000;
 constexpr int NUM_LIGHT = 1000;
 
 class App

@@ -23,7 +23,7 @@ namespace ResourceLimits {
 	constexpr int MAX_CULL_OBJECTS = 500000;
 
 	/// @brief Numero maximo de texturas que pueden existir simultaneamente en el ResourceManager.
-	constexpr int MAX_TEXTURES = 32;
+	constexpr int MAX_TEXTURES = 128;
 
 	/// @brief Numero maximo de luces que pueden existir simultaneamente en la Scene.
 	constexpr int MAX_LIGHTS = 100000;
