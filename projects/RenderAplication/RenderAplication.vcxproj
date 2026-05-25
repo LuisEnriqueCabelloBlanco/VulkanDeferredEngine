@@ -83,10 +83,12 @@
       <AdditionalDependencies>VulkanRenderEngined.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy $(SolutionDir)assets $(targetDir) /s /e /h /y /f</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
     <PostBuildEvent>
-      <Message>Copiado de Assets</Message>
+      <Message>
+      </Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -105,10 +107,12 @@
       <AdditionalDependencies>VulkanRenderEngine.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy $(SolutionDir)assets $(targetDir) /s /e /h /y /f</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
     <PostBuildEvent>
-      <Message>Copiado de Assets</Message>
+      <Message>
+      </Message>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>$(SolutionDir)utils/shader_compilation.bat assets/ $(SolutionDir)assets/shaders/build/</Command>
