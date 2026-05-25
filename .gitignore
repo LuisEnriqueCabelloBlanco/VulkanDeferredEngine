@@ -432,6 +432,7 @@ FodyWeavers.xsd
 !assets/mesh/*
 
 !projects/MainHall/assets/meshes/*
+!projects/FireflyExample/meshes/*
 
 # Ocultar la documentación generada por Doxygen
 docs/html/
