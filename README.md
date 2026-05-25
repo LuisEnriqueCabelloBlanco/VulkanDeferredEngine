@@ -17,9 +17,7 @@ Documentacion: https://luisenriquecabelloblanco.github.io/VulkanDeferredEngine/
 
 ## Vista General
 
-El repositorio contiene una solucion de Visual Studio con 4 proyectos.
-
-> [!IMPORTANT]
+> [!IMPORTANTE]
 > La solucion no incluye solo el motor. Tambien incluye 3 aplicaciones de ejemplo listas para compilar y ejecutar.
 
 | Proyecto | Tipo | Descripcion |
@@ -76,7 +74,7 @@ El repositorio contiene una solucion de Visual Studio con 4 proyectos.
 	 - MainHallExample
 2. Ejecutar con F5 o Ctrl+F5.
 
-> [!NOTE]
+> [!NOTA]
 > Visual Studio compila automaticamente el motor y la aplicacion seleccionada.
 
 ## Nota Rapida De Recursos
