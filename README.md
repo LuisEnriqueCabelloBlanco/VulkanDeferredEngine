@@ -1,6 +1,8 @@
 # Vulkan Deferred Engine
 
-Motor de renderizado diferido basado en Vulkan, desarrollado en C++.
+**Motor de renderizado diferido basado en Vulkan, desarrollado en C++.**
+
+---
 
 El repositorio contiene una solucion de Visual Studio compuesta por 4 proyectos:
 
