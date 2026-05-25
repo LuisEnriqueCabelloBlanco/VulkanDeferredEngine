@@ -1,11 +1,11 @@
 echo off
 
 set srcDir=%1
-set outDir=%srcDir%\build\
+set outDir=%srcDir%/build/
 
 echo Compilando shaders
 
-if not exist %outDir% mkdir "%outDir"
+if not exist %outDir% mkdir "%outDir%"
 
 for %%f in (%srcDir%\*) do (
     if %%~xf == .vert glslangValidator -S vert -o %outDir%%%~nf -V %%f

@@ -439,4 +439,5 @@ FodyWeavers.xsd
 docs/html/
 docs/latex/
 
-shaders/build/*
+projects/**/shaders/build/
+shaders/build/
