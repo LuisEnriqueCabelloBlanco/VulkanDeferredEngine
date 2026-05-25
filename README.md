@@ -2,6 +2,8 @@
 
 **Motor de renderizado diferido basado en Vulkan, desarrollado en C++.**
 
+Documentación disponible [aquí](https://luisenriquecabelloblanco.github.io/VulkanDeferredEngine/)
+
 ---
 
 El repositorio contiene una solucion de Visual Studio compuesta por 4 proyectos:
@@ -17,6 +19,8 @@ La solucion no contiene solo el motor: incluye tambien 3 aplicaciones de ejemplo
 
 - Visual Studio 2022 (toolset v143, plataforma x64).
 - Vulkan SDK (variable de entorno VULKAN_SDK configurada).
+- SDL2 integrado en la SDK de Vulkan.
+- GLM integrado en la SDK de Vulkan.
 
 ## Estructura Del Repositorio
 
@@ -57,4 +61,10 @@ Visual Studio compila automaticamente el motor y la aplicacion seleccionada.
 
 Para ejecutar correctamente, cada ejemplo debe usar su propia carpeta de assets. El directorio de trabajo de cada aplicación está configurado en el directorio de proyecto correspondiente.
 
-Documentacion: https://luisenriquecabelloblanco.github.io/VulkanDeferredEngine/
+## Release (GitHub)
+
+En el apartado Release del repositorio de GitHub se encuentra una SDK del motor lista para usar, que incluye:
+
+- El motor ya compilado.
+- Dependencias integradas.
+- Una solucion de Visual Studio con una aplicacion de ejemplo totalmente configurada para empezar a usar el motor.
