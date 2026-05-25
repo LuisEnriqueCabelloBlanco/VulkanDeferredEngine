@@ -6,8 +6,7 @@
 
 // ---------------------------------------------------------------------------
 // Rutas de assets. Ajusta segun el contenido de tu carpeta assets/.
-// Las rutas son relativas al working directory configurado en TestApp.props
-// (assets/ en la raiz del SDK).
+// Las rutas son relativas al directorio del proyecto.
 // ---------------------------------------------------------------------------
 static const std::string MESH_CUBE  = "./assets/meshes/cubo.obj";
 static const std::string MESH_PLANE = "./assets/meshes/plano.obj";
