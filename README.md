@@ -17,7 +17,7 @@ Documentacion: https://luisenriquecabelloblanco.github.io/VulkanDeferredEngine/
 
 ## Vista General
 
-> [!IMPORTANTE]
+> [!IMPORTANT]
 > La solucion no incluye solo el motor. Tambien incluye 3 aplicaciones de ejemplo listas para compilar y ejecutar.
 
 | Proyecto | Tipo | Descripcion |
@@ -74,7 +74,7 @@ Documentacion: https://luisenriquecabelloblanco.github.io/VulkanDeferredEngine/
 	 - MainHallExample
 2. Ejecutar con F5 o Ctrl+F5.
 
-> [!NOTA]
+> [!NOTE]
 > Visual Studio compila automaticamente el motor y la aplicacion seleccionada.
 
 ## Nota Rapida De Recursos
