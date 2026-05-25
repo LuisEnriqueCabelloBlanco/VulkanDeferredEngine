@@ -83,8 +83,14 @@ Cada ejemplo usa su propia carpeta de assets. El directorio de trabajo de cada a
 
 ## Release (GitHub)
 
-En el apartado Release del repositorio de GitHub hay una SDK del motor lista para usar que incluye:
+En el apartado Release del repositorio de GitHub se publican dos ficheros comprimidos:
 
-- El motor ya compilado.
-- Dependencias integradas.
-- Una solucion de Visual Studio con una aplicacion de ejemplo totalmente configurada para empezar a usar el motor.
+- **SDK**: la SDK del motor lista para usar que incluye:
+	- El motor ya compilado.
+	- Todas las dependencias integradas.
+	- Una solución de Visual Studio con una aplicación de ejemplo totalmente configurada para empezar a usar el motor.
+
+- **DEV**: paquete para desarrolladores que contiene:
+	- El motor compilado (librerías).
+	- Los ficheros de cabecera del motor.
+	- Un README con instrucciones detalladas para configurar y enlazar el motor a un proyecto (rutas, librerías a añadir, dependencias y pasos de integración).
