@@ -11,7 +11,7 @@
 	<img alt="Platform" src="https://img.shields.io/badge/Platform-x64-0A7EA4">
 </p>
 
-Documentacion: https://luisenriquecabelloblanco.github.io/VulkanDeferredEngine/
+Documentacion y manual de uso: https://luisenriquecabelloblanco.github.io/VulkanDeferredEngine/
 
 ---
 
