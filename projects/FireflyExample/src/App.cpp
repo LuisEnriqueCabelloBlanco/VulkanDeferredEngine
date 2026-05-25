@@ -15,7 +15,7 @@ namespace
 {
     namespace fs = std::filesystem;
 
-    const fs::path kMeshesDir = "./meshes";
+    const fs::path kMeshesDir = "./assets/meshes";
     constexpr size_t kFireflyCount = 100;
     constexpr float  kFireflyMinSpeed = 2.5f;
     constexpr float  kFireflyMaxSpeed = 6.5f;
@@ -227,7 +227,7 @@ void App::loadResources()
 
     _fireflySphereMesh = resources.createMesh(
         "mesh_fireflySphere",
-        ( fs::path( "./meshes" ) / "esfera.obj" ).generic_string() );
+        ( fs::path( "./assets/meshes" ) / "esfera.obj" ).generic_string() );
 
     const std::array<MaterialPreset, 7> kMaterialPresets = { {
         { "Bed",    "mat_Bed",    glm::vec4( 0.011f, 0.026f, 0.021f, 0.1f ), 0.00f, 0.88f },
@@ -265,7 +265,7 @@ void App::loadResources()
         loadedMesh.meshName = stem;
         loadedMesh.mesh = resources.createMesh(
             "mesh_" + stem,
-            ( fs::path( "./meshes" ) / objFileName ).generic_string() );
+            ( fs::path( "./assets/meshes" ) / objFileName ).generic_string() );
 
         auto matIt = materialByStem.find( stem );
         if ( matIt != materialByStem.end() )
@@ -315,7 +315,7 @@ void App::populateScene()
 
     const MeshHandle invertedSphereMesh = _engine.getResourceManager().createMesh(
         "mesh_invertedSphere",
-        ( fs::path( "./meshes" ) / "esfera_invertida.obj" ).generic_string() );
+        ( fs::path( "./assets/meshes" ) / "esfera_invertida.obj" ).generic_string() );
 
     _sceneEntities.push_back(
         scene.createEntity(

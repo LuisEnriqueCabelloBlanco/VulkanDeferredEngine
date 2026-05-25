@@ -18,6 +18,17 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\App.h" />
+    <ClInclude Include="src\CameraController.h" />
+    <ClInclude Include="src\WindowHandler.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\App.cpp" />
+    <ClCompile Include="src\CameraController.cpp" />
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\WindowHandler.cpp" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
@@ -156,16 +167,6 @@
       <Command>$(SolutionDir)utils/shader_compilation.bat assets/ $(SolutionDir)assets/shaders/build/</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="..\..\appSrc\App.cpp" />
-    <ClCompile Include="..\..\appSrc\BenchmarkScene.cpp" />
-    <ClCompile Include="..\..\appSrc\main.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="..\..\appSrc\include\App.h" />
-    <ClInclude Include="..\..\appSrc\include\BenchmarkScene.h" />
-    <ClInclude Include="..\..\appSrc\include\ResourcePaths.h" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
