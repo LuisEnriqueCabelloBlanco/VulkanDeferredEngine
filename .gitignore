@@ -438,3 +438,5 @@ FodyWeavers.xsd
 # Ocultar la documentación generada por Doxygen
 docs/html/
 docs/latex/
+
+shaders/build/*
