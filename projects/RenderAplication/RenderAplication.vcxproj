@@ -55,15 +55,15 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)tmp\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(ProyectDir)bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(ProyectDir)tmp\$(Platform)\$(Configuration)\</IntDir>
     <IncludePath>$(SolutionDir)engineSrc\include;$(SolutionDir)appSrc\include;$(IncludePath)</IncludePath>
     <ExternalIncludePath>$(VULKAN_SDK)\Include;$(ExternalIncludePath)</ExternalIncludePath>
     <LibraryPath>$(SolutionDir)lib\$(Platform)\$(Configuration);$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)tmp\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(ProyectDir)bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(ProyectDir)tmp\$(Platform)\$(Configuration)\</IntDir>
     <IncludePath>$(SolutionDir)engineSrc\include;$(SolutionDir)appSrc\include;$(IncludePath)</IncludePath>
     <ExternalIncludePath>$(VULKAN_SDK)\Include;$(ExternalIncludePath)</ExternalIncludePath>
     <LibraryPath>$(SolutionDir)lib\$(Platform)\$(Configuration);$(LibraryPath)</LibraryPath>

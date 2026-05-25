@@ -105,17 +105,18 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IncludePath>$(VULKAN_SDK)\Include;$(SolutionDir)engineSrc\include;$(IncludePath)</IncludePath>
     <LibraryPath>$(VULKAN_SDK)\Lib;$(LibraryPath)</LibraryPath>
-    <IntDir>$(SolutionDir)tmp\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
-    <OutDir>$(SolutionDir)lib/$(Platform)/$(Configuration)</OutDir>
+    <IntDir>$(SolutionDir)tmp\$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)lib\$(Platform)\$(Configuration)</OutDir>
     <ExtensionsToDeleteOnClean>*.png;*.jpeg;*.jpg;$(ExtensionsToDeleteOnClean)</ExtensionsToDeleteOnClean>
-    <TargetName>$(ProjectName)d</TargetName>
+    <TargetName>$(ProjectName)_Debug</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)lib/$(Platform)/$(Configuration)</OutDir>
-    <IntDir>$(SolutionDir)tmp\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)lib\$(Platform)\$(Configuration)</OutDir>
+    <IntDir>$(SolutionDir)tmp\$(Platform)\$(Configuration)\</IntDir>
     <IncludePath>$(VULKAN_SDK)\Include;$(SolutionDir)engineSrc\include;$(IncludePath)</IncludePath>
     <LibraryPath>$(VULKAN_SDK)\Lib;$(LibraryPath)</LibraryPath>
     <ExtensionsToDeleteOnClean>*.png;*.jpeg;*.jpg;$(ExtensionsToDeleteOnClean)</ExtensionsToDeleteOnClean>
+    <TargetName>$(ProjectName)_Release</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
