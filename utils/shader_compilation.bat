@@ -15,7 +15,7 @@ for %%f in (%srcDir%\*) do (
 
 echo Moviendo Shaders a los proyectos
 
-for /D %%s in (..\projects\*) do (
+for /D %%s in (%~dp0..\projects\*) do (
 
     if not exist %%s\shaders\build\ mkdir "%%s\shaders\build\"
 
