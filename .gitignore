@@ -431,6 +431,8 @@ FodyWeavers.xsd
 
 !assets/mesh/*
 
+!projects/MainHall/assets/meshes/*
+
 # Ocultar la documentación generada por Doxygen
 docs/html/
 docs/latex/
