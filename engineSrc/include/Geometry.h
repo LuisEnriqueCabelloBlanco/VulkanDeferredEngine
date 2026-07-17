@@ -8,13 +8,17 @@
 #include <glm/vec3.hpp>
 #include <glm/geometric.hpp>
 #include <glm/mat4x4.hpp>
+#include <glm/trigonometric.hpp>
 
 class Plane {
 public:
+
+	Plane() = default;
+
 	//Crea un plano. Se asume que la normal pasada ya está normalizada
-	Plane(const glm::vec3& normal, glm::vec3 point) {
-		_normal = normal;
-		_distance = glm::distance(normal, point);
+	Plane(const glm::vec3& point, const glm::vec3& normal) {
+		_normal = glm::normalize(normal);
+		_distance = glm::dot(point,normal);
 	}
 
 	//Da la distancia con signo de un punto al plano. Si es positivo indica que se encuentra por delante de la normal
@@ -34,10 +38,29 @@ private:
 struct Frustrum { 
 
 	//projection constructor
-	Frustrum();
+	Frustrum(glm::vec3 position ,glm::vec3 up, glm::vec3 right, glm::vec3 front, float aspect, float fovY, float zNear, float zFar) {
+
+		const float halfVSide = zFar * tanf(glm::radians(fovY) * .5f);
+		const float halfHSide = halfVSide * aspect;
+		const glm::vec3 frontMultFar = zFar * front;
+
+		nearFace = { position + zNear * front, front };
+		farFace = { position + frontMultFar, -front };
+		rightFace = { position, glm::normalize(glm::cross(frontMultFar - right * halfHSide, up)) };
+		leftFace = { position, glm::normalize(glm::cross(up, frontMultFar + right * halfHSide)) };
+		topFace = { position, glm::normalize(glm::cross(right, frontMultFar - up * halfVSide)) };
+		downFace = { position, glm::normalize(glm::cross(frontMultFar + up * halfVSide, right)) };
+	}
 
 	//ortho constructor
-	Frustrum();
+	Frustrum(glm::vec3 position, glm::vec3 up, glm::vec3 front, float top, float left, float zNear, float zFar) {
+
+		const glm::vec3 right = glm::normalize(glm::cross(front, up));
+
+		nearFace = { position + zNear * front, front };
+		farFace = { position + zFar * front, -front };
+
+	}
 
 
 	Plane nearFace;
@@ -123,7 +146,9 @@ public:
 		const float r = _extents.x * std::abs(plane.getNormal().x) + _extents.y * std::abs(plane.getNormal().y) +
 			_extents.z * std::abs(plane.getNormal().z);
 
-		return -r <= plane.signedDistanceToPlane(_center);
+		bool ret = -r <= plane.signedDistanceToPlane(_center);
+
+		return ret;
 	}
 
 	bool isOnFrusturm(const Frustrum& camFrustrum, const glm::mat4& modelMat) const {
@@ -133,7 +158,9 @@ public:
 		// Scaled orientation
 		const glm::vec3 right = glm::vec3(modelMat[0]) * _extents.x;
 		const glm::vec3 up = glm::vec3(modelMat[1]) * _extents.y;
-		const glm::vec3 forward = -glm::vec3(modelMat[2]) * _extents.z;
+		const glm::vec3 forward = glm::vec3(modelMat[2]) * _extents.z;
+
+		//assert(right != glm::vec3(0) && up != glm::vec3(0) != 0 && forward != glm::vec3(0));
 
 		const float newIi = std::abs(glm::dot(glm::vec3{ 1.f, 0.f, 0.f }, right)) +
 			std::abs(glm::dot(glm::vec3{ 1.f, 0.f, 0.f }, up)) +

@@ -319,16 +319,29 @@ void RenderEngine::drawFrame()
 	camDesc.proj = cam.getProjMatrix();
 	camDesc.view = cam.getViewMatrix();
 
+
 	// Usamos CullManager para obtener el culling de los objetos
 	// respecto a todos los frustums de una sola pasada.
 	const bool hasShadows = _scene.hasMainLight();
 	std::vector<ViewProjectionData> cullVPs;
+	std::vector<Frustrum> frustrums;
+	Frustrum mainCamFrustrum = Frustrum(cam.getPosition(),cam.getUp(),cam.getRight(),cam.getForward(),cam.getAspectRatio(),cam.getFOV(),cam.getNearPlane(), cam.getFarPlane());
+	frustrums.push_back(mainCamFrustrum);
 	cullVPs.push_back( camDesc );
+
 	if ( hasShadows ) {
 		cullVPs.push_back( *_buffers.getMainLightVPMapped() );
+
+		float ratio = _window.getExtent().width / static_cast<float>(_window.getExtent().height);
+		constexpr float scale = 20.f;
+		const LightObject* mainLight = _scene.tryGetMainLight();
+		const glm::vec3 lightDir = (mainLight != nullptr) ? mainLight->posOrDir : glm::vec3(0.f, -1.f, 0.001f);
+		const glm::vec3 pos = -glm::normalize(lightDir) * 10.f + cam.getPosition();
+
+		frustrums.push_back(Frustrum(pos,glm::vec3(0, 1, 0),lightDir, -scale, -ratio * scale,0.01f,100.f));
 	}
 
-	auto cullResults = _culler.cullObjects( objectsArray, cullVPs, _resources );
+	auto cullResults = _culler.cullObjects( objectsArray, cullVPs,frustrums, _resources );
 	const std::vector<int>& cameraVisible = cullResults[0];
 	_totalInCameraObjects += cameraVisible.size();
 	const std::vector<int>& mainLightVisible = hasShadows ? cullResults[1] : cameraVisible;

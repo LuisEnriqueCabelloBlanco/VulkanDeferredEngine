@@ -4,14 +4,15 @@
 #include<string>
 #include"VulkanDevice.h"
 #include"Vertex.h"
+#include"Geometry.h"
 
 class RenderEngine;
 class Buffer;
 
-struct AABB {
-    glm::vec3 min;
-    glm::vec3 max;
-};
+//struct AABB {
+//    glm::vec3 min;
+//    glm::vec3 max;
+//};
 
 class Mesh {
     friend RenderEngine;
@@ -35,7 +36,7 @@ private:
 
     void loadMesh(const std::string& path);
 
-    AABB calculateAABB();
+    void calculateAABB();
 
     VulkanDevice& _device;
 

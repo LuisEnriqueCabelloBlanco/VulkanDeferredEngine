@@ -6,6 +6,7 @@
 std::vector<std::vector<int>> CullManager::cullObjects(
     const std::vector<RenderObject>&       objects,
     const std::vector<ViewProjectionData>& vps,
+    const std::vector<Frustrum>& frustrums,
     const ResourceManager&                 resources ) const
 {
     const size_t frustumCount = vps.size();
@@ -36,13 +37,20 @@ std::vector<std::vector<int>> CullManager::cullObjects(
 
         for ( size_t f = 0; f < frustumCount; ++f ) {
             glm::mat4 MVP = vpMats[f] * objects[i].modelMatrix;
-            if ( AABBFrustumTest( aabb, MVP ) ) {
+
+            if (aabb.isOnFrusturm(frustrums[f], objects[i].modelMatrix)) {
                 results[f].push_back( i );
             }
         }
+
     }
 
+
+
     /* DEBUG
+    if (results[0].size() != 0) {
+        std::cout << "Ents to Paint " << results[0].size() << "\n";
+    }
     auto end = std::chrono::high_resolution_clock::now();
     float elapsed = std::chrono::duration<float, std::chrono::milliseconds::period>( end - start ).count();
     std::cout << "CullManager: "
@@ -75,5 +83,6 @@ bool CullManager::AABBFrustumTest( const AABB& aabb, const glm::mat4& MVP ) cons
             return true;
         }
     }
+   
     return false;
 }

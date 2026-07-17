@@ -16,6 +16,7 @@
     <ClCompile Include="..\..\engineSrc\CameraHandle.cpp" />
     <ClCompile Include="..\..\engineSrc\CullManager.cpp" />
     <ClCompile Include="..\..\engineSrc\GPUBufferManager.cpp" />
+    <ClCompile Include="..\..\engineSrc\include\Geometry.cpp" />
     <ClCompile Include="..\..\engineSrc\LightEntityHandle.cpp" />
     <ClCompile Include="..\..\engineSrc\MainRenderPass.cpp" />
     <ClCompile Include="..\..\engineSrc\Mesh.cpp" />
@@ -42,6 +43,7 @@
     <ClInclude Include="..\..\engineSrc\include\CameraHandle.h" />
     <ClInclude Include="..\..\engineSrc\include\CullManager.h" />
     <ClInclude Include="..\..\engineSrc\include\EngineAPI.h" />
+    <ClInclude Include="..\..\engineSrc\include\Geometry.h" />
     <ClInclude Include="..\..\engineSrc\include\GPUBufferManager.h" />
     <ClInclude Include="..\..\engineSrc\include\LightEntityHandle.h" />
     <ClInclude Include="..\..\engineSrc\include\MainRenderPass.h" />

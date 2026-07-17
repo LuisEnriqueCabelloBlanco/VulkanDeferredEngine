@@ -8,27 +8,30 @@
 
 const Mesh* Mesh::_lastRenderedMesh = nullptr;
 
-Mesh::Mesh( VulkanDevice& device, const std::string& path ) :_device( device ) {
+Mesh::Mesh( VulkanDevice& device, const std::string& path ) :_device( device ),
+	_meshAABB(glm::vec3(std::numeric_limits<float>::max()), glm::vec3(std::numeric_limits<float>::lowest())) {
 
 	loadMesh( path );
 
-	_meshAABB = calculateAABB();
+	calculateAABB();
 
 	_vertexBuffer = _device.createVkBuffer<Vertex>( _vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT );
 	_indexBuffer = _device.createVkBuffer<uint32_t>( _indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT );
 }
 
-Mesh::Mesh( VulkanDevice& device, const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices ) :_device( device ) {
+Mesh::Mesh( VulkanDevice& device, const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices ) :_device( device ) , 
+	_meshAABB(glm::vec3(std::numeric_limits<float>::max()), glm::vec3(std::numeric_limits<float>::lowest())) {
 
 	_indices = indices;
 	_vertices = vertices;
-	_meshAABB = calculateAABB();
+	calculateAABB();
 
 	_vertexBuffer = _device.createVkBuffer<Vertex>( _vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT );
 	_indexBuffer = _device.createVkBuffer<uint32_t>( _indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT );
 }
 
-Mesh::Mesh( VulkanDevice& device, const std::vector<Vertex>& vertices ) :_device( device ) {
+Mesh::Mesh( VulkanDevice& device, const std::vector<Vertex>& vertices ) :_device( device ),
+	_meshAABB(glm::vec3(std::numeric_limits<float>::max()), glm::vec3(std::numeric_limits<float>::lowest())) {
 
 	for (uint32_t i = 0; i < vertices.size();i++) {
 		_indices.push_back( i );
@@ -36,7 +39,7 @@ Mesh::Mesh( VulkanDevice& device, const std::vector<Vertex>& vertices ) :_device
 
 	_vertices = vertices;
 
-	_meshAABB = calculateAABB();
+	calculateAABB();
 
 	_vertexBuffer = _device.createVkBuffer<Vertex>( _vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT );
 	_indexBuffer = _device.createVkBuffer<uint32_t>( _indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT );
@@ -232,17 +235,11 @@ void Mesh::loadMesh( const std::string& path )
 	}
 }
 
-AABB Mesh::calculateAABB()
+void Mesh::calculateAABB()
 {
-	AABB out{};
-
-	out.max = glm::vec3(std::numeric_limits<float>::min());
-	out.min = glm::vec3( std::numeric_limits<float>::max() );
-
 	for (auto& pos : _vertices) {
-		out.min = glm::min(pos.pos,out.min);
-		out.max = glm::max(pos.pos,out.max);
+		_meshAABB.updateData(glm::min(pos.pos, _meshAABB.min), glm::max(pos.pos, _meshAABB.max));
 	}
 
-	return out;
+
 }

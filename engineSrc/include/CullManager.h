@@ -7,6 +7,7 @@
 #include "Scene.h"              // RenderObject
 #include "ResourceManager.h"    // ResourceManager
 #include "Mesh.h"               // AABB
+#include "Geometry.h"
 
 // ---------------------------------------------------------------------------
 // CullManager
@@ -36,6 +37,7 @@ public:
     std::vector<std::vector<int>> cullObjects(
         const std::vector<RenderObject>&    objects,
         const std::vector<ViewProjectionData>& vps,
+        const std::vector<Frustrum>& frustrums,
         const ResourceManager&              resources ) const;
 
 private:
