@@ -338,7 +338,7 @@ void RenderEngine::drawFrame()
 		const glm::vec3 lightDir = (mainLight != nullptr) ? mainLight->posOrDir : glm::vec3(0.f, -1.f, 0.001f);
 		const glm::vec3 pos = -glm::normalize(lightDir) * 10.f + cam.getPosition();
 
-		frustrums.push_back(Frustrum(pos,glm::vec3(0, 1, 0),lightDir, -scale, -ratio * scale,0.01f,100.f));
+		frustrums.push_back(Frustrum(pos,lightDir, -scale, -ratio * scale,0.01f,100.f));
 	}
 
 	auto cullResults = _culler.cullObjects( objectsArray, cullVPs,frustrums, _resources );
