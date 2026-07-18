@@ -85,7 +85,8 @@ void ShadowPass::createShadowMap()
         _device->findDepthFormat(),
         VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
 
     _shadowMap->createImageView( _device->findDepthFormat(), VK_IMAGE_ASPECT_DEPTH_BIT, 1 );
     _shadowMap->createTextureSampler( VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER );

@@ -59,14 +59,14 @@ void Texture::loadTexture(const std::string& path)
     createTextureSampler();
 }
 
-void Texture::createImage(uint32_t width, uint32_t height, uint32_t mipLvl, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties)
+void Texture::createImage(uint32_t width, uint32_t height, uint32_t mipLvl, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImageLayout layout)
 {
     texWidth = static_cast<uint32_t>(width);
     texHeight = static_cast<uint32_t>(height);
     mFormat = format;
     mipLevels = mipLvl;
 
-    textureImage = device.createImage( texWidth, texHeight, mipLevels, numSamples, mFormat, tiling, usage, properties );
+    textureImage = device.createImage( texWidth, texHeight, mipLevels, numSamples, mFormat, tiling, usage, properties, layout);
 
     textureImageMemory = device.bindMemoryToImage( textureImage );
 }

@@ -119,7 +119,7 @@ void VulkanDevice::close()
     vkDestroyDevice(_device, nullptr);
 }
 
-VkImage VulkanDevice::createImage( uint32_t width, uint32_t height, uint32_t mipLvl, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties )
+VkImage VulkanDevice::createImage( uint32_t width, uint32_t height, uint32_t mipLvl, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImageLayout layout)
 {
     VkImage img;
     VkImageCreateInfo imageInfo{};
@@ -134,7 +134,7 @@ VkImage VulkanDevice::createImage( uint32_t width, uint32_t height, uint32_t mip
     but we should use the same format for the texels as the pixels in the buffer,
     otherwise the copy operation will fail.*/
     imageInfo.format = format;
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.initialLayout = layout;
     imageInfo.usage = usage;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageInfo.samples = numSamples;

@@ -341,7 +341,7 @@ void RenderEngine::drawFrame()
 		frustrums.push_back(Frustrum(pos,lightDir, -scale, -ratio * scale,0.01f,100.f));
 	}
 
-	auto cullResults = _culler.cullObjects( objectsArray, cullVPs,frustrums, _resources );
+	auto cullResults = _culler.cullObjects( objectsArray,frustrums, _resources );
 	const std::vector<int>& cameraVisible = cullResults[0];
 	_totalInCameraObjects += cameraVisible.size();
 	const std::vector<int>& mainLightVisible = hasShadows ? cullResults[1] : cameraVisible;
