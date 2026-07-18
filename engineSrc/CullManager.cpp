@@ -5,19 +5,10 @@
 
 std::vector<std::vector<int>> CullManager::cullObjects(
     const std::vector<RenderObject>&       objects,
-    const std::vector<ViewProjectionData>& vps,
     const std::vector<Frustrum>& frustrums,
     const ResourceManager&                 resources ) const
 {
-    const size_t frustumCount = vps.size();
-
-    // Precalculamos las matrices VP de cada frustum para no repetir la
-    // multiplicación en el loop interno.
-    std::vector<glm::mat4> vpMats;
-    vpMats.reserve( frustumCount );
-    for ( const auto& vp : vps ) {
-        vpMats.push_back( vp.proj * vp.view );
-    }
+    const size_t frustumCount = frustrums.size();
 
     // Resultado: un vector de índices por frustum, preallocado.
     std::vector<std::vector<int>> results( frustumCount );
@@ -36,7 +27,6 @@ std::vector<std::vector<int>> CullManager::cullObjects(
         const AABB& aabb = mesh->getAABB();
 
         for ( size_t f = 0; f < frustumCount; ++f ) {
-            glm::mat4 MVP = vpMats[f] * objects[i].modelMatrix;
 
             if (aabb.isOnFrusturm(frustrums[f], objects[i].modelMatrix)) {
                 results[f].push_back( i );
@@ -62,6 +52,7 @@ std::vector<std::vector<int>> CullManager::cullObjects(
     return results;
 }
 
+//Deprecated
 bool CullManager::AABBFrustumTest( const AABB& aabb, const glm::mat4& MVP ) const
 {
     const glm::vec4 corners[8] = {

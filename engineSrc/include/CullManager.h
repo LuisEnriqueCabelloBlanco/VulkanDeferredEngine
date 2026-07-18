@@ -29,18 +29,18 @@ public:
     // Ejecuta el culling de todos los frustums en un único recorrido.
     //
     // objects   — lista completa de objetos de la escena.
-    // vps       — un VP por frustum (cámara, main light, etc.).
+    // frustrums       — definicion de Frustrum por cada punto de vista.
     // resources — necesario para resolver el mesh handle de cada objeto.
     //
     // Devuelve un vector del mismo tamaño que vps. El elemento i contiene
     // los índices de los objetos visibles desde el frustum vps[i].
     std::vector<std::vector<int>> cullObjects(
         const std::vector<RenderObject>&    objects,
-        const std::vector<ViewProjectionData>& vps,
         const std::vector<Frustrum>& frustrums,
         const ResourceManager&              resources ) const;
 
 private:
+    // DEPRECATED
     // Test AABB contra el frustum definido por MVP.
     // Devuelve true si alguna esquina de la AABB está dentro del clip space.
     bool AABBFrustumTest( const AABB& aabb, const glm::mat4& MVP ) const;
