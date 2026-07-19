@@ -55,8 +55,14 @@ struct Frustrum {
 	//ortho constructor
 	Frustrum(glm::vec3 position, glm::vec3 front, float top, float left, float zNear, float zFar) {
 
-		const glm::vec3 right = glm::normalize(glm::cross(front, glm::vec3(0,1,0)));
+		glm::vec3 right = glm::normalize(glm::cross(front, glm::vec3(0,1,0)));
+
+		if (glm::all(glm::isnan(right))) {
+			right = glm::vec3(1, 0, 0);
+		}
+
 		const glm::vec3 up = glm::normalize(glm::cross(right, front));
+
 
 		nearFace = Plane( position + zNear * front, front );
 		farFace = { position + zFar * front, -front };

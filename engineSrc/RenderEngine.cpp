@@ -365,7 +365,14 @@ void RenderEngine::drawFrame()
 		const LightObject* mainLight = _scene.tryGetMainLight();
 		glm::vec3 lightDir = (mainLight != nullptr) ? mainLight->posOrDir : glm::vec3( 0.f, -1.f, 0.001f );
 		glm::vec3 pos = -lightDir * 10.f + cam.getPosition();
-		lightVP.view = glm::lookAt( pos, pos + lightDir, glm::vec3( 0, 1, 0 ) );
+
+		//si los vectores son colineales se asigna un vector arbitrario
+		glm::vec3 up = glm::vec3(0,1,0);
+		if (glm::cross(up, lightDir) == glm::vec3(0)) {
+			up = glm::vec3(0, 0, 1);
+		}
+
+		lightVP.view = glm::lookAt( pos, pos + lightDir,  up);
 		_buffers.writeMainLightVP( lightVP );
 	}
 
