@@ -365,12 +365,15 @@ void App::populateScene()
 
     // --- Iluminacion --------------------------------------------------------
 
-    scene.createLight(
+    auto l =scene.createLight(
         LightType::Directional,
         glm::normalize( glm::vec3( -1.0f, -1.0f, -0.5f ) ),
         glm::vec3( 1.0f, 0.9f, 0.82f ),
-        0.01f
+        0.5f
     );
+
+    scene.setMainLight(l);
+
     scene.createLight(
         LightType::Directional,
         glm::normalize( glm::vec3( -1.0f, 1.0f, 0.5f ) ),

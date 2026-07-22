@@ -128,14 +128,20 @@ vec3 PBR(Light l, float ambient, vec3 albedo, float metallic, float roughness, v
 bool shadowCasting(){
     vec4 pixelPositionWS = lightSpace.proj* lightSpace.view* vec4(subpassLoad(position).rgb,1);
 
-    vec2 projCoords = (pixelPositionWS.xy/pixelPositionWS.w)*0.5+0.5;
+    vec3 projCoords = (pixelPositionWS.xyz/pixelPositionWS.w)*0.5+0.5;
 
-    float lightDepth = texture(shadowMap,projCoords).r;
+    float lightDepth = texture(shadowMap,projCoords.xy).r;
     float currentDepth = pixelPositionWS.z/pixelPositionWS.w;
 
-    float bias = max(0.05 * (1.0 - dot(normalize(subpassLoad(normal).rgb), -lightBuffer.lights[light.mainLightIndex].dir_center)), 0.005);
+    float bias = max(0.0005 * (1.0 - dot(normalize(subpassLoad(normal).rgb), -lightBuffer.lights[light.mainLightIndex].dir_center)), 0.0005);
 
-    return (currentDepth-bias >= lightDepth && lightDepth != 0);
+    bool shadow =(currentDepth-bias > lightDepth);
+
+    if(projCoords.z >= 1.0 || lightDepth == 0){
+        shadow = false;
+    }
+
+    return shadow;
 }
 
 void main() {
@@ -171,7 +177,7 @@ void main() {
             aux.color = lightBuffer.lights[index].color;
             aux.intensity = lightBuffer.lights[index].intensity;
 
-            if(!shadowCasting() ){
+            if(!shadowCasting()){
                 colorVal += PBR(aux, light.ambient, sampleColor, metallic, roughness, normalVec, viewVector);
             }
         }

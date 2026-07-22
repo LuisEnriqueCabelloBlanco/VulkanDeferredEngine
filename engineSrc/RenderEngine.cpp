@@ -333,12 +333,12 @@ void RenderEngine::drawFrame()
 		cullVPs.push_back( *_buffers.getMainLightVPMapped() );
 
 		float ratio = _window.getExtent().width / static_cast<float>(_window.getExtent().height);
-		constexpr float scale = 20.f;
+		constexpr float scale = 100.f;
 		const LightObject* mainLight = _scene.tryGetMainLight();
 		const glm::vec3 lightDir = (mainLight != nullptr) ? mainLight->posOrDir : glm::vec3(0.f, -1.f, 0.001f);
-		const glm::vec3 pos = -glm::normalize(lightDir) * 10.f + cam.getPosition();
+		const glm::vec3 pos = -glm::normalize(lightDir) * 100.f + cam.getPosition();
 
-		frustrums.push_back(Frustrum(pos,lightDir, -scale, -ratio * scale,0.01f,100.f));
+		frustrums.push_back(Frustrum(pos,lightDir, -scale, -ratio * scale,0.01f,1000.f));
 	}
 
 	auto cullResults = _culler.cullObjects( objectsArray,frustrums, _resources );
@@ -360,11 +360,11 @@ void RenderEngine::drawFrame()
 	{
 		ViewProjectionData lightVP;
 		float ratio = _window.getExtent().width / static_cast<float>( _window.getExtent().height );
-		constexpr float scale = 20.f;
-		lightVP.proj = glm::ortho( -ratio * scale, ratio * scale, scale, -scale, 0.01f, 100.f );
+		constexpr float scale = 100.f;
+		lightVP.proj = glm::ortho( -ratio * scale, ratio * scale, scale, -scale, 0.01f, 1000.f );
 		const LightObject* mainLight = _scene.tryGetMainLight();
 		glm::vec3 lightDir = (mainLight != nullptr) ? mainLight->posOrDir : glm::vec3( 0.f, -1.f, 0.001f );
-		glm::vec3 pos = -lightDir * 10.f + cam.getPosition();
+		glm::vec3 pos = -lightDir * 100.f + cam.getPosition();
 
 		//si los vectores son colineales se asigna un vector arbitrario
 		glm::vec3 up = glm::vec3(0,1,0);

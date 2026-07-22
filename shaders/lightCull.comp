@@ -39,7 +39,7 @@ bool isVisible(Light light){
         //Calcular si esta dentro del frustrum de la camara
         vec3 pos = light.dir_center;
 
-        visible = distance(pos,cameraData.eyePos) < 100;
+        visible = distance(pos,cameraData.eyePos) < 1000;
     }
 
     return light.type==0 || visible;
