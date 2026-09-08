@@ -61,9 +61,10 @@ public:
 
 
 #pragma region Creadores
-	VkImage createImage( uint32_t width, uint32_t height, uint32_t mipLvl, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED);
+	VkImage createImage( uint32_t width, uint32_t height, uint32_t mipLvl, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, 
+		VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED, uint32_t layers =1, VkImageCreateFlags flags =0);
 
-	VkImageView createImageView( VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels );
+	VkImageView createImageView( VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels, VkImageViewType viewType = VK_IMAGE_VIEW_TYPE_2D, uint32_t layerCount = 1);
 
 	VkShaderModule createShaderModule( const std::vector<char>& code );
 

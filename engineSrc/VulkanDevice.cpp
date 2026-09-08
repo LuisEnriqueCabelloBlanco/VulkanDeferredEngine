@@ -119,7 +119,8 @@ void VulkanDevice::close()
     vkDestroyDevice(_device, nullptr);
 }
 
-VkImage VulkanDevice::createImage( uint32_t width, uint32_t height, uint32_t mipLvl, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImageLayout layout)
+VkImage VulkanDevice::createImage( uint32_t width, uint32_t height, uint32_t mipLvl, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, 
+    VkImageLayout layout, uint32_t layers, VkImageCreateFlags flags)
 {
     VkImage img;
     VkImageCreateInfo imageInfo{};
@@ -129,7 +130,7 @@ VkImage VulkanDevice::createImage( uint32_t width, uint32_t height, uint32_t mip
     imageInfo.extent.height = height;
     imageInfo.extent.depth = 1;
     imageInfo.mipLevels = mipLvl;
-    imageInfo.arrayLayers = 1;
+    imageInfo.arrayLayers = layers;
     /*Vulkan supports many possible image formats,
     but we should use the same format for the texels as the pixels in the buffer,
     otherwise the copy operation will fail.*/
@@ -138,19 +139,19 @@ VkImage VulkanDevice::createImage( uint32_t width, uint32_t height, uint32_t mip
     imageInfo.usage = usage;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageInfo.samples = numSamples;
-    imageInfo.flags = 0; // Optional
+    imageInfo.flags = flags; // Optional
     if (vkCreateImage(_device, &imageInfo, nullptr, &img ) != VK_SUCCESS) {
         throw std::runtime_error( "failed to create image!" );
     }
     return img;
 }
 
-VkImageView VulkanDevice::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels)
+VkImageView VulkanDevice::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels, VkImageViewType viewType, uint32_t layerCount)
 {
     VkImageViewCreateInfo viewInfo{};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewInfo.image = image;
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.viewType = viewType;
     viewInfo.format = format;
     viewInfo.subresourceRange.aspectMask = aspectFlags;
 
@@ -162,7 +163,7 @@ VkImageView VulkanDevice::createImageView(VkImage image, VkFormat format, VkImag
     viewInfo.subresourceRange.baseMipLevel = 0;
     viewInfo.subresourceRange.levelCount = mipLevels;
     viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount = 1;
+    viewInfo.subresourceRange.layerCount = layerCount;
 
     VkImageView imageView;
     if (vkCreateImageView(_device, &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
