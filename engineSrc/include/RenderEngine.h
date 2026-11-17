@@ -189,6 +189,10 @@ private:
                            const std::vector<RenderObject>& objectsArray,
                            const std::vector<int>& cullIndex );
 
+    //TODO
+    //Graba el render pass de dibujado de la skybox
+    void recordSkyBox(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+
     // Push constants: model matrix (vertex) y material index (fragment).
     void pushModelMatrix(  VkCommandBuffer commandBuffer,
                            glm::mat4 model = glm::mat4( 1 ) );

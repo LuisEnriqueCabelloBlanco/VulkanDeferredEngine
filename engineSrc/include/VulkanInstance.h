@@ -48,6 +48,8 @@ public:
     // Conveniente para pasarlo a VulkanDevice::init() y VulkanWindow::createSurface().
     operator VkInstance() const { return _instance; }
 
+    inline uint32_t getInstanceVersion() { return _apiVer; }
+
 private:
     bool        checkValidationLayerSupport() const;
     std::vector<const char*> getRequiredExtensions() const;
@@ -68,4 +70,5 @@ private:
 
     VkInstance               _instance       = VK_NULL_HANDLE;
     VkDebugUtilsMessengerEXT _debugMessenger  = VK_NULL_HANDLE;
+    uint32_t _apiVer;
 };

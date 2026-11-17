@@ -173,17 +173,6 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 	//vkCmdDispatch( commandBuffers[currentFrame], (objectsArray.size() / 32) + 1, 1, 1 );
 
 
-	VkBufferMemoryBarrier memBarr;
-	memBarr.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-	memBarr.buffer = _buffers.getLightIndexStorage()->getBuffer();
-	memBarr.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-	memBarr.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-	memBarr.offset = 0;
-	memBarr.size = sizeof( int ) + (sizeof( int ) * ResourceLimits::MAX_LIGHTS);
-	memBarr.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	memBarr.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	memBarr.pNext = NULL;
-
 	vkCmdBindPipeline( commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _pipelines.getComputePipeline());
 
 	VkDescriptorSet computeSets[] = {_descriptors.getLightsDataBufferSet(), _descriptors.getComputeSet(currentFrame) };
@@ -192,7 +181,34 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 
 	vkCmdDispatch( commandBuffer, (ResourceLimits::MAX_LIGHTS/32)+1, 1, 1 );
 
-	vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 1, &memBarr, 0, nullptr );
+
+	VkBufferMemoryBarrier2 memBar;
+	memBar.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
+	memBar.srcStageMask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+	memBar.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	memBar.buffer = _buffers.getLightIndexStorage()->getBuffer();
+	memBar.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	memBar.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+	memBar.offset = 0;
+	memBar.size = VK_WHOLE_SIZE;
+	memBar.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	memBar.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	memBar.pNext = NULL;
+
+	VkDependencyInfo info;
+	info.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+	info.pBufferMemoryBarriers = &memBar;
+	info.bufferMemoryBarrierCount = 1;
+	info.pMemoryBarriers = nullptr;
+	info.memoryBarrierCount = 0;
+	info.pImageMemoryBarriers = nullptr;
+	info.imageMemoryBarrierCount = 0;
+	info.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+	info.pNext = nullptr;
+
+	vkCmdPipelineBarrier2(commandBuffer, &info);
+
+	//vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 1, &memBarr, 0, nullptr );
 
 	recordShadowPass( commandBuffer, objectsArray, shadowIndex );
 	recordMainRender( commandBuffer, imageIndex, objectsArray, cameraIndex );

@@ -4,12 +4,10 @@
 #include <vector>
 #include "VulkanWindow.h"
 #include "Buffer.h"
-
+#include <iostream>
 
 const std::vector<const char*> deviceExtensions = {
-	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-	VK_KHR_MAINTENANCE3_EXTENSION_NAME,
-	"VK_EXT_descriptor_indexing"
+	VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
 class VulkanDevice
@@ -19,11 +17,29 @@ public:
 	struct QueueFamilyIndices {
 		std::optional<uint32_t> graphicsFamily;
 		std::optional<uint32_t> computeFamily;
-		std::optional<uint32_t> transferFamily;
+		std::optional<uint32_t> transferOnlyFamily;
 		std::optional<uint32_t> presentFamily;
 
 		bool isComplete() {
-			return graphicsFamily.has_value() && computeFamily.has_value() && transferFamily.has_value() /*&& presentFamily.has_value()*/;
+			return graphicsFamily.has_value() && computeFamily.has_value() && transferOnlyFamily.has_value() /*&& presentFamily.has_value()*/;
+		}
+
+		void fillIndices(int index ,VkQueueFlags flags,bool presentSupport) {
+			if (flags & VK_QUEUE_GRAPHICS_BIT) {
+				graphicsFamily = index;
+			}
+
+			if (flags& VK_QUEUE_COMPUTE_BIT) {
+				computeFamily = index;
+			}
+
+			if ((flags & 0x7) - VK_QUEUE_TRANSFER_BIT == 0) {
+				transferOnlyFamily = index;
+			}
+
+			if (presentSupport) {
+				presentFamily = index;
+			}
 		}
 	};
 
@@ -288,7 +304,7 @@ private:
 
 
 	void pickPhysicalDevice();
-	bool isDeviceSuitable( VkPhysicalDevice device );
+	bool isDeviceSuitable( VkPhysicalDevice device, VkPhysicalDeviceProperties properties);
 	bool checkDeviceExtensionSupport( VkPhysicalDevice device );
 
 

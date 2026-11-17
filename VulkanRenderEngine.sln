@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.12.35514.174
+# Visual Studio Version 18
+VisualStudioVersion = 18.8.12023.21
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "VulkanRenderEngine", "projects\VulkanRenderEngine\VulkanRenderEngine.vcxproj", "{107D7AB4-7CD9-4D3D-96E4-AEAB990E2A08}"
 EndProject
@@ -16,6 +16,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FireflyExample", "projects\
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MainHallExample", "projects\MainHallExample\MainHallExample.vcxproj", "{F6284513-15B9-4164-858C-44CF79F29C7A}"
+	ProjectSection(ProjectDependencies) = postProject
+		{107D7AB4-7CD9-4D3D-96E4-AEAB990E2A08} = {107D7AB4-7CD9-4D3D-96E4-AEAB990E2A08}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "InternalTest", "projects\InternalTest\InternalTest.vcxproj", "{E8D5FD8D-ECB2-4E10-869D-545815022C65}"
 	ProjectSection(ProjectDependencies) = postProject
 		{107D7AB4-7CD9-4D3D-96E4-AEAB990E2A08} = {107D7AB4-7CD9-4D3D-96E4-AEAB990E2A08}
 	EndProjectSection
@@ -42,6 +47,10 @@ Global
 		{F6284513-15B9-4164-858C-44CF79F29C7A}.Debug|x64.Build.0 = Debug|x64
 		{F6284513-15B9-4164-858C-44CF79F29C7A}.Release|x64.ActiveCfg = Release|x64
 		{F6284513-15B9-4164-858C-44CF79F29C7A}.Release|x64.Build.0 = Release|x64
+		{E8D5FD8D-ECB2-4E10-869D-545815022C65}.Debug|x64.ActiveCfg = Debug|x64
+		{E8D5FD8D-ECB2-4E10-869D-545815022C65}.Debug|x64.Build.0 = Debug|x64
+		{E8D5FD8D-ECB2-4E10-869D-545815022C65}.Release|x64.ActiveCfg = Release|x64
+		{E8D5FD8D-ECB2-4E10-869D-545815022C65}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

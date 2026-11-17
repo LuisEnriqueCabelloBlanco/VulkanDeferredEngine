@@ -49,6 +49,8 @@ static void destroyDebugMessenger(
 
 void VulkanInstance::init( const std::string& appName )
 {
+
+
     bool layerSupport = checkValidationLayerSupport();
     if ( enableValidationLayers && ! layerSupport) {
         std::cout << "Validation layers not available engine will run without Validation Layers";
@@ -61,7 +63,7 @@ void VulkanInstance::init( const std::string& appName )
     appInfo.applicationVersion = VK_MAKE_VERSION( 1, 0, 0 );
     appInfo.pEngineName        = "LL Engine";
     appInfo.engineVersion      = VK_MAKE_VERSION( 1, 0, 0 );
-    appInfo.apiVersion         = VK_API_VERSION_1_3;
+    appInfo.apiVersion         = VK_API_VERSION_1_4;
 
     auto extensions = getRequiredExtensions();
 
@@ -87,6 +89,13 @@ void VulkanInstance::init( const std::string& appName )
     }
 
     setupDebugMessenger();
+
+
+    vkEnumerateInstanceVersion(&_apiVer);
+#ifdef _DEBUG
+    std::cout <<"Usando la version de Vulkan " << VK_API_VERSION_MAJOR(_apiVer) << "." << VK_API_VERSION_MINOR(_apiVer) << std::endl;
+#endif // DEBUG
+
 }
 
 void VulkanInstance::destroy()
