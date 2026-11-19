@@ -912,110 +912,36 @@ void VulkanDevice::singleTimeTransitionImageLayout( VkImage image, VkFormat form
     VkCommandPool usedPool = _transferPool;
     VkQueue usedQueue = _transferQueue;
 
-    VkImageMemoryBarrier2 barrier;
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
-    barrier.oldLayout = oldLayout;
-    barrier.newLayout = newLayout;
-
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-
-    barrier.image = image;
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = mipLevels;
-    barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
-    barrier.pNext = NULL;
-
-    if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL || 
-        newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL ||
-        oldLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ||
-        oldLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL) {
-        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-
-        //si tiene componente de stencil lo marcamos
-        if (format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT) {
-            barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
-        }
-    }
-    else {
-        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    }
-
-    VkPipelineStageFlags2 sourceStage;
-    VkPipelineStageFlags2 destinationStage;
-
-    barrier.srcAccessMask = getAccesFlag(oldLayout);
-    barrier.dstAccessMask = getAccesFlag(newLayout);
-    barrier.srcStageMask = getStage(oldLayout);
-    barrier.dstStageMask = getStage(newLayout);
-
 
     //si es a operacion de copia de la imagen
     if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL) {
-        //barrier.srcAccessMask = VK_ACCESS_NONE;
-        //barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-
         usedPool = createCommandPool(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, _familyIndx.graphicsFamily.value());;
         usedQueue = getGraphicsQueue();
-
-        //sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        //destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
     }
     //si es la transicion de imagen a sample de shader
     else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-        //barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        //barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-        usedPool = createCommandPool( VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, _familyIndx.graphicsFamily.value() );;
+        usedPool = createCommandPool(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, _familyIndx.graphicsFamily.value());;
         usedQueue = getGraphicsQueue();
-
-        //sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        //destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    }
-    //si es la transicion de imagen para crear la stencil y depth
-    else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
-        //barrier.srcAccessMask = VK_ACCESS_NONE;
-        //barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-        //sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        //destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     }
     //Transicion en la inicializacion de la textura de sombras
     else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL) {
-        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 
         usedPool = createCommandPool(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, _familyIndx.graphicsFamily.value());;
         usedQueue = getGraphicsQueue();
     }
     else if (oldLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL) {
 
-        //barrier.srcStageMask = VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
-        //barrier.dstStageMask = VK_PIPELINE_STAGE_2_LATE_FRAGMENT_;
-
         usedPool = createCommandPool(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, _familyIndx.graphicsFamily.value());;
         usedQueue = getGraphicsQueue();
     }
-    else if(barrier.srcAccessMask == 0 && barrier.dstAccessMask==0 && barrier.srcStageMask ==0 && barrier.dstStageMask==0){
-        throw std::invalid_argument( "unsupported layout transition!" );
+    else if (getAccesFlag(oldLayout) == 0 && getAccesFlag(newLayout) == 0 && getStage(oldLayout) == 0 && getStage(newLayout) == 0) {
+        throw std::invalid_argument("unsupported singleTime layout transition!");
     }
-
 
     VkCommandBuffer commandBuffer = beginSingleTimeCommands( usedPool );
 
-    VkDependencyInfo info;
-    info.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-    info.pImageMemoryBarriers = &barrier;
-    info.imageMemoryBarrierCount = 1;
-    info.pBufferMemoryBarriers = nullptr;
-    info.bufferMemoryBarrierCount = 0;
-    info.pMemoryBarriers = nullptr;
-    info.memoryBarrierCount = 0;
-    info.dependencyFlags = NULL;
-    info.pNext = nullptr;
-
-    vkCmdPipelineBarrier2(commandBuffer, &info);
+    transitionImageLayout(commandBuffer, image, format, oldLayout, newLayout, mipLevels);
 
 
     endSingleTimeCommands( usedPool, commandBuffer, usedQueue);

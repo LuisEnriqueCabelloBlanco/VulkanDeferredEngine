@@ -90,7 +90,7 @@ void ShadowPass::createShadowMap()
     _shadowMap->createImageView( _device->findDepthFormat(), VK_IMAGE_ASPECT_DEPTH_BIT, 1 );
     _shadowMap->createTextureSampler( VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER );
 
-    _device->singleTimeTransitionImageLayout(_shadowMap.get()->textureImage, _shadowMap.get()->mFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, 1);
+    //_device->singleTimeTransitionImageLayout(_shadowMap.get()->textureImage, _shadowMap.get()->mFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, 1);
 
 }
 
