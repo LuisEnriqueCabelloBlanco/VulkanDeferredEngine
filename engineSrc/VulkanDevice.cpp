@@ -834,9 +834,81 @@ void VulkanDevice::copyBufferToImage( VkBuffer buffer, VkImage image, uint32_t w
     endSingleTimeCommands(_transferPool,commandBuffer,_transferQueue);
 }
 
-void VulkanDevice::transitionImageLayout( VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels )
-{
+//TODO move to class
+VkAccessFlags2 VulkanDevice::getAccesFlag(VkImageLayout layout) {
+    switch (layout) {
+        case VK_IMAGE_LAYOUT_UNDEFINED:
+        case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+            return 0;
+        case VK_IMAGE_LAYOUT_PREINITIALIZED:
+            return VK_ACCESS_HOST_WRITE_BIT;
+        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+            return VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        case VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL:
+            return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        case VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR:
+            return VK_ACCESS_FRAGMENT_SHADING_RATE_ATTACHMENT_READ_BIT_KHR;
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL:
+            return VK_ACCESS_SHADER_READ_BIT;
+        case VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL:
+            return VK_ACCESS_SHADER_READ_BIT;
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+            return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+            return VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+            return VK_ACCESS_TRANSFER_READ_BIT;
+        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+            return VK_ACCESS_TRANSFER_WRITE_BIT;
+        case VK_IMAGE_LAYOUT_GENERAL:
+            assert(false &&
+                "Don't know how to get a meaningful VkAccessFlags for VK_IMAGE_LAYOUT_GENERAL! Don't use it!");
+            return 0;
+        default:
+            assert(false);
+            return 0;
+    }
+}
 
+VkPipelineStageFlags2 VulkanDevice::getStage(VkImageLayout layout) {
+
+    switch (layout)
+    {
+        case VK_IMAGE_LAYOUT_UNDEFINED:
+            return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        case VK_IMAGE_LAYOUT_PREINITIALIZED:
+            return VK_PIPELINE_STAGE_HOST_BIT;
+        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+            return VK_PIPELINE_STAGE_TRANSFER_BIT;
+        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+            return VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        case VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL:
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+            return VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+        case VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR:
+            return VK_PIPELINE_STAGE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR;
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL:
+        case VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL:
+        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+            return VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+            return VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+        case VK_IMAGE_LAYOUT_GENERAL:
+            assert(
+                false &&
+                "Don't know how to get a meaningful VkPipelineStageFlags for VK_IMAGE_LAYOUT_GENERAL! Don't use it!");
+            return 0;
+        default:
+            assert(false);
+            return 0;
+    }
+
+}
+
+void VulkanDevice::singleTimeTransitionImageLayout( VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels )
+{
+    //TODO perfilar el metodo
     VkCommandPool usedPool = _transferPool;
     VkQueue usedQueue = _transferQueue;
 
@@ -856,7 +928,10 @@ void VulkanDevice::transitionImageLayout( VkImage image, VkFormat format, VkImag
     barrier.subresourceRange.layerCount = 1;
     barrier.pNext = NULL;
 
-    if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+    if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL || 
+        newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL ||
+        oldLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ||
+        oldLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL) {
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 
         //si tiene componente de stencil lo marcamos
@@ -871,53 +946,60 @@ void VulkanDevice::transitionImageLayout( VkImage image, VkFormat format, VkImag
     VkPipelineStageFlags2 sourceStage;
     VkPipelineStageFlags2 destinationStage;
 
-    //si es a operacion de copia de la imagen
-    if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-        barrier.srcAccessMask = VK_ACCESS_NONE;
-        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.srcAccessMask = getAccesFlag(oldLayout);
+    barrier.dstAccessMask = getAccesFlag(newLayout);
+    barrier.srcStageMask = getStage(oldLayout);
+    barrier.dstStageMask = getStage(newLayout);
 
-        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+
+    //si es a operacion de copia de la imagen
+    if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL) {
+        //barrier.srcAccessMask = VK_ACCESS_NONE;
+        //barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+        usedPool = createCommandPool(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, _familyIndx.graphicsFamily.value());;
+        usedQueue = getGraphicsQueue();
+
+        //sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        //destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
     }
     //si es la transicion de imagen a sample de shader
     else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        //barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        //barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
         usedPool = createCommandPool( VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, _familyIndx.graphicsFamily.value() );;
         usedQueue = getGraphicsQueue();
 
-        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        //sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        //destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
     }
     //si es la transicion de imagen para crear la stencil y depth
     else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
-        barrier.srcAccessMask = VK_ACCESS_NONE;
-        barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        //barrier.srcAccessMask = VK_ACCESS_NONE;
+        //barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+        //sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        //destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     }
     //Transicion en la inicializacion de la textura de sombras
     else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL) {
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 
-        barrier.srcAccessMask = VK_ACCESS_NONE;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        usedPool = createCommandPool(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, _familyIndx.graphicsFamily.value());;
+        usedQueue = getGraphicsQueue();
+    }
+    else if (oldLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL) {
 
-        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        //barrier.srcStageMask = VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+        //barrier.dstStageMask = VK_PIPELINE_STAGE_2_LATE_FRAGMENT_;
 
         usedPool = createCommandPool(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, _familyIndx.graphicsFamily.value());;
         usedQueue = getGraphicsQueue();
     }
-    else {
+    else if(barrier.srcAccessMask == 0 && barrier.dstAccessMask==0 && barrier.srcStageMask ==0 && barrier.dstStageMask==0){
         throw std::invalid_argument( "unsupported layout transition!" );
     }
-
-    barrier.srcStageMask = sourceStage;
-    barrier.dstStageMask = destinationStage;
-
 
 
     VkCommandBuffer commandBuffer = beginSingleTimeCommands( usedPool );
@@ -935,21 +1017,73 @@ void VulkanDevice::transitionImageLayout( VkImage image, VkFormat format, VkImag
 
     vkCmdPipelineBarrier2(commandBuffer, &info);
 
-    //vkCmdPipelineBarrier(
-    //    commandBuffer,
-    //    sourceStage, destinationStage,
-    //    0,
-    //    0, nullptr,
-    //    0, nullptr,
-    //    1, &barrier
-    //);
-
 
     endSingleTimeCommands( usedPool, commandBuffer, usedQueue);
 
-    if ((oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) 
-        || (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL)) {
-        destroyCommandPool( usedPool );
+    //if ((oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) 
+    //    || (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL)) {
+    //    destroyCommandPool( usedPool );
+    //}
+
+    if (usedPool != _transferPool) {
+        destroyCommandPool(usedPool);
     }
+
+}
+
+void VulkanDevice::transitionImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels)
+{
+
+    VkImageMemoryBarrier2 barrier;
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+    barrier.oldLayout = oldLayout;
+    barrier.newLayout = newLayout;
+
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+    barrier.image = image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = mipLevels;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.pNext = NULL;
+
+    if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ||
+        newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL ||
+        oldLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ||
+        oldLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL) {
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+        //si tiene componente de stencil lo marcamos
+        if (format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT) {
+            barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+        }
+    }
+    else {
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    }
+
+    VkPipelineStageFlags2 sourceStage;
+    VkPipelineStageFlags2 destinationStage;
+
+    barrier.srcAccessMask = getAccesFlag(oldLayout);
+    barrier.dstAccessMask = getAccesFlag(newLayout);
+    barrier.srcStageMask = getStage(oldLayout);
+    barrier.dstStageMask = getStage(newLayout);
+
+    VkDependencyInfo info;
+    info.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    info.pImageMemoryBarriers = &barrier;
+    info.imageMemoryBarrierCount = 1;
+    info.pBufferMemoryBarriers = nullptr;
+    info.bufferMemoryBarrierCount = 0;
+    info.pMemoryBarriers = nullptr;
+    info.memoryBarrierCount = 0;
+    info.dependencyFlags = NULL;
+    info.pNext = nullptr;
+
+    vkCmdPipelineBarrier2(commandBuffer, &info);
 
 }

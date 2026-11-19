@@ -176,7 +176,9 @@ public:
 	//Copia un buffer con los datos de la imagen a una imagen de vulkan
 	void copyBufferToImage( VkBuffer buffer, VkImage image, uint32_t width, uint32_t height );
 
-	void transitionImageLayout( VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels );
+	void singleTimeTransitionImageLayout( VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels );
+	
+	void transitionImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels );
 
 	VkCommandBuffer beginSingleTimeCommands( VkCommandPool pool )
 	{
@@ -317,6 +319,8 @@ private:
 
 	VkSampleCountFlagBits getMaxUsableSampleCount();
 
+	VkAccessFlags2 getAccesFlag(VkImageLayout layout);
+	VkPipelineStageFlags2 getStage(VkImageLayout layout);
 
 	VkInstance _vkInstance;
 	VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;

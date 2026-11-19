@@ -559,6 +559,15 @@ void RenderPipelines::createShadowPipeline() {
 
     _shadowLayout = _device->createPipelineLayout( layoutInfo );
 
+    VkPipelineRenderingCreateInfo renderingCreateInfo;
+    renderingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+    renderingCreateInfo.colorAttachmentCount = 0;
+    renderingCreateInfo.pColorAttachmentFormats = NULL;
+    renderingCreateInfo.depthAttachmentFormat = _device->findDepthFormat();
+    renderingCreateInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+    renderingCreateInfo.viewMask = 0;
+    renderingCreateInfo.pNext = NULL;
+
     VkGraphicsPipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipelineInfo.stageCount          = 1;
@@ -572,8 +581,11 @@ void RenderPipelines::createShadowPipeline() {
     pipelineInfo.pColorBlendState    = nullptr;
     pipelineInfo.pDynamicState       = &dynamicState;
     pipelineInfo.layout              = _shadowLayout;
-    pipelineInfo.renderPass          = _shadowRenderPass;
+    pipelineInfo.renderPass          = VK_NULL_HANDLE;
     pipelineInfo.subpass             = 0;
+    pipelineInfo.pNext               = &renderingCreateInfo;
+
+
 
     _shadowPipeline = _device->createPipelines( VK_NULL_HANDLE, { pipelineInfo } )[0];
 

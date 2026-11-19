@@ -578,8 +578,44 @@ void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::v
 	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 	renderPassInfo.pClearValues = clearValues.data();
 
+	VkRenderingAttachmentInfo depthAttachment;
+	depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+	depthAttachment.clearValue = VkClearValue{ .depthStencil = { 1.0f,0 } };
+	depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+	depthAttachment.imageView = _shadowPass.getShadowMap()->textureImageView;
+	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	depthAttachment.resolveMode = VK_RESOLVE_MODE_NONE;
+	depthAttachment.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	depthAttachment.resolveImageView = VK_NULL_HANDLE;
+	depthAttachment.pNext = NULL;
+
+
+	VkRenderingInfo renderInfo;
+	renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+	renderInfo.renderArea.offset = {0,0};
+	renderInfo.renderArea.extent = ext;
+	renderInfo.layerCount = 1;
+	renderInfo.colorAttachmentCount = 0;
+	renderInfo.pColorAttachments =NULL;
+	renderInfo.pDepthAttachment = &depthAttachment;
+	renderInfo.pStencilAttachment = NULL;
+	renderInfo.flags = 0;
+	renderInfo.viewMask = 0;
+	renderInfo.pNext = NULL;
+	
+	_device.transitionImageLayout( commandBuffer,
+		_shadowPass.getShadowMap()->textureImage, _device.findDepthFormat(), 
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, 
+		1);
+	
+	vkCmdBeginRendering(commandBuffer, &renderInfo);
+
+
 	//tomamos los datos de paso de renderizado
-	vkCmdBeginRenderPass( commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
+	//vkCmdBeginRenderPass( commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
+
+
 	VkDescriptorSet shadowSet = _descriptors.getMainLightSet();
 	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelines.getShadowLayout(), 0, 1, &shadowSet, 0, nullptr );
 	//Aplicamos la pipeline definida
@@ -609,5 +645,13 @@ void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::v
 		mesh->draw( commandBuffer );
 	}
 
-	vkCmdEndRenderPass( commandBuffer );
+
+	vkCmdEndRendering(commandBuffer);
+
+	_device.transitionImageLayout(commandBuffer,
+		_shadowPass.getShadowMap()->textureImage, _device.findDepthFormat(),
+		VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL,
+		1);
+
+	//vkCmdEndRenderPass( commandBuffer );
 }

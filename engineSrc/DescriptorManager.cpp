@@ -310,7 +310,7 @@ void DescriptorManager::updateLighting( const GBuffer&    gbuffer,
 
         // --- Shadow map sampler: binding 6 → _globalLightingDescriptorSets[i]
         VkDescriptorImageInfo shadowInfo = shadowMap->getTextureDescriptor(
-                                              VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL );
+            VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL);
         writes.push_back( imageWrite( _globalLightingDescriptorSets[i], 6,
                                       VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &shadowInfo ) );
 
