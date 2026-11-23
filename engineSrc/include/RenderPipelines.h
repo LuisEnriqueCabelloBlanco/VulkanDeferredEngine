@@ -92,6 +92,8 @@ public:
     VkDescriptorSetLayout getComputeDescriptorLayout()    const { return _computeDescriptorLayout;    }
     VkDescriptorSetLayout getIndexedObjectsBufferLayout() const { return _indexedObjectsBufferLayout; }
 
+    const VkRenderingInputAttachmentIndexInfo& getIndexInfo() const { return _indexInfo; }
+
 private:
     // --- Creacion de descriptor set layouts ---------------------------------
     // Llamados al inicio de init(), antes que cualquier pipeline layout.
@@ -151,4 +153,8 @@ private:
     VkPipeline _shadowPipeline     = VK_NULL_HANDLE;
     VkPipeline _computePipeline    = VK_NULL_HANDLE;
     VkPipeline _objectCullPipeline = VK_NULL_HANDLE;
+
+
+    uint32_t _attachmentConfigPos[4] = { VK_ATTACHMENT_UNUSED,1,2,0 };
+    VkRenderingInputAttachmentIndexInfo _indexInfo{};
 };

@@ -278,7 +278,7 @@ void DescriptorManager::updateLighting( const GBuffer&    gbuffer,
 
         // --- Input attachments: binding 0 (albedo/color) --------------------
         VkDescriptorImageInfo colorInfo{};
-        colorInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        colorInfo.imageLayout = VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ;
         colorInfo.imageView   = gbuffer.getColorTexture()->textureImageView;
         colorInfo.sampler     = VK_NULL_HANDLE;
         writes.push_back( imageWrite( _inputAttachmentsDescriptorSets[i], 0,
@@ -286,7 +286,7 @@ void DescriptorManager::updateLighting( const GBuffer&    gbuffer,
 
         // --- Input attachments: binding 1 (normal) --------------------------
         VkDescriptorImageInfo normalInfo{};
-        normalInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        normalInfo.imageLayout = VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ;
         normalInfo.imageView   = gbuffer.getNormalTexture()->textureImageView;
         normalInfo.sampler     = VK_NULL_HANDLE;
         writes.push_back( imageWrite( _inputAttachmentsDescriptorSets[i], 1,
@@ -294,7 +294,7 @@ void DescriptorManager::updateLighting( const GBuffer&    gbuffer,
 
         // --- Input attachments: binding 2 (position) ------------------------
         VkDescriptorImageInfo posInfo{};
-        posInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        posInfo.imageLayout = VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ;
         posInfo.imageView   = gbuffer.getPosTexture()->textureImageView;
         posInfo.sampler     = VK_NULL_HANDLE;
         writes.push_back( imageWrite( _inputAttachmentsDescriptorSets[i], 2,

@@ -12,6 +12,34 @@ void MainRenderPass::init( VulkanDevice& device, VulkanWindow& window )
 
     // --- Attachment descriptions -------------------------------------------
 
+
+    _presentAttachment;
+	_presentAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+	_presentAttachment.clearValue = VkClearValue{ .color = { 0.0f, 0.0f, 0.0f, 1.0f } };
+	_presentAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;//Luego transiciona el layout
+	//_presentAttachment.imageView = _window.getImageViews()[imageIndex];
+	_presentAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	_presentAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	_presentAttachment.resolveMode = VK_RESOLVE_MODE_NONE;
+	_presentAttachment.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	_presentAttachment.resolveImageView = VK_NULL_HANDLE;
+	_presentAttachment.pNext = NULL;
+
+
+    //Depth Attachment
+    _depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    _depthAttachment.clearValue = VkClearValue{ .depthStencil = { 1.0f,0} };
+    _depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    //_depthAttachment.imageView = ; //Depth Texture Image View
+    _depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    _depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    _depthAttachment.resolveMode = VK_RESOLVE_MODE_NONE;
+    _depthAttachment.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    _depthAttachment.resolveImageView = VK_NULL_HANDLE;
+    _depthAttachment.pNext = NULL;
+
+
+
     // 0 — present output: imagen final que se envía a pantalla.
     VkAttachmentDescription presentAttachment{};
     presentAttachment.format         = window.getSwapChainFormat();

@@ -60,8 +60,13 @@ public:
 
     VkRenderPass get() const { return _renderPass; }
     operator VkRenderPass() const { return _renderPass; }
+    
+    inline VkRenderingAttachmentInfo getPresentAttachment() const { return _presentAttachment; };
+    inline const VkRenderingAttachmentInfo& getDepthAttachment() const { return _depthAttachment; };
 
 private:
     VulkanDevice* _device      = nullptr;
     VkRenderPass  _renderPass  = VK_NULL_HANDLE;
+    VkRenderingAttachmentInfo _presentAttachment;
+    VkRenderingAttachmentInfo _depthAttachment;
 };

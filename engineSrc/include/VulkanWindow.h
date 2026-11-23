@@ -36,6 +36,7 @@ public:
 	VkExtent2D getExtent() { return _swapChainExtent; }
 
 	const std::vector<VkImageView> & getImageViews() { return _swapChainImageViews; }
+	const std::vector<VkImage>& getImages() { return _swapChainImages; }
 
 	VkSwapchainKHR getSwapChain() { return _swapchain; }
 

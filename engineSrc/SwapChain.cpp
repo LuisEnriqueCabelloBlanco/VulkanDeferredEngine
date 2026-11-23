@@ -3,13 +3,13 @@
 
 SwapChain::SwapChain( VulkanDevice* device, const VkSurfaceKHR& surface ):_deviceRef(device), _currentBuffer(0) {
 	uint32_t numImages;
-	std::vector<VkImage> images;
-	_swapChain = _deviceRef->createSwapChain( surface,_framesFormat,_viewPortExtent,images);
+
+	_swapChain = _deviceRef->createSwapChain( surface,_framesFormat,_viewPortExtent,_images);
 	
-	_imageViews.resize( images.size() );
+	_imageViews.resize( _images.size() );
 
 	for (size_t i = 0; i < _imageViews.size(); i++) {
-		_imageViews[i] = device->createImageView( images[i], _framesFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1 );
+		_imageViews[i] = device->createImageView( _images[i], _framesFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1 );
 	}
 
 

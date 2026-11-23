@@ -25,7 +25,7 @@ void GBuffer::create()
     createNormalResources   ( _extent );
     createPositionResources ( _extent );
     createDepthResources    ( _extent );
-    createFramebuffers      ( _extent );
+    //createFramebuffers      ( _extent );
 }
 
 void GBuffer::destroy()

@@ -75,7 +75,7 @@ void RenderEngine::init( const std::string& appName )
 	_gbuffer.init( _device, _window, _mainRenderPass.get() );
 	_gbuffer.create();
 
-	_pipelines.init( _device, _mainRenderPass.get(), _shadowPass.getRenderPass() );
+	_pipelines.init( _device, _mainRenderPass.get(), NULL );
 
 
 	createCommandPool();
@@ -221,24 +221,191 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 void RenderEngine::recordMainRender( VkCommandBuffer commandBuffer, uint32_t imageIndex,
 	const std::vector<RenderObject>& objectsArray, const std::vector<int>& cullIndex )
 {
-	VkRenderPassBeginInfo renderPassInfo{};
-	renderPassInfo.framebuffer = _gbuffer.getFramebuffers()[imageIndex];
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = _mainRenderPass.get();
-	renderPassInfo.renderArea.offset = { 0, 0 };
-	renderPassInfo.renderArea.extent = _window.getExtent();
+	//VkRenderPassBeginInfo renderPassInfo{};
+	//renderPassInfo.framebuffer = _gbuffer.getFramebuffers()[imageIndex];
+	//renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	//renderPassInfo.renderPass = _mainRenderPass.get();
+	//renderPassInfo.renderArea.offset = { 0, 0 };
+	//renderPassInfo.renderArea.extent = _window.getExtent();
 
-	std::array<VkClearValue, 5> clearValues{};
-	clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
-	clearValues[1].depthStencil = { 1.0f, 0 };
-	clearValues[2].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
-	clearValues[3].color = { {0.0f, 0.0f, 0.0f, 0.0f} };
-	clearValues[4].color = { {0.0f, 0.0f, 0.0f, 0.0f} };
+	//std::array<VkClearValue, 5> clearValues{};
+	//clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
+	//clearValues[1].depthStencil = { 1.0f, 0 };
+	//clearValues[2].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
+	//clearValues[3].color = { {0.0f, 0.0f, 0.0f, 0.0f} };
+	//clearValues[4].color = { {0.0f, 0.0f, 0.0f, 0.0f} };
 
-	renderPassInfo.clearValueCount = static_cast<uint32_t>( clearValues.size() );
-	renderPassInfo.pClearValues = clearValues.data();
+	//renderPassInfo.clearValueCount = static_cast<uint32_t>( clearValues.size() );
+	//renderPassInfo.pClearValues = clearValues.data();
 
-	vkCmdBeginRenderPass( commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
+	VkRenderingAttachmentInfo present = _mainRenderPass.getPresentAttachment();
+	present.imageView = _window.getImageViews()[imageIndex];
+
+
+	VkRenderingAttachmentInfo color{};
+	color.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+	color.clearValue = VkClearValue{ .color = { 0.0f, 0.0f, 0.0f, 1.0f } };
+	color.imageLayout = VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ;
+	color.imageView = _gbuffer.getColorTexture()->textureImageView;
+	color.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	color.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	color.resolveMode = VK_RESOLVE_MODE_NONE;
+	color.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	color.resolveImageView = VK_NULL_HANDLE;
+	color.pNext = NULL;
+
+	VkRenderingAttachmentInfo normal{};
+	normal.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+	normal.clearValue = VkClearValue{ .color = { 0.0f, 0.0f, 0.0f, 1.0f } };
+	normal.imageLayout = VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ;
+	normal.imageView = _gbuffer.getNormalTexture()->textureImageView;
+	normal.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	normal.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	normal.resolveMode = VK_RESOLVE_MODE_NONE;
+	normal.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	normal.resolveImageView = VK_NULL_HANDLE;
+	normal.pNext = NULL;
+
+	VkRenderingAttachmentInfo position{};
+	position.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+	position.clearValue = VkClearValue{ .color = { 0.0f, 0.0f, 0.0f, 1.0f } };
+	position.imageLayout = VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ;
+	position.imageView = _gbuffer.getPosTexture()->textureImageView;
+	position.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	position.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	position.resolveMode = VK_RESOLVE_MODE_NONE;
+	position.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	position.resolveImageView = VK_NULL_HANDLE;
+	position.pNext = NULL;
+
+	
+	//TODO cambiar toda la arquitectura del deferred con la nueva filosofia de dynamic rendering
+	VkRenderingAttachmentInfo attachments[] = { present,normal,position,color };
+
+	VkRenderingAttachmentInfo depthAttachment = _mainRenderPass.getDepthAttachment();
+	depthAttachment.imageView = _gbuffer.getDepthTexture()->textureImageView;
+
+	VkRenderingInfo renderInfo;
+	renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+	renderInfo.renderArea.offset = { 0,0 };
+	renderInfo.renderArea.extent = _window.getExtent();
+	renderInfo.layerCount = 1;
+	renderInfo.colorAttachmentCount = 4;
+	renderInfo.pColorAttachments = attachments;
+	renderInfo.pDepthAttachment = &depthAttachment;
+	renderInfo.pStencilAttachment = NULL;
+	renderInfo.flags = 0;
+	renderInfo.viewMask = 0;
+	renderInfo.pNext = NULL;
+
+	_device.transitionImageLayout(commandBuffer, 
+		_gbuffer.getColorTexture()->textureImage, _gbuffer.getColorTexture()->mFormat, 
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ, 1);
+
+	_device.transitionImageLayout(commandBuffer,
+		_gbuffer.getNormalTexture()->textureImage, _gbuffer.getNormalTexture()->mFormat,
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ, 1);
+
+	_device.transitionImageLayout(commandBuffer,
+		_gbuffer.getPosTexture()->textureImage, _gbuffer.getPosTexture()->mFormat,
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ, 1);
+	_device.transitionImageLayout(commandBuffer,
+
+		_gbuffer.getDepthTexture()->textureImage, _gbuffer.getDepthTexture()->mFormat,
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1);
+
+	_device.transitionImageLayout(commandBuffer, _window.getImages()[imageIndex],
+		_window.getSwapChainFormat(),
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		1);
+
+	vkCmdBeginRendering(commandBuffer,&renderInfo);
+
+	vkCmdSetRenderingInputAttachmentIndices(commandBuffer, &_pipelines.getIndexInfo());
+
+	VkDescriptorSet descriptors[] = { _descriptors.getCameraSet(currentFrame), _descriptors.getTextureArraySet() };
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelines.getGraphicsLayout(), 0, 2, descriptors, 0, nullptr);
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelines.getGraphicsPipeline());
+
+	VkViewport viewport{};
+	viewport.x = 0.0f;
+	viewport.y = 0.0f;
+	viewport.width = static_cast<float>(_window.getExtent().width);
+	viewport.height = static_cast<float>(_window.getExtent().height);
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+	VkRect2D scissor{};
+	scissor.offset = { 0, 0 };
+	scissor.extent = _window.getExtent();
+	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+	for (int index : cullIndex) {
+		const RenderObject& object = objectsArray[index];
+		const Mesh* mesh = _resources.tryGetMesh(object.mesh);
+		if (mesh == nullptr) {
+			continue;
+		}
+
+		const MaterialData defaultMaterial{};
+		const MaterialData* material = _resources.tryGetMaterial(object.material);
+		if (material == nullptr) {
+			material = &defaultMaterial;
+		}
+
+		pushTextureIndex(commandBuffer, *material);
+		pushModelMatrix(commandBuffer, object.modelMatrix);
+
+		mesh->draw(commandBuffer);
+	}
+
+	//vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
+	//transicionar imagenes
+
+	VkMemoryBarrier2 memoryBarrier{};
+	memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
+	memoryBarrier.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	memoryBarrier.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	memoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	memoryBarrier.dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+
+	VkDependencyInfo dependencyInfo{};
+	dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+	dependencyInfo.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+	dependencyInfo.memoryBarrierCount = 1;
+	dependencyInfo.pMemoryBarriers = &memoryBarrier;
+	dependencyInfo.bufferMemoryBarrierCount = 0;
+	dependencyInfo.pBufferMemoryBarriers = NULL;
+	dependencyInfo.imageMemoryBarrierCount = 0;
+	dependencyInfo.pImageMemoryBarriers = NULL;
+
+
+	vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+
+	VkDescriptorSet sets[] = {
+		_descriptors.getInputAttachmentsSet(currentFrame),
+		_descriptors.getMainLightSet(),
+		_descriptors.getLightsDataBufferSet(),
+		_descriptors.getGlobalLightingSet(currentFrame)
+	};
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelines.getDeferredPipeline());
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelines.getDeferredLayout(), 0, 4, sets, 0, nullptr);
+
+	if (cullIndex.size() > 0) {
+		vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+	}
+
+	vkCmdEndRendering(commandBuffer);
+
+
+	_device.transitionImageLayout(commandBuffer,_window.getImages()[imageIndex],
+		_window.getSwapChainFormat(),
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+		1);
+
+	/*vkCmdBeginRenderPass( commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
 
 	VkDescriptorSet descriptors[] = { _descriptors.getCameraSet(currentFrame), _descriptors.getTextureArraySet() };
 	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelines.getGraphicsLayout(), 0, 2, descriptors, 0, nullptr );
@@ -293,7 +460,7 @@ void RenderEngine::recordMainRender( VkCommandBuffer commandBuffer, uint32_t ima
 		vkCmdDraw( commandBuffer, 3, 1, 0, 0 );
 	}
 
-	vkCmdEndRenderPass( commandBuffer );
+	vkCmdEndRenderPass( commandBuffer );*/
 }
 
 /*
@@ -487,7 +654,7 @@ void RenderEngine::recreateSwapChain()
 		_mainRenderPass.destroy();
 		_mainRenderPass.init( _device, _window );
 		_pipelines.destroy();
-		_pipelines.init( _device, _mainRenderPass.get(), _shadowPass.getRenderPass() );
+		_pipelines.init( _device, _mainRenderPass.get(), NULL );
 	}
 
 	_scene.setCameraAspectRatio( _window.getExtent().width / static_cast<float>( _window.getExtent().height ) );
@@ -564,57 +731,10 @@ void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::v
 		return;
 	}
 
-	VkRenderPassBeginInfo renderPassInfo{};
-	renderPassInfo.framebuffer = _shadowPass.getFramebuffer();
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = _shadowPass.getRenderPass();
-	renderPassInfo.renderArea.offset = { 0, 0 };
 	const Texture* shadowMap = _shadowPass.getShadowMap();
 	VkExtent2D ext{ shadowMap->texWidth, shadowMap->texHeight };
-	renderPassInfo.renderArea.extent = ext;
-
-	std::array<VkClearValue, 1> clearValues{};
-	clearValues[0].depthStencil = { 1.0f, 0 };
-	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-	renderPassInfo.pClearValues = clearValues.data();
-
-	VkRenderingAttachmentInfo depthAttachment;
-	depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-	depthAttachment.clearValue = VkClearValue{ .depthStencil = { 1.0f,0 } };
-	depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
-	depthAttachment.imageView = _shadowPass.getShadowMap()->textureImageView;
-	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	depthAttachment.resolveMode = VK_RESOLVE_MODE_NONE;
-	depthAttachment.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	depthAttachment.resolveImageView = VK_NULL_HANDLE;
-	depthAttachment.pNext = NULL;
-
-
-	VkRenderingInfo renderInfo;
-	renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-	renderInfo.renderArea.offset = {0,0};
-	renderInfo.renderArea.extent = ext;
-	renderInfo.layerCount = 1;
-	renderInfo.colorAttachmentCount = 0;
-	renderInfo.pColorAttachments =NULL;
-	renderInfo.pDepthAttachment = &depthAttachment;
-	renderInfo.pStencilAttachment = NULL;
-	renderInfo.flags = 0;
-	renderInfo.viewMask = 0;
-	renderInfo.pNext = NULL;
 	
-	_device.transitionImageLayout( commandBuffer,
-		_shadowPass.getShadowMap()->textureImage, _device.findDepthFormat(), 
-		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, 
-		1);
-	
-	vkCmdBeginRendering(commandBuffer, &renderInfo);
-
-
-	//tomamos los datos de paso de renderizado
-	//vkCmdBeginRenderPass( commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
-
+	_shadowPass.startPass(commandBuffer);
 
 	VkDescriptorSet shadowSet = _descriptors.getMainLightSet();
 	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelines.getShadowLayout(), 0, 1, &shadowSet, 0, nullptr );
@@ -646,12 +766,6 @@ void RenderEngine::recordShadowPass( VkCommandBuffer commandBuffer, const std::v
 	}
 
 
-	vkCmdEndRendering(commandBuffer);
+	_shadowPass.endPass(commandBuffer);
 
-	_device.transitionImageLayout(commandBuffer,
-		_shadowPass.getShadowMap()->textureImage, _device.findDepthFormat(),
-		VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL,
-		1);
-
-	//vkCmdEndRenderPass( commandBuffer );
 }

@@ -62,12 +62,17 @@ void VulkanDevice::createDevice()
 
     descriptor_indexing_features.pNext;
 
+    VkPhysicalDeviceVulkan14Features features14{};
+    features14.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES;
+    features14.dynamicRenderingLocalRead = VK_TRUE;
+    features14.pNext = &descriptor_indexing_features;
+
     VkPhysicalDeviceVulkan13Features features13 = {};
     features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
     // set the desired features here:
     features13.dynamicRendering = VK_TRUE;
     features13.synchronization2 = VK_TRUE;
-    features13.pNext = &descriptor_indexing_features;
+    features13.pNext = &features14;
 
 
     VkPhysicalDeviceFeatures2 features2 = {};
@@ -843,6 +848,7 @@ VkAccessFlags2 VulkanDevice::getAccesFlag(VkImageLayout layout) {
         case VK_IMAGE_LAYOUT_PREINITIALIZED:
             return VK_ACCESS_HOST_WRITE_BIT;
         case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+        case VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ:
             return VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
         case VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL:
             return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
@@ -882,6 +888,7 @@ VkPipelineStageFlags2 VulkanDevice::getStage(VkImageLayout layout) {
         case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
             return VK_PIPELINE_STAGE_TRANSFER_BIT;
         case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+        case VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ:
             return VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         case VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL:
         case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
@@ -943,13 +950,7 @@ void VulkanDevice::singleTimeTransitionImageLayout( VkImage image, VkFormat form
 
     transitionImageLayout(commandBuffer, image, format, oldLayout, newLayout, mipLevels);
 
-
     endSingleTimeCommands( usedPool, commandBuffer, usedQueue);
-
-    //if ((oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) 
-    //    || (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL)) {
-    //    destroyCommandPool( usedPool );
-    //}
 
     if (usedPool != _transferPool) {
         destroyCommandPool(usedPool);

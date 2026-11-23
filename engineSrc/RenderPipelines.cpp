@@ -24,6 +24,10 @@ void RenderPipelines::init( VulkanDevice& device,
     _mainRenderPass  = mainRenderPass;
     _shadowRenderPass = shadowRenderPass;
 
+    _indexInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INPUT_ATTACHMENT_INDEX_INFO;
+    _indexInfo.colorAttachmentCount = 4;
+    _indexInfo.pColorAttachmentInputIndices = _attachmentConfigPos;
+
     // Orden obligatorio: layouts → pipeline layouts (dentro de cada pipeline) → pipelines.
     createDescriptorSetLayouts();
 
@@ -286,7 +290,7 @@ void RenderPipelines::createGraphicsPipeline() {
     VkPipelineColorBlendAttachmentState blendAttachment{};
     blendAttachment.colorWriteMask      = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
                                           VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    blendAttachment.blendEnable         = VK_TRUE;
+    blendAttachment.blendEnable         = VK_FALSE;
     blendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
     blendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
     blendAttachment.colorBlendOp        = VK_BLEND_OP_ADD;
@@ -295,13 +299,13 @@ void RenderPipelines::createGraphicsPipeline() {
     blendAttachment.alphaBlendOp        = VK_BLEND_OP_ADD;
 
     VkPipelineColorBlendAttachmentState colorAttachments[] = {
-        blendAttachment, blendAttachment, blendAttachment
+        blendAttachment,blendAttachment, blendAttachment, blendAttachment
     };
 
     VkPipelineColorBlendStateCreateInfo colorBlending{};
     colorBlending.sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     colorBlending.logicOpEnable   = VK_FALSE;
-    colorBlending.attachmentCount = 3;
+    colorBlending.attachmentCount = 4;
     colorBlending.pAttachments    = colorAttachments;
 
     VkPipelineDepthStencilStateCreateInfo depthStencil{};
@@ -343,6 +347,21 @@ void RenderPipelines::createGraphicsPipeline() {
 
     _graphicsLayout = _device->createPipelineLayout( layoutInfo );
 
+
+    //color,normal,pos
+    VkFormat colorFormats[4] = {VK_FORMAT_B8G8R8A8_SRGB/*swapchainformat*/,VK_FORMAT_R16G16B16A16_SFLOAT ,VK_FORMAT_R16G16B16A16_SFLOAT,VK_FORMAT_B8G8R8A8_SRGB/*swapchainformat*/ };
+
+
+    VkPipelineRenderingCreateInfo renderingCreateInfo;
+    renderingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+    renderingCreateInfo.colorAttachmentCount = 4;
+    renderingCreateInfo.pColorAttachmentFormats = colorFormats;
+    renderingCreateInfo.depthAttachmentFormat = _device->findDepthFormat();
+    renderingCreateInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+    renderingCreateInfo.viewMask = 0;
+    renderingCreateInfo.pNext = &_indexInfo;
+
+
     VkGraphicsPipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipelineInfo.stageCount          = 2;
@@ -356,8 +375,9 @@ void RenderPipelines::createGraphicsPipeline() {
     pipelineInfo.pColorBlendState    = &colorBlending;
     pipelineInfo.pDynamicState       = &dynamicState;
     pipelineInfo.layout              = _graphicsLayout;
-    pipelineInfo.renderPass          = _mainRenderPass;
+    pipelineInfo.renderPass          = VK_NULL_HANDLE;
     pipelineInfo.subpass             = 0;
+    pipelineInfo.pNext               = &renderingCreateInfo;
 
     _graphicsPipeline = _device->createPipelines( VK_NULL_HANDLE, { pipelineInfo } )[0];
 
@@ -422,15 +442,17 @@ void RenderPipelines::createDeferredPipeline() {
                                      VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     blendAttachment.blendEnable    = VK_FALSE;
 
+    VkPipelineColorBlendAttachmentState blends[] = { blendAttachment ,blendAttachment ,blendAttachment ,blendAttachment };
+
     VkPipelineColorBlendStateCreateInfo colorBlending{};
     colorBlending.sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     colorBlending.logicOpEnable   = VK_FALSE;
-    colorBlending.attachmentCount = 1;
-    colorBlending.pAttachments    = &blendAttachment;
+    colorBlending.attachmentCount = 4;
+    colorBlending.pAttachments    = blends;
 
     VkPipelineDepthStencilStateCreateInfo depthStencil{};
     depthStencil.sType            = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depthStencil.depthTestEnable  = VK_TRUE;
+    depthStencil.depthTestEnable  = VK_FALSE;
     depthStencil.depthWriteEnable = VK_FALSE;
     depthStencil.depthCompareOp   = VK_COMPARE_OP_LESS_OR_EQUAL;
 
@@ -458,6 +480,21 @@ void RenderPipelines::createDeferredPipeline() {
 
     _deferredLayout = _device->createPipelineLayout( layoutInfo );
 
+
+
+    //color,normal,pos
+    VkFormat colorFormats[4] = { VK_FORMAT_B8G8R8A8_SRGB/*color*/,VK_FORMAT_R16G16B16A16_SFLOAT ,VK_FORMAT_R16G16B16A16_SFLOAT,VK_FORMAT_B8G8R8A8_SRGB/*swapchainformat*/ };
+
+
+    VkPipelineRenderingCreateInfo renderingCreateInfo;
+    renderingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+    renderingCreateInfo.colorAttachmentCount = 4;
+    renderingCreateInfo.pColorAttachmentFormats = colorFormats;
+    renderingCreateInfo.depthAttachmentFormat = _device->findDepthFormat();
+    renderingCreateInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+    renderingCreateInfo.viewMask = 0;
+    renderingCreateInfo.pNext = &_indexInfo;
+
     VkGraphicsPipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipelineInfo.stageCount          = 2;
@@ -471,8 +508,9 @@ void RenderPipelines::createDeferredPipeline() {
     pipelineInfo.pColorBlendState    = &colorBlending;
     pipelineInfo.pDynamicState       = &dynamicState;
     pipelineInfo.layout              = _deferredLayout;
-    pipelineInfo.renderPass          = _mainRenderPass;
-    pipelineInfo.subpass             = 1;
+    pipelineInfo.renderPass          = NULL;
+    pipelineInfo.subpass             = 0;
+    pipelineInfo.pNext = &renderingCreateInfo;
 
     _deferredPipeline = _device->createPipelines( VK_NULL_HANDLE, { pipelineInfo } )[0];
 

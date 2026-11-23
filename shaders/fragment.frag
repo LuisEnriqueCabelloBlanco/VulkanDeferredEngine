@@ -21,7 +21,8 @@ layout(location = 2) in vec3 normal;
 layout(location = 3) in vec3 postion;
 layout(location = 4) in mat3 TBN;
 
-layout(location = 0) out vec4 outColor;
+layout(location = 0) out vec4 present;
+layout(location = 3) out vec4 outColor;
 layout(location = 1) out vec4 outNormal;
 layout(location = 2) out vec4 outPos;
 
@@ -45,4 +46,6 @@ void main() {
 
     outNormal = vec4(sampleNormal,mat.roughness);
     outPos = vec4(postion,mat.metallic);
+
+    present = vec4(0);
 }

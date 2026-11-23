@@ -21,6 +21,7 @@ private:
 	VkFormat _framesFormat;
 	VkExtent2D _viewPortExtent;
 	VulkanDevice* _deviceRef;
+	std::vector<VkImage> _images;
 
 };
 

@@ -33,20 +33,22 @@ public:
     void create();
     void destroy();
 
-    VkRenderPass   getRenderPass()  const { return _renderPass;       }
     const Texture* getShadowMap()   const { return _shadowMap.get();  }
-    VkFramebuffer  getFramebuffer() const { return _framebuffer;      }
     VkExtent2D     getExtent()      const { return _extent;           }
+
+    void startPass(VkCommandBuffer commandBuffer);
+    void endPass(VkCommandBuffer commandBuffer);
 
 private:
     void createRenderPass();
     void createShadowMap();
-    void createFramebuffer();
 
     VulkanDevice* _device     = nullptr;
     VkExtent2D    _extent     = {};
-    VkRenderPass  _renderPass = VK_NULL_HANDLE;
 
     std::unique_ptr<Texture> _shadowMap;
-    VkFramebuffer _framebuffer = VK_NULL_HANDLE;
+
+    VkRenderingAttachmentInfo _depthAttachment;
+    VkRenderingInfo _renderingInfo;
+
 };
