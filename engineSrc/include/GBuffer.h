@@ -42,7 +42,10 @@ public:
     const Texture* getPosTexture()    const { return _posTexture.get();    }
     const Texture* getDepthTexture()  const { return _depthTexture.get();  }
 
-    const std::vector<VkFramebuffer>& getFramebuffers() const { return _framebuffers; }
+    VkRenderingAttachmentInfo getColorAttachment() { return _colorAttachment; }
+    VkRenderingAttachmentInfo getNormalAttachment() { return _normalAttachment; }
+    VkRenderingAttachmentInfo getPositionAttachment() { return _positionAttachment; }
+
     VkExtent2D getExtent() const { return _extent; }
 
 private:
@@ -50,17 +53,18 @@ private:
     void createNormalResources   ( VkExtent2D extent );
     void createPositionResources ( VkExtent2D extent );
     void createDepthResources    ( VkExtent2D extent );
-    void createFramebuffers      ( VkExtent2D extent );
 
     VulkanDevice* _device      = nullptr;
     VulkanWindow* _window      = nullptr;
     VkRenderPass  _renderPass  = VK_NULL_HANDLE;
     VkExtent2D    _extent      = {};
 
+    VkRenderingAttachmentInfo _colorAttachment;
+    VkRenderingAttachmentInfo _positionAttachment;
+    VkRenderingAttachmentInfo _normalAttachment;
+
     std::unique_ptr<Texture> _depthTexture;
     std::unique_ptr<Texture> _colorTexture;
     std::unique_ptr<Texture> _normalTexture;
     std::unique_ptr<Texture> _posTexture;
-
-    std::vector<VkFramebuffer> _framebuffers;
 };

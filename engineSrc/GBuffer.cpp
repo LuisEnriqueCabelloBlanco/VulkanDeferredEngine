@@ -25,17 +25,44 @@ void GBuffer::create()
     createNormalResources   ( _extent );
     createPositionResources ( _extent );
     createDepthResources    ( _extent );
-    //createFramebuffers      ( _extent );
+
+
+    _colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    _colorAttachment.clearValue = VkClearValue{ .color = { 0.0f, 0.0f, 0.0f, 1.0f } };
+    _colorAttachment.imageLayout = VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ;
+    _colorAttachment.imageView = _colorTexture->textureImageView;
+    _colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    _colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    _colorAttachment.resolveMode = VK_RESOLVE_MODE_NONE;
+    _colorAttachment.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    _colorAttachment.resolveImageView = VK_NULL_HANDLE;
+    _colorAttachment.pNext = NULL;
+
+    _normalAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    _normalAttachment.clearValue = VkClearValue{ .color = { 0.0f, 0.0f, 0.0f, 1.0f } };
+    _normalAttachment.imageLayout = VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ;
+    _normalAttachment.imageView = _normalTexture->textureImageView;
+    _normalAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    _normalAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    _normalAttachment.resolveMode = VK_RESOLVE_MODE_NONE;
+    _normalAttachment.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    _normalAttachment.resolveImageView = VK_NULL_HANDLE;
+    _normalAttachment.pNext = NULL;
+
+    _positionAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    _positionAttachment.clearValue = VkClearValue{ .color = { 0.0f, 0.0f, 0.0f, 1.0f } };
+    _positionAttachment.imageLayout = VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ;
+    _positionAttachment.imageView = _posTexture->textureImageView;
+    _positionAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    _positionAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    _positionAttachment.resolveMode = VK_RESOLVE_MODE_NONE;
+    _positionAttachment.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    _positionAttachment.resolveImageView = VK_NULL_HANDLE;
+    _positionAttachment.pNext = NULL;
 }
 
 void GBuffer::destroy()
 {
-    for ( VkFramebuffer fb : _framebuffers ) {
-        if ( fb != VK_NULL_HANDLE ) {
-            _device->destroyFrameBuffer( fb );
-        }
-    }
-    _framebuffers.clear();
 
     _colorTexture.reset();
     _normalTexture.reset();
@@ -108,31 +135,4 @@ void GBuffer::createDepthResources( VkExtent2D extent )
                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );
 
     _depthTexture->createImageView( depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1 );
-}
-
-void GBuffer::createFramebuffers( VkExtent2D extent )
-{
-    const auto& imageViews = _window->getImageViews();
-    _framebuffers.resize( imageViews.size() );
-
-    for ( size_t i = 0; i < imageViews.size(); ++i ) {
-        std::array<VkImageView, 5> attachments = {
-            imageViews[i],
-            _depthTexture->textureImageView,
-            _colorTexture->textureImageView,
-            _normalTexture->textureImageView,
-            _posTexture->textureImageView,
-        };
-
-        VkFramebufferCreateInfo framebufferInfo{};
-        framebufferInfo.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        framebufferInfo.renderPass      = _renderPass;
-        framebufferInfo.attachmentCount = static_cast<uint32_t>( attachments.size() );
-        framebufferInfo.pAttachments    = attachments.data();
-        framebufferInfo.width           = extent.width;
-        framebufferInfo.height          = extent.height;
-        framebufferInfo.layers          = 1;
-
-        _framebuffers[i] = _device->createFrameBuffer( framebufferInfo );
-    }
 }

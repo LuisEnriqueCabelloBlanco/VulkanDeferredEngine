@@ -208,8 +208,6 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 
 	vkCmdPipelineBarrier2(commandBuffer, &info);
 
-	//vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 1, &memBarr, 0, nullptr );
-
 	recordShadowPass( commandBuffer, objectsArray, shadowIndex );
 	recordMainRender( commandBuffer, imageIndex, objectsArray, cameraIndex );
 
@@ -221,66 +219,16 @@ void RenderEngine::recordCommandBuffer( VkCommandBuffer commandBuffer, uint32_t 
 void RenderEngine::recordMainRender( VkCommandBuffer commandBuffer, uint32_t imageIndex,
 	const std::vector<RenderObject>& objectsArray, const std::vector<int>& cullIndex )
 {
-	//VkRenderPassBeginInfo renderPassInfo{};
-	//renderPassInfo.framebuffer = _gbuffer.getFramebuffers()[imageIndex];
-	//renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	//renderPassInfo.renderPass = _mainRenderPass.get();
-	//renderPassInfo.renderArea.offset = { 0, 0 };
-	//renderPassInfo.renderArea.extent = _window.getExtent();
-
-	//std::array<VkClearValue, 5> clearValues{};
-	//clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
-	//clearValues[1].depthStencil = { 1.0f, 0 };
-	//clearValues[2].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
-	//clearValues[3].color = { {0.0f, 0.0f, 0.0f, 0.0f} };
-	//clearValues[4].color = { {0.0f, 0.0f, 0.0f, 0.0f} };
-
-	//renderPassInfo.clearValueCount = static_cast<uint32_t>( clearValues.size() );
-	//renderPassInfo.pClearValues = clearValues.data();
 
 	VkRenderingAttachmentInfo present = _mainRenderPass.getPresentAttachment();
 	present.imageView = _window.getImageViews()[imageIndex];
-
-
-	VkRenderingAttachmentInfo color{};
-	color.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-	color.clearValue = VkClearValue{ .color = { 0.0f, 0.0f, 0.0f, 1.0f } };
-	color.imageLayout = VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ;
-	color.imageView = _gbuffer.getColorTexture()->textureImageView;
-	color.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	color.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	color.resolveMode = VK_RESOLVE_MODE_NONE;
-	color.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	color.resolveImageView = VK_NULL_HANDLE;
-	color.pNext = NULL;
-
-	VkRenderingAttachmentInfo normal{};
-	normal.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-	normal.clearValue = VkClearValue{ .color = { 0.0f, 0.0f, 0.0f, 1.0f } };
-	normal.imageLayout = VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ;
-	normal.imageView = _gbuffer.getNormalTexture()->textureImageView;
-	normal.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	normal.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	normal.resolveMode = VK_RESOLVE_MODE_NONE;
-	normal.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	normal.resolveImageView = VK_NULL_HANDLE;
-	normal.pNext = NULL;
-
-	VkRenderingAttachmentInfo position{};
-	position.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-	position.clearValue = VkClearValue{ .color = { 0.0f, 0.0f, 0.0f, 1.0f } };
-	position.imageLayout = VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ;
-	position.imageView = _gbuffer.getPosTexture()->textureImageView;
-	position.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	position.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	position.resolveMode = VK_RESOLVE_MODE_NONE;
-	position.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	position.resolveImageView = VK_NULL_HANDLE;
-	position.pNext = NULL;
-
 	
 	//TODO cambiar toda la arquitectura del deferred con la nueva filosofia de dynamic rendering
-	VkRenderingAttachmentInfo attachments[] = { present,normal,position,color };
+	VkRenderingAttachmentInfo attachments[] = { 
+		present,_gbuffer.getNormalAttachment(),
+		_gbuffer.getPositionAttachment(),
+		_gbuffer.getColorAttachment()
+	};
 
 	VkRenderingAttachmentInfo depthAttachment = _mainRenderPass.getDepthAttachment();
 	depthAttachment.imageView = _gbuffer.getDepthTexture()->textureImageView;
@@ -360,7 +308,6 @@ void RenderEngine::recordMainRender( VkCommandBuffer commandBuffer, uint32_t ima
 		mesh->draw(commandBuffer);
 	}
 
-	//vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
 	//transicionar imagenes
 
 	VkMemoryBarrier2 memoryBarrier{};
@@ -404,63 +351,6 @@ void RenderEngine::recordMainRender( VkCommandBuffer commandBuffer, uint32_t ima
 		_window.getSwapChainFormat(),
 		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 		1);
-
-	/*vkCmdBeginRenderPass( commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
-
-	VkDescriptorSet descriptors[] = { _descriptors.getCameraSet(currentFrame), _descriptors.getTextureArraySet() };
-	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelines.getGraphicsLayout(), 0, 2, descriptors, 0, nullptr );
-	vkCmdBindPipeline( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelines.getGraphicsPipeline() );
-
-	VkViewport viewport{};
-	viewport.x = 0.0f;
-	viewport.y = 0.0f;
-	viewport.width = static_cast<float>( _window.getExtent().width );
-	viewport.height = static_cast<float>( _window.getExtent().height );
-	viewport.minDepth = 0.0f;
-	viewport.maxDepth = 1.0f;
-	vkCmdSetViewport( commandBuffer, 0, 1, &viewport );
-
-	VkRect2D scissor{};
-	scissor.offset = { 0, 0 };
-	scissor.extent = _window.getExtent();
-	vkCmdSetScissor( commandBuffer, 0, 1, &scissor );
-
-	for (int index : cullIndex) {
-		const RenderObject& object = objectsArray[index];
-		const Mesh* mesh = _resources.tryGetMesh( object.mesh );
-		if (mesh == nullptr) {
-			continue;
-		}
-
-		const MaterialData defaultMaterial{};
-		const MaterialData* material = _resources.tryGetMaterial( object.material );
-		if (material == nullptr) {
-			material = &defaultMaterial;
-		}
-
-		pushTextureIndex( commandBuffer, *material );
-		pushModelMatrix( commandBuffer, object.modelMatrix );
-
-		mesh->draw( commandBuffer );
-	}
-
-	vkCmdNextSubpass( commandBuffer, VK_SUBPASS_CONTENTS_INLINE );
-
-	VkDescriptorSet sets[] = {
-		_descriptors.getInputAttachmentsSet(currentFrame),
-		_descriptors.getMainLightSet(),
-		_descriptors.getLightsDataBufferSet(),
-		_descriptors.getGlobalLightingSet(currentFrame)
-	};
-
-	vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelines.getDeferredLayout(), 0, 4, sets, 0, nullptr );
-	vkCmdBindPipeline( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelines.getDeferredPipeline() );
-
-	if (cullIndex.size() > 0) {
-		vkCmdDraw( commandBuffer, 3, 1, 0, 0 );
-	}
-
-	vkCmdEndRenderPass( commandBuffer );*/
 }
 
 /*
