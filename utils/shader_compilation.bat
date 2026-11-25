@@ -8,9 +8,9 @@ echo Compilando shaders
 if not exist %outDir% mkdir "%outDir%"
 
 for %%f in (%srcDir%\*) do (
-    if %%~xf == .vert glslangValidator -S vert -o %outDir%%%~nf -V %%f
-    if %%~xf == .frag glslangValidator -S frag -o %outDir%%%~nf -V %%f
-    if %%~xf == .comp glslangValidator -S comp -o %outDir%%%~nf -V %%f
+    if %%~xf == .vert %VULKAN_SDK%/Bin/glslangValidator -S vert -o %outDir%%%~nf -V %%f
+    if %%~xf == .frag %VULKAN_SDK%/Bin/glslangValidator -S frag -o %outDir%%%~nf -V %%f
+    if %%~xf == .comp %VULKAN_SDK%/Bin/glslangValidator -S comp -o %outDir%%%~nf -V %%f
 )
 
 echo Moviendo Shaders a los proyectos
